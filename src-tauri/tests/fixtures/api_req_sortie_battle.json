@@ -1,0 +1,576 @@
+{
+  "endpoint": "/kcsapi/api_req_sortie/battle",
+  "request_body": "api_token=884a3c13ae98b85907763b103f2ab34f727be415&api_verno=1&api_formation=5&api_recovery_type=0",
+  "response_body": {
+    "api_data": {
+      "api_atoll_cell": 0,
+      "api_balloon_cell": 0,
+      "api_deck_id": 1,
+      "api_eParam": [
+        [
+          0,
+          96,
+          0,
+          36
+        ],
+        [
+          0,
+          74,
+          0,
+          27
+        ],
+        [
+          0,
+          64,
+          0,
+          21
+        ],
+        [
+          0,
+          64,
+          0,
+          21
+        ],
+        [
+          0,
+          42,
+          0,
+          7
+        ],
+        [
+          0,
+          42,
+          0,
+          7
+        ]
+      ],
+      "api_eSlot": [
+        [
+          1515,
+          1515,
+          1514,
+          -1,
+          -1
+        ],
+        [
+          1515,
+          1514,
+          1514,
+          -1,
+          -1
+        ],
+        [
+          1515,
+          1513,
+          1513,
+          -1,
+          -1
+        ],
+        [
+          1515,
+          1513,
+          1513,
+          -1,
+          -1
+        ],
+        [
+          1513,
+          1513,
+          -1,
+          -1,
+          -1
+        ],
+        [
+          1513,
+          1513,
+          -1,
+          -1,
+          -1
+        ]
+      ],
+      "api_e_maxhps": [
+        44,
+        34,
+        27,
+        27,
+        19,
+        19
+      ],
+      "api_e_nowhps": [
+        44,
+        34,
+        27,
+        27,
+        19,
+        19
+      ],
+      "api_fParam": [
+        [
+          64,
+          88,
+          79,
+          54
+        ],
+        [
+          152,
+          0,
+          112,
+          128
+        ],
+        [
+          145,
+          0,
+          105,
+          125
+        ],
+        [
+          51,
+          78,
+          58,
+          49
+        ],
+        [
+          86,
+          87,
+          70,
+          78
+        ],
+        [
+          81,
+          88,
+          88,
+          74
+        ]
+      ],
+      "api_f_maxhps": [
+        33,
+        107,
+        109,
+        32,
+        64,
+        61
+      ],
+      "api_f_nowhps": [
+        33,
+        107,
+        105,
+        32,
+        57,
+        55
+      ],
+      "api_formation": [
+        5,
+        5,
+        1
+      ],
+      "api_hougeki1": {
+        "api_at_eflag": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "api_at_list": [
+          1,
+          5,
+          3,
+          0
+        ],
+        "api_at_type": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "api_cl_list": [
+          [
+            1
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ],
+          [
+            2
+          ]
+        ],
+        "api_damage": [
+          [
+            35
+          ],
+          [
+            29
+          ],
+          [
+            87
+          ],
+          [
+            71
+          ]
+        ],
+        "api_df_list": [
+          [
+            4
+          ],
+          [
+            2
+          ],
+          [
+            5
+          ],
+          [
+            3
+          ]
+        ],
+        "api_si_list": [
+          [
+            "490"
+          ],
+          [
+            "59"
+          ],
+          [
+            -1
+          ],
+          [
+            -1
+          ]
+        ]
+      },
+      "api_hougeki2": {
+        "api_at_eflag": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "api_at_list": [
+          0,
+          1,
+          3,
+          5
+        ],
+        "api_at_type": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "api_cl_list": [
+          [
+            1
+          ],
+          [
+            1
+          ],
+          [
+            1
+          ],
+          [
+            1
+          ]
+        ],
+        "api_damage": [
+          [
+            35.1
+          ],
+          [
+            12
+          ],
+          [
+            26
+          ],
+          [
+            11
+          ]
+        ],
+        "api_df_list": [
+          [
+            1
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ]
+        ],
+        "api_si_list": [
+          [
+            -1
+          ],
+          [
+            "490"
+          ],
+          [
+            -1
+          ],
+          [
+            "59"
+          ]
+        ]
+      },
+      "api_hougeki3": null,
+      "api_hourai_flag": [
+        1,
+        1,
+        0,
+        0
+      ],
+      "api_kouku": {
+        "api_plane_from": [
+          [
+            2,
+            3
+          ],
+          null
+        ],
+        "api_stage1": {
+          "api_disp_seiku": 1,
+          "api_e_count": 0,
+          "api_e_lostcount": 0,
+          "api_f_count": 38,
+          "api_f_lostcount": 1,
+          "api_touch_plane": [
+            59,
+            -1
+          ]
+        },
+        "api_stage2": {
+          "api_e_count": 0,
+          "api_e_lostcount": 0,
+          "api_f_count": 8,
+          "api_f_lostcount": 0
+        },
+        "api_stage3": {
+          "api_e_sp_list": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "api_ebak_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_ecl_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_edam": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_erai_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_f_sp_list": [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          "api_fbak_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_fcl_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_fdam": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "api_frai_flag": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "api_midnight_flag": 0,
+      "api_opening_atack": {
+        "api_ecl_list_items": [
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          null,
+          null,
+          null
+        ],
+        "api_edam": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "api_erai_list_items": [
+          [
+            1
+          ],
+          [
+            5
+          ],
+          [
+            4
+          ],
+          [
+            2
+          ],
+          null,
+          null,
+          null
+        ],
+        "api_eydam_list_items": [
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          null,
+          null,
+          null
+        ],
+        "api_fcl_list_items": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          [
+            0
+          ],
+          null
+        ],
+        "api_fdam": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "api_frai_list_items": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          [
+            0
+          ],
+          null
+        ],
+        "api_fydam_list_items": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          [
+            0
+          ],
+          null
+        ]
+      },
+      "api_opening_flag": 1,
+      "api_opening_taisen": null,
+      "api_opening_taisen_flag": 0,
+      "api_raigeki": null,
+      "api_search": [
+        1,
+        5
+      ],
+      "api_ship_ke": [
+        1535,
+        1533,
+        1532,
+        1532,
+        1530,
+        1530
+      ],
+      "api_ship_lv": [
+        50,
+        50,
+        50,
+        50,
+        50,
+        50
+      ],
+      "api_smoke_type": 0,
+      "api_stage_flag": [
+        1,
+        1,
+        1
+      ],
+      "api_support_flag": 0,
+      "api_support_info": null
+    },
+    "api_result": 1,
+    "api_result_msg": "成功"
+  },
+  "response_body_length": 2453,
+  "timestamp": "2026-02-25T22:01:38.044530+09:00"
+}

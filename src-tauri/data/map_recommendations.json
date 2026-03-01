@@ -1,0 +1,653 @@
+[
+  {
+    "area": "1-1",
+    "name": "鎮守府正面海域",
+    "routes": [
+      {
+        "desc": "ランダム分岐 (少数編成推奨)",
+        "fleet": [
+          { "type": "ShipCount", "value": 2 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "1-2",
+    "name": "南西諸島沖",
+    "routes": [
+      {
+        "desc": "A→E(ボス) (駆逐/海防4隻)",
+        "fleet": [
+          { "type": "ShipCount", "value": 5 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "1-3",
+    "name": "製油所地帯沿岸",
+    "routes": [
+      {
+        "desc": "C→F→J(ボス) (駆逐4+, 正空/低速戦艦なし)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 4 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規空母", "stypes": [11], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "低速戦艦", "stypes": [9, 10, 12], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "1-4",
+    "name": "南西諸島防衛線",
+    "routes": [
+      {
+        "desc": "C→F→E→H→L(ボス) (駆逐/海防4+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "1-5",
+    "name": "鎮守府近海",
+    "routes": [
+      {
+        "desc": "D→F→G→J(ボス) (4隻, 対潜編成)",
+        "fleet": [
+          { "type": "ShipCount", "value": 4 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規空母", "stypes": [11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "軽空母", "stypes": [7], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 2 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "1-6",
+    "name": "鎮守府近海航路",
+    "routes": [
+      {
+        "desc": "下ルート A→E→G→F→B→N (軽巡1駆逐5)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 5 },
+          { "type": "MaxShipTypeCount", "ship_type": "航戦/軽空/重巡", "stypes": [10, 7, 5], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "2-1",
+    "name": "カムラン半島",
+    "routes": [
+      {
+        "desc": "C→E→H(ボス) 1戦 (軽巡1駆逐4水母1)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 4 },
+          { "type": "ShipTypeCount", "ship_type": "水母", "stypes": [16], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "2-2",
+    "name": "バシー海峡",
+    "routes": [
+      {
+        "desc": "C→E→K(ボス) 1戦 (水母1, 戦艦/空母なし)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "水母", "stypes": [16], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "2-3",
+    "name": "東部オリョール海",
+    "routes": [
+      {
+        "desc": "水上艦ルート (水母1, 駆逐/海防2+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "水母", "stypes": [16], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "2-4",
+    "name": "沖ノ島海域",
+    "routes": [
+      {
+        "desc": "中央 B→G→H→L→P(ボス) 2戦 (重巡級1軽巡1駆逐4)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "重巡級", "stypes": [5, 6], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡/練巡", "stypes": [3, 21], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 4 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 0 }
+        ]
+      },
+      {
+        "desc": "北ルート (戦艦+空母あり, 軽巡1駆逐2)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+正空", "stypes": [8, 9, 10, 12, 11, 18], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 3 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "2-5",
+    "name": "沖ノ島沖",
+    "routes": [
+      {
+        "desc": "下 C→E→I→O(ボス) 2戦 (正空1軽空1軽巡1駆逐3, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "正規/装甲空母", "stypes": [11, 18], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "軽空母", "stypes": [7], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 0 }
+        ]
+      },
+      {
+        "desc": "水上 B→F→E→I→O(ボス) (駆逐3軽巡1, 戦艦/空母なし, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 3 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "3-1",
+    "name": "モーレイ海哨戒",
+    "routes": [
+      {
+        "desc": "最短 C→F→G(ボス) 2戦 (駆逐/海防2+, 戦艦+空母2以下)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 2 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "3-2",
+    "name": "キス島撤退作戦",
+    "routes": [
+      {
+        "desc": "C→G→F→L(ボス) (軽巡1駆逐5, 戦艦/空母なし)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 5 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "3-3",
+    "name": "アルフォンシーノ方面",
+    "routes": [
+      {
+        "desc": "A→C→G→M(ボス) 3戦 (正空1, 戦艦+空母=2, 駆逐2+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "正規空母", "stypes": [11, 18], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 2 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "3-4",
+    "name": "北方海域艦隊決戦",
+    "routes": [
+      {
+        "desc": "A→C→F→J→P(ボス) (正空2以下, 軽巡1+, 駆逐2+, 要高速+統一)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規空母", "stypes": [11, 18], "value": 2 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "3-5",
+    "name": "北方AL海域",
+    "routes": [
+      {
+        "desc": "下 F→G→K(ボス) 3戦 (駆逐5+軽巡/水母1, 戦艦+空母なし, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 5 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母+揚陸", "stypes": [8, 9, 10, 12, 7, 11, 18, 17], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "重巡級", "stypes": [5, 6], "value": 0 }
+        ]
+      },
+      {
+        "desc": "上 B→D→H→K(ボス) 4戦 (空母2+, 戦艦+空母4以下, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "4-1",
+    "name": "ジャム島攻略作戦",
+    "routes": [
+      {
+        "desc": "D→H→J(ボス) (戦艦+空母1以下, 重巡級1+, 軽巡1+, 駆逐/海防2+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "重巡級", "stypes": [5, 6], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 1 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "4-2",
+    "name": "カレー洋制圧戦",
+    "routes": [
+      {
+        "desc": "A→C→L(ボス) 2戦 (軽巡1+, 駆逐/海防3+, 戦艦+空母2以下)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 2 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "4-3",
+    "name": "リランカ島",
+    "routes": [
+      {
+        "desc": "C→D→H→N(ボス) (正空1+, 空母系2, 軽巡1+, 駆逐/海防2+, 戦艦なし)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "正規/装甲空母", "stypes": [11, 18], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "4-4",
+    "name": "カスガダマ島",
+    "routes": [
+      {
+        "desc": "A→E→I→K(ボス) (駆逐/海防2+, 戦艦+正空3以下)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+正空", "stypes": [8, 9, 10, 12, 11, 18], "value": 3 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "4-5",
+    "name": "深海東洋艦隊漸減作戦",
+    "routes": [
+      {
+        "desc": "D→H→K→T(ボス) 4戦 (戦艦+正空3以下, 戦艦+空母4以下, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+正空", "stypes": [8, 9, 10, 12, 11, 18], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 4 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "5-1",
+    "name": "南方海域進出作戦",
+    "routes": [
+      {
+        "desc": "B→C→F→J(ボス) 3戦 (正空なし, 軽巡1+, 駆逐2+, 戦艦+軽空2以下)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規/装甲空母", "stypes": [11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+軽空母", "stypes": [8, 9, 10, 12, 7], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "軽空母", "stypes": [7], "value": 1 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "5-2",
+    "name": "珊瑚諸島沖海戦",
+    "routes": [
+      {
+        "desc": "B→C→E→F→O(ボス) (戦艦+空母4以下, 戦艦3以下, 正空2以下, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 4 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規空母", "stypes": [11, 18], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "5-3",
+    "name": "サブ島沖海域",
+    "routes": [
+      {
+        "desc": "D→G→I→O→K→E→Q(ボス) (空母なし, 戦艦+空母2以下, 軽巡1+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 2 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "5-4",
+    "name": "サーモン海域",
+    "routes": [
+      {
+        "desc": "B→E→H→I→J→M→P(ボス) (軽巡1駆逐3+, 要索敵, 要高速+統一)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "5-5",
+    "name": "サーモン海域北方",
+    "routes": [
+      {
+        "desc": "中央 B→F→D→H→N→O→S(ボス) (駆逐2+, 要高速+統一, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規空母", "stypes": [11, 18], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+雷巡", "stypes": [8, 9, 10, 12, 4], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "雷巡", "stypes": [4], "value": 2 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "6-1",
+    "name": "中部海域哨戒線",
+    "routes": [
+      {
+        "desc": "A→F→G→H→K(ボス) (潜母1+潜水4+軽巡/駆逐1, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "潜水母艦", "stypes": [20], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 4 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母+重巡級", "stypes": [8, 9, 10, 12, 7, 11, 18, 5, 6], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "6-2",
+    "name": "MS諸島沖",
+    "routes": [
+      {
+        "desc": "C→E→J→K(ボス) 3戦 (戦艦1以下, 空母1以下, 駆逐2+, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "6-3",
+    "name": "グアノ環礁沖海域",
+    "routes": [
+      {
+        "desc": "A→C→E→G→H→J(ボス) 3戦 (水母1軽巡1駆逐4, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "水母", "stypes": [16], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 4 },
+          { "type": "MaxShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "水母", "stypes": [16], "value": 1 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "6-4",
+    "name": "離島再攻略作戦",
+    "routes": [
+      {
+        "desc": "左スタート B→D→C→F→N(ボス) (駆逐2+, 空母なし, 要高速統一)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "揚陸艦", "stypes": [17], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "6-5",
+    "name": "空母機動部隊迎撃戦",
+    "routes": [
+      {
+        "desc": "下 B→F→I→J→M(ボス) (空母/雷巡なし, 戦艦3未満, 軽巡1+, 駆逐2+, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "雷巡", "stypes": [4], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 2 }
+        ]
+      },
+      {
+        "desc": "上 A→C→D→G→M(ボス) (空母1+, 戦艦+空母3以下, 駆逐1+, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 3 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "7-1",
+    "name": "ブルネイ泊地沖",
+    "routes": [
+      {
+        "desc": "D→E→G→H→K(ボス) 対潜 (軽巡1駆逐4, 5隻)",
+        "fleet": [
+          { "type": "ShipCount", "value": 5 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 4 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "7-2",
+    "name": "タウイタウイ泊地沖",
+    "routes": [
+      {
+        "desc": "第1ゲージ C→E→G(ボス) 対潜 (戦艦/空母なし, 駆逐/海防4+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 5 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 4 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 }
+        ]
+      },
+      {
+        "desc": "第2ゲージ B→C→D→I→M(ボス) (正空1以下, 戦艦+空母3以下, 駆逐/海防2+, 要高速統一, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規/装甲空母", "stypes": [11, 18], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "7-3",
+    "name": "ペナン島沖",
+    "routes": [
+      {
+        "desc": "第1ゲージ A→C→E(ボス) (羽黒+駆逐3, 4隻)",
+        "fleet": [
+          { "type": "ShipCount", "value": 4 },
+          { "type": "ContainsShipName", "names": ["羽黒"], "count": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+空母", "stypes": [8, 9, 10, 12, 7, 11, 18], "value": 0 }
+        ]
+      },
+      {
+        "desc": "第2ゲージ A→C→D→G→P(ボス) (羽黒+足柄+神風, 要高速統一)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ContainsShipName", "names": ["羽黒"], "count": 1 },
+          { "type": "ContainsShipName", "names": ["足柄"], "count": 1 },
+          { "type": "ContainsShipName", "names": ["神風"], "count": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "7-4",
+    "name": "昭南本土航路",
+    "routes": [
+      {
+        "desc": "A→B→E→J→L→P(ボス) (航戦/軽空2以下, 軽巡1以下, 駆逐/海防3+, 要索敵)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "航戦+軽空母", "stypes": [10, 7], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦(航戦除く)", "stypes": [8, 9, 12], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規/装甲空母", "stypes": [11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "重巡級", "stypes": [5, 6], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 }
+        ]
+      }
+    ]
+  },
+  {
+    "area": "7-5",
+    "name": "泊地周辺海域",
+    "routes": [
+      {
+        "desc": "G1 A→B→D→F→G→H→K(ボス) (正空なし, 軽空1以下, (戦艦+重巡)2以下, 軽巡1+, 駆逐2+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規/装甲空母", "stypes": [11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "軽空母", "stypes": [7], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 1 }
+        ]
+      },
+      {
+        "desc": "ギミック A→B→D→F→G→H→I→M(S勝利) (G1編成流用可, 要索敵: 係数4で59+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規/装甲空母", "stypes": [11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "軽空母", "stypes": [7], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 1 }
+        ]
+      },
+      {
+        "desc": "G2 A→B→D→F→J→O→Q(ボス) (正空なし, (低速)戦艦1以下, (戦艦+重巡)2以下, 軽巡1+, 駆逐3+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 3 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規/装甲空母", "stypes": [11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "軽空母", "stypes": [7], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "低速戦艦", "stypes": [8, 9, 12], "value": 1 }
+        ]
+      },
+      {
+        "desc": "G3 A→B→D→F→J→O→P→T(ボス) (正空なし, (戦艦+軽空)1以下, (戦艦+重巡)2以下, 軽巡1+, 駆逐2+, 要索敵: 係数4で63+)",
+        "fleet": [
+          { "type": "ShipCount", "value": 6 },
+          { "type": "ShipTypeCount", "ship_type": "軽巡", "stypes": [3], "value": 1 },
+          { "type": "ShipTypeCount", "ship_type": "駆逐", "stypes": [2], "value": 2 },
+          { "type": "MaxShipTypeCount", "ship_type": "正規/装甲空母", "stypes": [11, 18], "value": 0 },
+          { "type": "MaxShipTypeCount", "ship_type": "軽空母", "stypes": [7], "value": 1 },
+          { "type": "MaxShipTypeCount", "ship_type": "戦艦+軽空母", "stypes": [8, 9, 10, 12, 7], "value": 1 }
+        ]
+      }
+    ]
+  }
+]

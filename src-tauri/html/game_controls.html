@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  background: #16213e;
+  color: #e0e0e0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+body {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 8px;
+}
+select {
+  font-size: 11px;
+  padding: 1px 4px;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4080;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+select:hover { background: #1a4080; }
+button {
+  font-size: 11px;
+  padding: 1px 8px;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4080;
+  border-radius: 3px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+button:hover { background: #1a4080; }
+button.muted {
+  background: rgba(233, 69, 96, 0.2);
+  border-color: rgba(233, 69, 96, 0.4);
+}
+.spacer { flex: 1; }
+.label {
+  font-size: 10px;
+  color: #888;
+}
+</style>
+</head>
+<body>
+<select id="zoom" title="Zoom">
+  <option value="0.5">50%</option>
+  <option value="0.67">67%</option>
+  <option value="0.75">75%</option>
+  <option value="1" selected>100%</option>
+  <option value="1.25">125%</option>
+  <option value="1.5">150%</option>
+  <option value="2">200%</option>
+</select>
+<button id="mute" title="Mute">&#x1f50a;</button>
+<span class="spacer"></span>
+<span class="label">KanColle Browser</span>
+<script>
+const { invoke } = window.__TAURI__.core;
+
+// Restore saved zoom
+const savedZoom = localStorage.getItem('game-zoom');
+if (savedZoom) {
+  document.getElementById('zoom').value = savedZoom;
+  // Apply saved zoom on load
+  invoke('set_game_zoom', { zoom: parseFloat(savedZoom) }).catch(console.error);
+}
+
+document.getElementById('zoom').addEventListener('change', function() {
+  const zoom = parseFloat(this.value);
+  localStorage.setItem('game-zoom', String(zoom));
+  invoke('set_game_zoom', { zoom: zoom }).catch(console.error);
+});
+
+let muted = false;
+document.getElementById('mute').addEventListener('click', function() {
+  muted = !muted;
+  this.textContent = muted ? '\u{1f507}' : '\u{1f50a}';
+  this.className = muted ? 'muted' : '';
+  invoke('toggle_game_mute', { muted: muted }).catch(console.error);
+});
+</script>
+</body>
+</html>
