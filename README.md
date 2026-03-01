@@ -27,12 +27,10 @@
 ## インストール方法
 [https://github.com/shichiria/kancolle-browser/releases](https://github.com/shichiria/kancolle-browser/releases)に遷移する。
 
-Mac
-・KanColle.Browser_[バージョン]_universal.dmg
-Windows
-・KanColle.Browser_[バージョン]_x64_en-US.msi
-をダウンロードしてインストール。
-mac版は下記のMacOSでのインストールも参照。
+- **Mac**: `KanColle.Browser_[バージョン]_universal.dmg`
+- **Windows**: `KanColle.Browser_[バージョン]_x64_en-US.msi`
+
+上記ファイルをダウンロードしてインストールしてください。macOS版は下記の「macOS でのインストール」も参照してください。
 
 ## macOS でのインストール
 
