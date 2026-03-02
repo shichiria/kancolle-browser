@@ -6,6 +6,7 @@ use tokio::sync::RwLock;
 
 use crate::battle_log::BattleLogger;
 use crate::quest_progress::QuestProgressState;
+use crate::senka::SenkaTracker;
 use crate::sortie_quest::SortieQuestDef;
 
 /// Generic KanColle API response wrapper
@@ -163,6 +164,8 @@ pub struct GameStateInner {
     pub quest_progress_path: std::path::PathBuf,
     /// Base data directory (app_local_data_dir)
     pub data_dir: std::path::PathBuf,
+    /// Senka (ranking points) tracker
+    pub senka: SenkaTracker,
     /// Sync notifier — sends SyncCommand to the background sync engine
     pub sync_notifier: Option<tokio::sync::mpsc::Sender<crate::drive_sync::SyncCommand>>,
 }
@@ -189,6 +192,9 @@ impl GameState {
         let quest_progress_path = sync_dir.join("quest_progress.json");
         inner.history.quest_progress = crate::quest_progress::load_progress(&quest_progress_path);
         inner.quest_progress_path = quest_progress_path;
+
+        // Initialize senka tracker
+        inner.senka = SenkaTracker::new(&data_dir);
 
         // Store data_dir for sync module access
         inner.data_dir = data_dir;
@@ -324,6 +330,8 @@ pub struct AdmiralBasic {
     pub api_rank: i32,
     #[serde(default)]
     pub api_max_chara: i32,
+    #[serde(default)]
+    pub api_experience: serde_json::Value,
     #[serde(flatten)]
     _extra: serde_json::Value,
 }
@@ -463,6 +471,8 @@ pub struct ShipSummary {
     pub damecon_name: Option<String>,
     /// Special equipment for expedition display (drums icon_type=25, landing craft icon_type=20)
     pub special_equips: Vec<SpecialEquip>,
+    /// Whether this ship can perform opening ASW attack
+    pub can_opening_asw: bool,
     /// Speed: 5=低速, 10=高速, 15=高速+, 20=最速
     pub soku: i32,
 }

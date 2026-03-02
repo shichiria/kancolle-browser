@@ -36,6 +36,8 @@ pub enum ExpeditionCondition {
     EscortFleet,
     EscortFleetDD3,
     EscortFleetDD4,
+    /// ミ船団護衛(二号船団): 護空1+(DD2 or DE2)+自由3(旗艦:護空) OR 軽空1+軽巡1+DD4(旗艦:軽空)
+    MiConvoyEscort2,
     DrumShipCount { value: i32 },
     DrumTotal { value: i32 },
     Firepower { value: i32 },
@@ -60,6 +62,7 @@ pub struct ExpeditionDef {
 #[derive(Debug, Clone)]
 pub struct FleetShipData {
     pub ship_type: i32,
+    pub ship_id: i32,
     pub level: i32,
     pub firepower: i32,
     pub aa: i32,
@@ -136,6 +139,45 @@ fn check_escort_fleet(ships: &[FleetShipData]) -> bool {
 fn check_escort_fleet_dd(ships: &[FleetShipData], min_dd: i32) -> bool {
     let dd = count_by_stypes(ships, &[STYPE_DD]);
     check_escort_fleet(ships) && dd >= min_dd
+}
+
+/// 護衛空母 (CVE) master ship IDs
+const CVE_SHIP_IDS: &[i32] = &[
+    894, 899,           // 鳳翔改二, 鳳翔改二戦
+    883, 888,           // 龍鳳改二戊, 龍鳳改二
+    560,                // 瑞鳳改二乙
+    526, 380, 529,      // 大鷹, 大鷹改, 大鷹改二
+    884, 382, 889,      // 雲鷹, 雲鷹改, 雲鷹改二
+    534, 381, 536,      // 神鷹, 神鷹改, 神鷹改二
+    925, 930,           // Langley, Langley改
+    544, 396, 707,      // Gambier Bay, Gambier Bay改, Gambier Bay Mk.II
+];
+
+fn is_cve(ship: &FleetShipData) -> bool {
+    ship.ship_type == STYPE_CVL && CVE_SHIP_IDS.contains(&ship.ship_id)
+}
+
+/// ミ船団護衛(二号船団) escort fleet check:
+/// Pattern A: CVE flagship + (DD≥2 or DE≥2) + free 3
+/// Pattern B: CVL flagship + CL≥1 + DD≥4
+fn check_mi_convoy_escort2(ships: &[FleetShipData]) -> bool {
+    if ships.is_empty() {
+        return false;
+    }
+    let flagship = &ships[0];
+    let dd = count_by_stypes(ships, &[STYPE_DD]);
+    let de = count_by_stypes(ships, &[STYPE_DE]);
+    let cl = count_by_stypes(ships, &[STYPE_CL]);
+
+    // Pattern A: CVE flagship + (DD≥2 or DE≥2)
+    if is_cve(flagship) && (dd >= 2 || de >= 2) {
+        return true;
+    }
+    // Pattern B: CVL flagship + CL≥1 + DD≥4
+    if flagship.ship_type == STYPE_CVL && cl >= 1 && dd >= 4 {
+        return true;
+    }
+    false
 }
 
 // =============================================================================
@@ -253,6 +295,20 @@ fn check_condition(cond: &ExpeditionCondition, fleet: &FleetCheckData) -> Condit
                 satisfied,
                 current_value: if satisfied { "OK" } else { "NG" }.into(),
                 required_value: "護衛編成+DD4".into(),
+            }
+        }
+        ExpeditionCondition::MiConvoyEscort2 => {
+            let satisfied = check_mi_convoy_escort2(&fleet.ships);
+            let desc = if !fleet.ships.is_empty() && is_cve(&fleet.ships[0]) {
+                "護空旗艦+(DD2 or DE2)"
+            } else {
+                "CVL旗艦+CL1+DD4"
+            };
+            ConditionResult {
+                condition: "護衛空母編成".into(),
+                satisfied,
+                current_value: if satisfied { "OK" } else { "NG" }.into(),
+                required_value: desc.into(),
             }
         }
         ExpeditionCondition::DrumShipCount { value } => {

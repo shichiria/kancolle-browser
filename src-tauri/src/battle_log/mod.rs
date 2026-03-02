@@ -251,6 +251,10 @@ pub struct SortieRecord {
     pub end_time: Option<DateTime<Local>>,
     /// Whether this is a combined fleet sortie
     pub is_combined: bool,
+    /// Gauge number for multi-gauge maps (e.g., 7-2 has gauge 1 and 2)
+    /// From api_eventmap.api_gauge_num in api_req_map/start response
+    #[serde(default)]
+    pub gauge_num: Option<i32>,
 }
 
 /// Summary sent to frontend
@@ -513,6 +517,13 @@ impl BattleLogger {
             .and_then(|v| v.as_i64())
             .unwrap_or(0) as i32;
 
+        // Extract gauge number for multi-gauge maps (e.g., 7-2, 7-3, 7-5)
+        let gauge_num = api_data
+            .and_then(|d| d.get("api_eventmap"))
+            .and_then(|em| em.get("api_gauge_num"))
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32);
+
         let now = Local::now();
         let id = now.format("%Y%m%d_%H%M%S").to_string();
 
@@ -527,6 +538,7 @@ impl BattleLogger {
             start_time: now,
             end_time: None,
             is_combined: false,
+            gauge_num,
         };
 
         // First node (map start always has a cell)

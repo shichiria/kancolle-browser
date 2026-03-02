@@ -38,6 +38,9 @@ KNOWLEDGE/
 CLAUDE.md
 nul
 
+# Claude Code hook marker
+.claude/gemini_approved
+
 # Playwright MCP
 .playwright-mcp/
 

@@ -31,6 +31,7 @@ interface ShipData {
   bull: number;
   damecon_name?: string | null;
   special_equips: SpecialEquip[];
+  can_opening_asw?: boolean;
   soku: number;
 }
 
@@ -76,6 +77,22 @@ interface PortData {
   fleets: FleetData[];
   // Repair docks
   ndock: NdockData[];
+}
+
+interface SenkaSummary {
+  total: number;
+  exp_senka: number;
+  eo_bonus: number;
+  quest_bonus: number;
+  monthly_exp_gain: number;
+  tracking_active: boolean;
+  next_checkpoint: string;
+  checkpoint_crossed: boolean;
+  eo_cutoff_active: boolean;
+  quest_cutoff_active: boolean;
+  confirmed_senka: number | null;
+  confirmed_cutoff: string | null;
+  is_confirmed_base: boolean;
 }
 
 interface ApiLogEntry {
@@ -613,30 +630,49 @@ function SortieQuestChecker({
     return items;
   }, [activeQuests, questById]);
 
-  // Track previous quest keys to detect newly accepted quests
-  const prevQuestKeysRef = useRef<Set<string>>(new Set());
+  // Track quest started via dedicated backend event (not fragile diff detection)
+  const pendingStartedRef = useRef<number | null>(null);
+  const doCheckVersionRef = useRef(0);
 
-  // Clear selection if removed, or auto-select newly accepted sortie/exercise quest
   useEffect(() => {
-    const currentKeys = new Set(dropdownQuests.map((q) => q.key));
-    const prevKeys = prevQuestKeysRef.current;
+    const unlisten = listen<number>("quest-started", (event) => {
+      pendingStartedRef.current = event.payload;
+    });
+    return () => { unlisten.then((f) => f()); };
+  }, []);
 
-    if (prevKeys.size > 0 && currentKeys.size > 0) {
-      // Detect newly added quests (sortie=cat 2/8/9/10, exercise=cat 3)
-      const newQuests = dropdownQuests.filter(
-        (q) => !prevKeys.has(q.key) && (q.category >= 2 && q.category <= 3 || q.category >= 8)
-      );
-      if (newQuests.length > 0) {
-        // Auto-select the most recently added quest
-        const newest = newQuests[newQuests.length - 1];
-        doCheck(newest.key);
-        prevQuestKeysRef.current = currentKeys;
+  // Clear selection when any quest is stopped in game
+  useEffect(() => {
+    const unlisten = listen<number>("quest-stopped", () => {
+      setSelectedId(null);
+      setCheckResult(null);
+      localStorage.removeItem(storageKey);
+    });
+    return () => { unlisten.then((f) => f()); };
+  }, [storageKey]);
+
+  // Auto-select just-started quest, or clear selection when quest removed
+  useEffect(() => {
+    // Check if a quest was just started and is now in the dropdown
+    if (pendingStartedRef.current != null) {
+      const startedApiNo = pendingStartedRef.current;
+      const match = dropdownQuests.find((q) => {
+        // Match by api_no: check JSON def id or api_ prefix key
+        const def = questById.get(startedApiNo);
+        if (def && q.key === def.quest_id) return true;
+        if (q.key === `api_${startedApiNo}`) return true;
+        return false;
+      });
+      if (match && (match.category >= 2 && match.category <= 3 || match.category >= 8)) {
+        pendingStartedRef.current = null;
+        doCheck(match.key);
         return;
       }
+      // If not found yet, keep pending for next update
     }
 
-    // Clear if selected quest no longer active
-    if (selectedId != null && dropdownQuests.length > 0) {
+    // Clear selection if selected quest no longer active
+    if (selectedId != null) {
       const stillActive = dropdownQuests.some((q) => q.key === selectedId);
       if (!stillActive) {
         setSelectedId(null);
@@ -644,36 +680,37 @@ function SortieQuestChecker({
         localStorage.removeItem(storageKey);
       }
     }
+  }, [activeQuests, dropdownQuests]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    prevQuestKeysRef.current = currentKeys;
-  }, [activeQuests]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-check on mount and when port data updates
+  // Auto-check on mount and when port data / fleet composition updates
   useEffect(() => {
     if (selectedId != null && dropdownQuests.length > 0) {
       doCheck(selectedId);
     }
-  }, [sortieQuests.length, portDataVersion, activeQuests.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sortieQuests.length, portDataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doCheck = async (questId: string) => {
+    const version = ++doCheckVersionRef.current;
     setSelectedId(questId);
     localStorage.setItem(storageKey, questId);
     // For quests without JSON data (exercise, composition, etc.), show basic info
     if (questId.startsWith("api_")) {
       const dq = dropdownQuests.find((q) => q.key === questId);
-      setCheckResult({
-        quest_id: questId,
-        quest_name: dq?.label ?? "",
-        area: "",
-        rank: "",
-        boss_only: false,
-        count: 0,
-        satisfied: false,
-        no_conditions: false,
-        note: null,
-        conditions: [],
-        recommended: [],
-      });
+      if (doCheckVersionRef.current === version) {
+        setCheckResult({
+          quest_id: questId,
+          quest_name: dq?.label ?? "",
+          area: "",
+          rank: "",
+          boss_only: false,
+          count: 0,
+          satisfied: false,
+          no_conditions: false,
+          note: null,
+          conditions: [],
+          recommended: [],
+        });
+      }
       return;
     }
     setChecking(true);
@@ -682,12 +719,18 @@ function SortieQuestChecker({
         fleetIndex,
         questId,
       });
-      setCheckResult(result);
+      if (doCheckVersionRef.current === version) {
+        setCheckResult(result);
+      }
     } catch (e) {
       console.error("Sortie quest check failed:", e);
-      setCheckResult(null);
+      if (doCheckVersionRef.current === version) {
+        setCheckResult(null);
+      }
     } finally {
-      setChecking(false);
+      if (doCheckVersionRef.current === version) {
+        setChecking(false);
+      }
     }
   };
 
@@ -1044,6 +1087,15 @@ function FleetPanel({
                     }}
                   />
                 ))
+              )}
+              {ship.can_opening_asw && weaponIconSheet && (
+                <span
+                  className="opening-asw-icon"
+                  title="先制対潜"
+                  style={{
+                    backgroundImage: `url(${weaponIconSheet})`,
+                  }}
+                />
               )}
             </div>
           ))}
@@ -2428,6 +2480,8 @@ function ImprovementTab({ portDataVersion }: { portDataVersion: number }) {
 function App() {
   const [proxyPort, setProxyPort] = useState<number>(0);
   const [portData, setPortData] = useState<PortData | null>(null);
+  const [senkaData, setSenkaData] = useState<SenkaSummary | null>(null);
+  const [senkaCheckpoint, setSenkaCheckpoint] = useState(false);
   const [apiLog, setApiLog] = useState<ApiLogEntry[]>([]);
   const [gameOpen, setGameOpen] = useState(false);
   const [caInstalled, setCaInstalled] = useState<boolean | null>(null);
@@ -2443,6 +2497,7 @@ function App() {
   const [portDataVersion, setPortDataVersion] = useState(0);
   const [battleLogs, setBattleLogs] = useState<SortieRecord[]>([]);
   const [battleLogsTotal, setBattleLogsTotal] = useState(0);
+  const [taihaWarningShips, setTaihaWarningShips] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>("homeport");
   const [uiZoom, setUiZoom] = useState<number>(() => {
     const saved = localStorage.getItem("ui-zoom");
@@ -2543,6 +2598,10 @@ function App() {
       });
     });
 
+    const unlistenTaihaWarning = listen<{ ships: string[] }>("taiha-advance-warning", (event) => {
+      setTaihaWarningShips(event.payload.ships);
+    });
+
     const unlistenFleet = listen<FleetData[]>("fleet-updated", (event) => {
       setPortData((prev) => {
         if (!prev) return prev;
@@ -2565,6 +2624,14 @@ function App() {
       const map = new Map<number, QuestProgressSummary>();
       for (const p of event.payload) map.set(p.quest_id, p);
       setQuestProgress(map);
+    });
+
+    const unlistenSenka = listen<SenkaSummary>("senka-updated", (event) => {
+      setSenkaData(event.payload);
+      if (event.payload.checkpoint_crossed) {
+        setSenkaCheckpoint(true);
+        setTimeout(() => setSenkaCheckpoint(false), 10000);
+      }
     });
 
     const unlistenDriveStatus = listen<typeof driveStatus>("drive-sync-status", (event) => {
@@ -2623,8 +2690,10 @@ function App() {
       unlistenFleet.then((f) => f());
       unlistenSortie.then((f) => f());
       unlistenSortieUpdate.then((f) => f());
+      unlistenTaihaWarning.then((f) => f());
       unlistenQuest.then((f) => f());
       unlistenQuestProgress.then((f) => f());
+      unlistenSenka.then((f) => f());
       unlistenDriveStatus.then((f) => f());
       unlistenDriveData.then((f) => f());
       unlistenApi.then((f) => f());
@@ -2775,7 +2844,33 @@ function App() {
                       艦:{portData.ship_count}
                       {portData.ship_capacity != null && `/${portData.ship_capacity}`}
                     </span>
+                    {senkaData && senkaData.tracking_active && (
+                      senkaData.is_confirmed_base ? (
+                        <span className="admiral-detail senka-display" title={
+                          `確認済み: ${senkaData.confirmed_senka ?? 0} (${senkaData.confirmed_cutoff ? new Date(senkaData.confirmed_cutoff).toLocaleTimeString('ja-JP', {hour: '2-digit', minute: '2-digit'}) + 'まで反映' : '?'})` +
+                          `\n追加経験値: +${senkaData.exp_senka.toFixed(1)} (exp +${senkaData.monthly_exp_gain.toLocaleString()})` +
+                          (senkaData.eo_bonus > 0 ? `\n追加EO: +${senkaData.eo_bonus}` : '') +
+                          (senkaData.quest_bonus > 0 ? `\n追加任務: +${senkaData.quest_bonus}` : '')
+                        }>
+                          戦果:{senkaData.total.toFixed(1)}
+                          <span className="senka-breakdown">
+                            ({senkaData.confirmed_senka}+{senkaData.exp_senka.toFixed(1)}
+                            {senkaData.eo_bonus > 0 && `+EO${senkaData.eo_bonus}`}
+                            {senkaData.quest_bonus > 0 && `+任${senkaData.quest_bonus}`})
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="admiral-detail senka-unconfirmed">
+                          戦果:ランキング画面で確認してください
+                        </span>
+                      )
+                    )}
                   </div>
+                  {senkaCheckpoint && senkaData?.is_confirmed_base && (
+                    <div className="senka-checkpoint-notice">
+                      ランキング更新を通過しました - ランキング画面で戦果を再確認してください
+                    </div>
+                  )}
 
                   {/* Resources section */}
                   <div className="resources-section">
@@ -3166,6 +3261,25 @@ function App() {
           </div>
         )}
       </div>
+      {taihaWarningShips.length > 0 && (
+        <div className="taiha-warning-overlay" onClick={() => setTaihaWarningShips([])}>
+          <div className="taiha-warning-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="taiha-warning-icon">⚠</div>
+            <div className="taiha-warning-title">大破進撃警告</div>
+            <div className="taiha-warning-message">
+              大破状態の艦娘がダメコンなしで進撃しています！
+            </div>
+            <div className="taiha-warning-ships">
+              {taihaWarningShips.map((name, i) => (
+                <span key={i} className="taiha-warning-ship-name">{name}</span>
+              ))}
+            </div>
+            <button className="taiha-warning-close" onClick={() => setTaihaWarningShips([])}>
+              確認
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

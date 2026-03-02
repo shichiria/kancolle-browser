@@ -5,6 +5,7 @@ mod expedition;
 mod improvement;
 mod proxy;
 mod quest_progress;
+mod senka;
 mod sortie_quest;
 
 use base64::Engine;
@@ -709,6 +710,7 @@ async fn check_expedition_cmd(
 
             ships.push(expedition::FleetShipData {
                 ship_type: info.stype,
+                ship_id: info.ship_id,
                 level: info.lv,
                 firepower: info.firepower,
                 aa: info.aa,

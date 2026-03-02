@@ -299,8 +299,19 @@ fn does_battle_match(
     }
 
     // Check if map matches any of the quest areas
+    // map_area_str may include gauge suffix like "7-2(2nd)"
+    // Quest areas may be "7-2" (any gauge), "7-2(1st)" (specific gauge), etc.
     let areas: Vec<&str> = area.split('/').collect();
-    areas.contains(&map_area_str)
+    if areas.contains(&map_area_str) {
+        return true;
+    }
+    // Also check base area (without gauge suffix) for quests that accept any gauge
+    // e.g., map_area_str="7-2(2nd)" should match quest area "7-2"
+    let base_area = map_area_str.split('(').next().unwrap_or(map_area_str);
+    if base_area != map_area_str {
+        return areas.contains(&base_area);
+    }
+    false
 }
 
 /// Determine the progress pattern for a quest
@@ -399,15 +410,29 @@ pub fn on_battle_result(
         match pattern {
             "area" => {
                 // Increment per-area count
-                if let Some(ac) = entry.area_counts.get_mut(map_area_str) {
-                    if *ac < entry.count_max {
-                        *ac += 1;
-                        entry.last_updated = now;
-                        changed = true;
-                        info!(
-                            "Quest {} area {} progress: {}/{}",
-                            quest_quest_id, map_area_str, ac, entry.count_max
-                        );
+                // Try exact match first, then fall back to base area (without gauge suffix)
+                // e.g., map_area_str="7-2(2nd)" matches area_counts key "7-2(2nd)" or "7-2"
+                let area_key = if entry.area_counts.contains_key(map_area_str) {
+                    Some(map_area_str.to_string())
+                } else {
+                    let base = map_area_str.split('(').next().unwrap_or(map_area_str);
+                    if base != map_area_str && entry.area_counts.contains_key(base) {
+                        Some(base.to_string())
+                    } else {
+                        None
+                    }
+                };
+                if let Some(ref key) = area_key {
+                    if let Some(ac) = entry.area_counts.get_mut(key.as_str()) {
+                        if *ac < entry.count_max {
+                            *ac += 1;
+                            entry.last_updated = now;
+                            changed = true;
+                            info!(
+                                "Quest {} area {} progress: {}/{}",
+                                quest_quest_id, key, ac, entry.count_max
+                            );
+                        }
                     }
                 }
                 // Check if all areas reached target

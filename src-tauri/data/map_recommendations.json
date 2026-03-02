@@ -536,13 +536,11 @@
     "name": "タウイタウイ泊地沖",
     "routes": [
       {
-        "desc": "第1ゲージ C→E→G(ボス) 対潜 (戦艦/空母なし, 駆逐/海防4+)",
+        "desc": "第1ゲージ C→E→G(ボス) 対潜 (海防3+軽空母2, 5隻)",
         "fleet": [
           { "type": "ShipCount", "value": 5 },
-          { "type": "ShipTypeCount", "ship_type": "駆逐/海防", "stypes": [2, 1], "value": 4 },
-          { "type": "MaxShipTypeCount", "ship_type": "戦艦系", "stypes": [8, 9, 10, 12], "value": 0 },
-          { "type": "MaxShipTypeCount", "ship_type": "空母系", "stypes": [7, 11, 18], "value": 0 },
-          { "type": "MaxShipTypeCount", "ship_type": "潜水艦", "stypes": [13, 14], "value": 0 }
+          { "type": "ShipTypeCount", "ship_type": "海防", "stypes": [1], "value": 3 },
+          { "type": "ShipTypeCount", "ship_type": "軽空母", "stypes": [7], "value": 2 }
         ]
       },
       {

@@ -221,6 +221,32 @@ html, body, #root {
   white-space: nowrap;
 }
 
+.senka-display {
+  color: #4fc3f7 !important;
+  font-weight: 600;
+}
+
+.senka-breakdown {
+  color: #888;
+  font-weight: 400;
+  font-size: 9px;
+  margin-left: 2px;
+}
+
+.senka-unconfirmed {
+  color: #999;
+  font-size: 10px;
+}
+
+.senka-checkpoint-notice {
+  background: #1a237e;
+  color: #ffeb3b;
+  font-size: 10px;
+  padding: 3px 10px;
+  text-align: center;
+  border-bottom: 1px solid #0f3460;
+}
+
 /* Resources section */
 .resources-section {
   display: flex;
@@ -538,6 +564,20 @@ html, body, #root {
    pos = -(239*11/48), -(3*11/48) = -54.8, -0.7 */
 .special-equip-icon-25 {
   background-position: -54.8px -0.7px;
+}
+
+/* Opening ASW icon (sonar icon_type=17: sprite at 177,59 in 467x458 sheet, displayed at 16x16)
+   scale = 16/54, bg-size same as damecon-icon */
+.opening-asw-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  background-size: 138.4px 135.7px;
+  background-position: -52.4px -17.5px;
+  background-repeat: no-repeat;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 /* Supply bars */
@@ -2224,4 +2264,80 @@ html, body, #root {
   border-radius: 3px;
   padding: 4px 8px;
   line-height: 1.5;
+}
+
+/* ── Taiha Advance Warning ── */
+.taiha-warning-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: taiha-flash 0.5s ease-in-out 3;
+}
+@keyframes taiha-flash {
+  0%, 100% { background: rgba(0, 0, 0, 0.7); }
+  50% { background: rgba(180, 30, 30, 0.7); }
+}
+.taiha-warning-dialog {
+  background: linear-gradient(135deg, #1a0000 0%, #2d0a0a 100%);
+  border: 2px solid #f44336;
+  border-radius: 12px;
+  padding: 24px 32px;
+  text-align: center;
+  max-width: 400px;
+  box-shadow: 0 0 40px rgba(244, 67, 54, 0.5), inset 0 0 20px rgba(244, 67, 54, 0.1);
+}
+.taiha-warning-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 0 8px rgba(244, 67, 54, 0.8));
+}
+.taiha-warning-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #f44336;
+  margin-bottom: 12px;
+  text-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+}
+.taiha-warning-message {
+  font-size: 13px;
+  color: #ffcdd2;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+.taiha-warning-ships {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.taiha-warning-ship-name {
+  background: rgba(244, 67, 54, 0.2);
+  border: 1px solid rgba(244, 67, 54, 0.5);
+  border-radius: 4px;
+  padding: 4px 12px;
+  color: #ff8a80;
+  font-size: 14px;
+  font-weight: bold;
+}
+.taiha-warning-close {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 32px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.taiha-warning-close:hover {
+  background: #d32f2f;
 }
