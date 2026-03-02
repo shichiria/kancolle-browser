@@ -1,7 +1,7 @@
 {
   "name": "kancolle-browser",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Cross-platform KanColle browser with real-time fleet tracking and battle analysis",
   "license": "MIT",
