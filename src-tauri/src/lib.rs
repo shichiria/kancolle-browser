@@ -119,9 +119,20 @@ fn install_ca_cert() -> Result<(), String> {
 
     #[cfg(target_os = "windows")]
     {
-        // certutil -addstore Root <pem_path> — triggers UAC dialog
-        let output = std::process::Command::new("certutil")
-            .args(["-addstore", "Root", pem_str])
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        // Use PowerShell Start-Process -Verb RunAs to trigger UAC elevation dialog
+        // This allows certificate installation without running the app as administrator
+        let escaped_path = pem_str.replace('\'', "''");
+        let script = format!(
+            "try {{ $p = Start-Process -FilePath 'certutil.exe' -ArgumentList '-addstore','Root','\"{}\"' -Verb RunAs -Wait -PassThru; exit $p.ExitCode }} catch {{ Write-Error $_.Exception.Message; exit 1 }}",
+            escaped_path
+        );
+
+        let output = std::process::Command::new("powershell.exe")
+            .args(["-NoProfile", "-Command", &script])
+            .creation_flags(CREATE_NO_WINDOW)
             .output()
             .map_err(|e| format!("Failed to run certutil: {}", e))?;
 
@@ -130,7 +141,11 @@ fn install_ca_cert() -> Result<(), String> {
             Ok(())
         } else {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(format!("Failed to install certificate: {}", stderr))
+            if stderr.contains("canceled") || stderr.contains("cancelled") {
+                Err("Certificate installation was cancelled by user.".to_string())
+            } else {
+                Err(format!("Failed to install certificate: {}", stderr))
+            }
         }
     }
 
