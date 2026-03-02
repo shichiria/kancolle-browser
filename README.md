@@ -53,6 +53,21 @@
 連合艦隊など動作がおかしくなる可能性があります。
 
 
+## 証明書のアンインストール方法
+
+特に残しておいても実害はないので気になる方だけアンインストールしてください。
+
+### Windows
+  1. Win + R → certmgr.msc を開く
+  2. 信頼されたルート証明機関 → 証明書 を展開
+  3. 「KanColle Browser CA」を探して右クリック → 削除
+
+### macOS
+  1. Keychain Access.app を開く
+  2. 証明書 を選択
+  3. 「KanColle Browser CA」を探して右クリック → 削除
+
+
 ## 必要環境
 
 - [Rust](https://www.rust-lang.org/tools/install) 1.70+
