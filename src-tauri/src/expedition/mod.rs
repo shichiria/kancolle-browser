@@ -429,8 +429,8 @@ mod tests {
     fn test_simple_check() {
         let fleet = FleetCheckData {
             ships: vec![
-                FleetShipData { ship_type: 2, level: 50, firepower: 30, aa: 30, asw: 50, los: 10, cond: 49, has_drum: false, drum_count: 0 },
-                FleetShipData { ship_type: 2, level: 30, firepower: 25, aa: 25, asw: 40, los: 8, cond: 49, has_drum: false, drum_count: 0 },
+                FleetShipData { ship_type: 2, ship_id: 0, level: 50, firepower: 30, aa: 30, asw: 50, los: 10, cond: 49, has_drum: false, drum_count: 0 },
+                FleetShipData { ship_type: 2, ship_id: 0, level: 30, firepower: 25, aa: 25, asw: 40, los: 8, cond: 49, has_drum: false, drum_count: 0 },
             ],
         };
         let result = check_expedition(1, &fleet);
@@ -441,8 +441,8 @@ mod tests {
     fn test_great_success() {
         let fleet = FleetCheckData {
             ships: vec![
-                FleetShipData { ship_type: 2, level: 50, firepower: 30, aa: 30, asw: 50, los: 10, cond: 53, has_drum: false, drum_count: 0 },
-                FleetShipData { ship_type: 2, level: 30, firepower: 25, aa: 25, asw: 40, los: 8, cond: 50, has_drum: false, drum_count: 0 },
+                FleetShipData { ship_type: 2, ship_id: 0, level: 50, firepower: 30, aa: 30, asw: 50, los: 10, cond: 53, has_drum: false, drum_count: 0 },
+                FleetShipData { ship_type: 2, ship_id: 0, level: 30, firepower: 25, aa: 25, asw: 40, los: 8, cond: 50, has_drum: false, drum_count: 0 },
             ],
         };
         let result = check_expedition(1, &fleet);

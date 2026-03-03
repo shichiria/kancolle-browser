@@ -1187,11 +1187,27 @@ fn process_battle(
                     .unwrap_or_default();
 
                 if !rank.is_empty() {
+                    // Extract sunk enemy ship stypes for sinking quests
+                    let sunk_enemy_stypes: Vec<i32> = last_node
+                        .and_then(|n| n.battle.as_ref())
+                        .map(|b| {
+                            b.enemy_ships
+                                .iter()
+                                .zip(b.enemy_hp.iter())
+                                .filter(|(_, hp)| hp.after <= 0)
+                                .filter_map(|(ship, _)| {
+                                    master_ships.get(&ship.ship_id).map(|m| m.stype)
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+
                     let changed = crate::quest_progress::on_battle_result(
                         &mut state.history.quest_progress,
                         &map_area_str,
                         &rank,
                         is_boss,
+                        &sunk_enemy_stypes,
                         &state.history.active_quests,
                         &state.history.sortie_quest_defs,
                         &state.quest_progress_path,

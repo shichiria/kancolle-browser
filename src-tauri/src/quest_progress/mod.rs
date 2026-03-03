@@ -221,13 +221,13 @@ pub fn check_resets(state: &mut QuestProgressState, quest_defs: &[SortieQuestDef
 
     let quest_ids: Vec<i32> = state.quests.keys().copied().collect();
     for quest_id in quest_ids {
-        let reset_type = def_by_id
-            .get(&quest_id)
-            .map(|d| d.reset.as_str())
-            .unwrap_or("once");
+        let quest_def = def_by_id.get(&quest_id);
+        let reset_type = quest_def.map(|d| d.reset.as_str()).unwrap_or("once");
+        let counter_reset = quest_def.and_then(|d| d.counter_reset.as_deref());
 
-        if let Some(reset_boundary) = last_reset_time(reset_type, now) {
-            if let Some(entry) = state.quests.get_mut(&quest_id) {
+        if let Some(entry) = state.quests.get_mut(&quest_id) {
+            // Primary reset: clear everything including completed status
+            if let Some(reset_boundary) = last_reset_time(reset_type, now) {
                 if entry.last_updated < reset_boundary {
                     info!(
                         "Resetting quest progress for {} ({}) - last_updated={}, boundary={}",
@@ -239,6 +239,25 @@ pub fn check_resets(state: &mut QuestProgressState, quest_defs: &[SortieQuestDef
                     entry.completed = false;
                     entry.last_updated = now;
                     changed = true;
+                    continue;
+                }
+            }
+
+            // Counter reset: only reset progress counters if not yet completed
+            if let Some(cr) = counter_reset {
+                if !entry.completed {
+                    if let Some(cr_boundary) = last_reset_time(cr, now) {
+                        if entry.last_updated < cr_boundary {
+                            info!(
+                                "Counter-resetting quest progress for {} ({}) - last_updated={}, boundary={}",
+                                entry.quest_id_str, cr, entry.last_updated, cr_boundary
+                            );
+                            entry.count = 0;
+                            entry.area_counts.clear();
+                            entry.last_updated = now;
+                            changed = true;
+                        }
+                    }
                 }
             }
         }
@@ -255,6 +274,16 @@ pub fn check_resets(state: &mut QuestProgressState, quest_defs: &[SortieQuestDef
 // Battle/Exercise result processing
 // =============================================================================
 
+/// Check if an enemy stype matches the quest's enemy_type
+fn match_enemy_type(enemy_type: &str, stype: i32) -> bool {
+    match enemy_type {
+        "carrier" => matches!(stype, 7 | 11 | 18),   // CVL, CV, CVB
+        "transport" => stype == 15,                    // AP (補給艦)
+        "submarine" => matches!(stype, 13 | 14),      // SS, SSV
+        _ => false,
+    }
+}
+
 /// Rank to numeric value for comparison
 fn rank_value(rank: &str) -> i32 {
     match rank {
@@ -266,6 +295,20 @@ fn rank_value(rank: &str) -> i32 {
         "E" => 0,
         _ => -1,
     }
+}
+
+/// Check if a map area string matches any of the given quest areas.
+/// Handles gauge suffixes: "7-2(2nd)" matches "7-2(2nd)" exactly, or "7-2" as base area.
+fn area_matches(map_area_str: &str, quest_areas: &[&str]) -> bool {
+    if quest_areas.contains(&map_area_str) {
+        return true;
+    }
+    // Also check base area (without gauge suffix) for quests that accept any gauge
+    let base_area = map_area_str.split('(').next().unwrap_or(map_area_str);
+    if base_area != map_area_str {
+        return quest_areas.contains(&base_area);
+    }
+    false
 }
 
 /// Check if a battle result matches a quest's requirements
@@ -298,30 +341,22 @@ fn does_battle_match(
         return false; // Handled by exercise path
     }
 
-    // Check if map matches any of the quest areas
-    // map_area_str may include gauge suffix like "7-2(2nd)"
-    // Quest areas may be "7-2" (any gauge), "7-2(1st)" (specific gauge), etc.
     let areas: Vec<&str> = area.split('/').collect();
-    if areas.contains(&map_area_str) {
-        return true;
-    }
-    // Also check base area (without gauge suffix) for quests that accept any gauge
-    // e.g., map_area_str="7-2(2nd)" should match quest area "7-2"
-    let base_area = map_area_str.split('(').next().unwrap_or(map_area_str);
-    if base_area != map_area_str {
-        return areas.contains(&base_area);
-    }
-    false
+    area_matches(map_area_str, &areas)
 }
 
 /// Determine the progress pattern for a quest
-/// Returns: "area" for specific area(s), "counter" for 任意/演習
+/// Returns: "sub_goals" for multi-condition quests, "area" for specific area(s), "counter" for 任意/演習
 fn quest_pattern(quest: &SortieQuestDef) -> &'static str {
-    let area = &quest.area;
-    if area == "任意" || area == "演習" {
-        "counter"
+    if !quest.sub_goals.is_empty() {
+        "sub_goals"
     } else {
-        "area" // Single or multi-area: per-area count tracking
+        let area = &quest.area;
+        if area == "任意" || area == "演習" {
+            "counter"
+        } else {
+            "area" // Single or multi-area: per-area count tracking
+        }
     }
 }
 
@@ -337,6 +372,10 @@ fn ensure_entry<'a>(
         if pattern == "area" {
             for a in quest.area.split('/') {
                 area_counts.insert(a.to_string(), 0);
+            }
+        } else if pattern == "sub_goals" {
+            for sg in &quest.sub_goals {
+                area_counts.insert(sg.name.clone(), 0);
             }
         }
         QuestProgressEntry {
@@ -362,6 +401,12 @@ fn ensure_entry<'a>(
             );
         }
     }
+    // Migrate: ensure sub_goals keys exist in area_counts
+    if pattern == "sub_goals" {
+        for sg in &quest.sub_goals {
+            entry.area_counts.entry(sg.name.clone()).or_insert(0);
+        }
+    }
     // Always sync count_max with quest definition
     entry.count_max = quest.count;
 
@@ -374,6 +419,7 @@ pub fn on_battle_result(
     map_area_str: &str,
     rank: &str,
     is_boss: bool,
+    sunk_enemy_stypes: &[i32],
     active_quests: &std::collections::HashSet<i32>,
     quest_defs: &[SortieQuestDef],
     path: &Path,
@@ -395,12 +441,13 @@ pub fn on_battle_result(
             continue;
         }
 
-        if !does_battle_match(quest, map_area_str, rank, is_boss) {
-            continue;
-        }
-
         let pattern = quest_pattern(quest);
         let quest_quest_id = quest.quest_id.clone();
+
+        // sub_goals pattern handles matching per sub-goal; others use does_battle_match
+        if pattern != "sub_goals" && !does_battle_match(quest, map_area_str, rank, is_boss) {
+            continue;
+        }
 
         let entry = ensure_entry(state, quest);
         if entry.completed {
@@ -408,6 +455,50 @@ pub fn on_battle_result(
         }
 
         match pattern {
+            "sub_goals" => {
+                // Each sub-goal is checked independently
+                let actual_rank = rank_value(rank);
+                for sg in &quest.sub_goals {
+                    // Check area filter if specified
+                    if let Some(ref sg_area) = sg.area {
+                        let sg_areas: Vec<&str> = vec![sg_area.as_str()];
+                        if !area_matches(map_area_str, &sg_areas) {
+                            continue;
+                        }
+                    }
+                    // Check boss_only
+                    if sg.boss_only && !is_boss {
+                        continue;
+                    }
+                    // Check rank
+                    if !sg.rank.is_empty() {
+                        let required = rank_value(&sg.rank);
+                        if actual_rank < required {
+                            continue;
+                        }
+                    }
+                    // Increment this sub-goal
+                    if let Some(ac) = entry.area_counts.get_mut(&sg.name) {
+                        if *ac < sg.count {
+                            *ac += 1;
+                            entry.last_updated = now;
+                            changed = true;
+                            info!(
+                                "Quest {} sub-goal {} progress: {}/{}",
+                                quest_quest_id, sg.name, ac, sg.count
+                            );
+                        }
+                    }
+                }
+                // Check if all sub-goals are met
+                let all_met = quest.sub_goals.iter().all(|sg| {
+                    entry.area_counts.get(&sg.name).copied().unwrap_or(0) >= sg.count
+                });
+                if all_met {
+                    entry.completed = true;
+                    info!("Quest {} completed (all sub-goals)", quest_quest_id);
+                }
+            }
             "area" => {
                 // Increment per-area count
                 // Try exact match first, then fall back to base area (without gauge suffix)
@@ -443,14 +534,26 @@ pub fn on_battle_result(
             }
             _ => {
                 // Counter pattern
-                entry.count = (entry.count + 1).min(entry.count_max);
-                entry.last_updated = now;
-                changed = true;
-                if entry.count >= entry.count_max {
-                    entry.completed = true;
-                    info!("Quest {} completed ({}/{})", quest_quest_id, entry.count, entry.count_max);
+                let increment = if let Some(ref enemy_type) = quest.enemy_type {
+                    // Count matching sunk enemy ships
+                    sunk_enemy_stypes
+                        .iter()
+                        .filter(|&&stype| match_enemy_type(enemy_type, stype))
+                        .count() as i32
                 } else {
-                    info!("Quest {} progress: {}/{}", quest_quest_id, entry.count, entry.count_max);
+                    // No enemy_type: count battles
+                    1
+                };
+                if increment > 0 {
+                    entry.count = (entry.count + increment).min(entry.count_max);
+                    entry.last_updated = now;
+                    changed = true;
+                    if entry.count >= entry.count_max {
+                        entry.completed = true;
+                        info!("Quest {} completed ({}/{})", quest_quest_id, entry.count, entry.count_max);
+                    } else {
+                        info!("Quest {} progress: {}/{}", quest_quest_id, entry.count, entry.count_max);
+                    }
                 }
             }
         }
@@ -545,28 +648,41 @@ pub fn manual_update(
     if let Some(quest) = quest {
         let entry = ensure_entry(state, quest);
 
+        let pattern = quest_pattern(quest);
         if let Some(area_key) = area {
+            // Determine max for this specific key (sub_goals have per-key max)
+            let key_max = if pattern == "sub_goals" {
+                quest.sub_goals.iter().find(|sg| sg.name == area_key).map(|sg| sg.count).unwrap_or(entry.count_max)
+            } else {
+                entry.count_max
+            };
             // Update per-area count
             if let Some(ac) = entry.area_counts.get_mut(&area_key) {
                 if let Some(new_count) = count {
                     // Dropdown: set specific count
-                    *ac = new_count.max(0).min(entry.count_max);
+                    *ac = new_count.max(0).min(key_max);
                 } else {
-                    // Click: toggle (0 <-> count_max for count_max=1, else increment)
-                    if entry.count_max <= 1 {
+                    // Click: toggle (0 <-> max for max=1, else increment)
+                    if key_max <= 1 {
                         *ac = if *ac > 0 { 0 } else { 1 };
                     } else {
-                        *ac = if *ac >= entry.count_max { 0 } else { *ac + 1 };
+                        *ac = if *ac >= key_max { 0 } else { *ac + 1 };
                     }
                 }
                 entry.last_updated = now;
                 info!(
                     "Quest {} area {} manually set to {}/{}",
-                    entry.quest_id_str, area_key, ac, entry.count_max
+                    entry.quest_id_str, area_key, ac, key_max
                 );
             }
             // Recheck completion
-            entry.completed = entry.area_counts.values().all(|&v| v >= entry.count_max);
+            if pattern == "sub_goals" {
+                entry.completed = quest.sub_goals.iter().all(|sg| {
+                    entry.area_counts.get(&sg.name).copied().unwrap_or(0) >= sg.count
+                });
+            } else {
+                entry.completed = entry.area_counts.values().all(|&v| v >= entry.count_max);
+            }
         } else if let Some(new_count) = count {
             // Set count
             entry.count = new_count.max(0).min(entry.count_max);
@@ -650,7 +766,17 @@ pub fn get_active_progress(
         let per_area_target = quest.count;
 
         if let Some(entry) = state.quests.get(&quest_id) {
-            let area_progress = if pattern == "area" {
+            let area_progress = if pattern == "sub_goals" {
+                quest.sub_goals.iter().map(|sg| {
+                    let ac = *entry.area_counts.get(&sg.name).unwrap_or(&0);
+                    AreaProgress {
+                        area: sg.name.clone(),
+                        cleared: ac >= sg.count,
+                        count: ac,
+                        count_max: sg.count,
+                    }
+                }).collect()
+            } else if pattern == "area" {
                 quest
                     .area
                     .split('/')
@@ -678,7 +804,14 @@ pub fn get_active_progress(
             });
         } else {
             // No progress entry yet - return zeroed summary
-            let area_progress = if pattern == "area" {
+            let area_progress = if pattern == "sub_goals" {
+                quest.sub_goals.iter().map(|sg| AreaProgress {
+                    area: sg.name.clone(),
+                    cleared: false,
+                    count: 0,
+                    count_max: sg.count,
+                }).collect()
+            } else if pattern == "area" {
                 quest
                     .area
                     .split('/')
