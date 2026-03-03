@@ -42,6 +42,11 @@ pub enum SortieQuestCondition {
         stypes: Vec<i32>,
         value: i32,
     },
+    /// Any ONE of the alternative condition groups must be satisfied (OR logic)
+    OrConditions {
+        desc: String,
+        alternatives: Vec<Vec<SortieQuestCondition>>,
+    },
 }
 
 /// Per-map recommended fleet composition (used within sortie quests)
@@ -88,6 +93,20 @@ pub struct MapRecommendationCheckResult {
     pub routes: Vec<MapRouteCheckResult>,
 }
 
+/// Sub-goal for quests with multiple independent conditions (e.g. あ号作戦)
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SubGoal {
+    pub name: String,
+    pub count: i32,
+    #[serde(default)]
+    pub boss_only: bool,
+    #[serde(default)]
+    pub rank: String,
+    /// Optional area filter for per-area sub-goals (e.g. Bq2: 6-4 requires S rank)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub area: Option<String>,
+}
+
 /// Definition of a single sortie quest (loaded from JSON)
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct SortieQuestDef {
@@ -102,9 +121,18 @@ pub struct SortieQuestDef {
     /// true = confirmed no fleet conditions; false = conditions unknown or present
     #[serde(default)]
     pub no_conditions: bool,
+    /// Counter reset override (e.g. "daily" for exercise quests that reset progress daily)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counter_reset: Option<String>,
     /// Optional note shown to the user (e.g. "※第２艦隊で出撃")
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    /// Multiple independent sub-conditions (e.g. あ号作戦: 出撃/S勝利/ボス到達/ボス勝利)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sub_goals: Vec<SubGoal>,
+    /// Enemy ship type to count for sinking quests (carrier/transport/submarine)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enemy_type: Option<String>,
     #[serde(skip_serializing)]
     pub conditions: Vec<SortieQuestCondition>,
     #[serde(default, skip_serializing)]
@@ -286,6 +314,23 @@ fn check_condition(cond: &SortieQuestCondition, fleet: &FleetCheckData) -> Condi
                 satisfied: current <= *value,
                 current_value: format!("{}隻", current),
                 required_value: format!("{}隻以下", value),
+            }
+        }
+        SortieQuestCondition::OrConditions { desc, alternatives } => {
+            let any_satisfied = alternatives.iter().any(|group| {
+                group
+                    .iter()
+                    .all(|c| check_condition(c, fleet).satisfied)
+            });
+            ConditionResult {
+                condition: desc.clone(),
+                satisfied: any_satisfied,
+                current_value: if any_satisfied {
+                    "OK".into()
+                } else {
+                    "NG".into()
+                },
+                required_value: desc.clone(),
             }
         }
     }
@@ -475,6 +520,167 @@ mod tests {
         };
         let result = check_sortie_quest("Bm1", &fleet);
         assert!(result.satisfied);
+    }
+
+    #[test]
+    fn test_bm4_battleship_condition() {
+        // Bm4: 大和型/長門型/伊勢型/扶桑型 3隻 + 軽巡1, other BBs prohibited
+        let valid_fleet = FleetCheckData {
+            ships: vec![
+                FleetShipData { name: "大和改二重".into(), ship_type: 9, level: 99 },
+                FleetShipData { name: "長門改二".into(), ship_type: 9, level: 90 },
+                FleetShipData { name: "扶桑改二".into(), ship_type: 10, level: 85 },
+                FleetShipData { name: "阿武隈改二".into(), ship_type: 3, level: 75 },
+                FleetShipData { name: "島風".into(), ship_type: 2, level: 60 },
+                FleetShipData { name: "雪風改二".into(), ship_type: 2, level: 70 },
+            ],
+        };
+        let result = check_sortie_quest("Bm4", &valid_fleet);
+        assert!(result.satisfied, "Valid Bm4 fleet should pass");
+
+        // Invalid: 金剛型 (stype 8) should NOT count
+        let invalid_fleet = FleetCheckData {
+            ships: vec![
+                FleetShipData { name: "金剛改二丙".into(), ship_type: 8, level: 99 },
+                FleetShipData { name: "榛名改二".into(), ship_type: 8, level: 90 },
+                FleetShipData { name: "霧島改二".into(), ship_type: 8, level: 85 },
+                FleetShipData { name: "阿武隈改二".into(), ship_type: 3, level: 75 },
+                FleetShipData { name: "島風".into(), ship_type: 2, level: 60 },
+                FleetShipData { name: "雪風改二".into(), ship_type: 2, level: 70 },
+            ],
+        };
+        let result = check_sortie_quest("Bm4", &invalid_fleet);
+        assert!(!result.satisfied, "Kongou-class fleet should NOT pass Bm4");
+
+        // Invalid: 4 BBs (exceeds MaxShipTypeCount of 3)
+        let too_many_bbs = FleetCheckData {
+            ships: vec![
+                FleetShipData { name: "大和改二重".into(), ship_type: 9, level: 99 },
+                FleetShipData { name: "武蔵改二".into(), ship_type: 9, level: 99 },
+                FleetShipData { name: "長門改二".into(), ship_type: 9, level: 90 },
+                FleetShipData { name: "金剛改二丙".into(), ship_type: 8, level: 85 },
+                FleetShipData { name: "阿武隈改二".into(), ship_type: 3, level: 75 },
+                FleetShipData { name: "島風".into(), ship_type: 2, level: 60 },
+            ],
+        };
+        let result = check_sortie_quest("Bm4", &too_many_bbs);
+        assert!(!result.satisfied, "4 BBs should NOT pass Bm4 (max 3)");
+    }
+
+    #[test]
+    fn test_bq13_or_conditions() {
+        // Bq13: 旗艦夕張改二 + (六水戦DD×2 OR 由良改二)
+
+        // Option A: 夕張改二 + 睦月 + 如月
+        let option_a = FleetCheckData {
+            ships: vec![
+                FleetShipData { name: "夕張改二特".into(), ship_type: 3, level: 90 },
+                FleetShipData { name: "睦月改二".into(), ship_type: 2, level: 70 },
+                FleetShipData { name: "如月改二".into(), ship_type: 2, level: 70 },
+                FleetShipData { name: "島風".into(), ship_type: 2, level: 60 },
+                FleetShipData { name: "雪風改二".into(), ship_type: 2, level: 70 },
+                FleetShipData { name: "時雨改三".into(), ship_type: 2, level: 80 },
+            ],
+        };
+        let result = check_sortie_quest("Bq13", &option_a);
+        assert!(result.satisfied, "Bq13 Option A (六水戦DD) should pass");
+
+        // Option B: 夕張改二 + 由良改二
+        let option_b = FleetCheckData {
+            ships: vec![
+                FleetShipData { name: "夕張改二".into(), ship_type: 3, level: 90 },
+                FleetShipData { name: "由良改二".into(), ship_type: 3, level: 80 },
+                FleetShipData { name: "島風".into(), ship_type: 2, level: 60 },
+                FleetShipData { name: "雪風改二".into(), ship_type: 2, level: 70 },
+                FleetShipData { name: "時雨改三".into(), ship_type: 2, level: 80 },
+                FleetShipData { name: "秋月改".into(), ship_type: 2, level: 75 },
+            ],
+        };
+        let result = check_sortie_quest("Bq13", &option_b);
+        assert!(result.satisfied, "Bq13 Option B (由良改二) should pass");
+
+        // Invalid: 夕張改二 but only random DDs (no 六水戦DD, no 由良改二)
+        let invalid = FleetCheckData {
+            ships: vec![
+                FleetShipData { name: "夕張改二丁".into(), ship_type: 3, level: 90 },
+                FleetShipData { name: "島風".into(), ship_type: 2, level: 60 },
+                FleetShipData { name: "雪風改二".into(), ship_type: 2, level: 70 },
+                FleetShipData { name: "時雨改三".into(), ship_type: 2, level: 80 },
+                FleetShipData { name: "秋月改".into(), ship_type: 2, level: 75 },
+                FleetShipData { name: "涼月改".into(), ship_type: 2, level: 70 },
+            ],
+        };
+        let result = check_sortie_quest("Bq13", &invalid);
+        assert!(!result.satisfied, "Bq13 with random DDs should NOT pass");
+    }
+
+    #[test]
+    fn test_bq2_sub_goals() {
+        let quests = get_all_sortie_quests();
+        let bq2 = quests.iter().find(|q| q.quest_id == "Bq2").unwrap();
+        assert_eq!(bq2.sub_goals.len(), 4, "Bq2 should have 4 sub_goals");
+        // 6-4 requires S rank
+        let sg_64 = bq2.sub_goals.iter().find(|sg| sg.name == "6-4").unwrap();
+        assert_eq!(sg_64.rank, "S");
+        assert_eq!(sg_64.area.as_deref(), Some("6-4"));
+        // Others require A rank
+        let sg_24 = bq2.sub_goals.iter().find(|sg| sg.name == "2-4").unwrap();
+        assert_eq!(sg_24.rank, "A");
+    }
+
+    #[test]
+    fn test_c23_c27_once() {
+        let quests = get_all_sortie_quests();
+        let c23 = quests.iter().find(|q| q.quest_id == "C23").unwrap();
+        assert_eq!(c23.reset, "once", "C23 should be a one-time quest");
+        let c27 = quests.iter().find(|q| q.quest_id == "C27").unwrap();
+        assert_eq!(c27.reset, "once", "C27 should be a one-time quest");
+    }
+
+    #[test]
+    fn test_exercise_counter_reset() {
+        let quests = get_all_sortie_quests();
+        let ids = ["Cm1", "Cq1", "Cq2", "Cq3", "Cq4"];
+        for id in ids {
+            let q = quests.iter().find(|q| q.quest_id == id).unwrap();
+            assert_eq!(
+                q.counter_reset.as_deref(),
+                Some("daily"),
+                "{} should have counter_reset=daily",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn test_existing_conditions_unchanged() {
+        let quests = get_all_sortie_quests();
+
+        // Bm1: 那智+妙高+羽黒 should still work
+        let bm1 = quests.iter().find(|q| q.quest_id == "Bm1").unwrap();
+        assert_eq!(bm1.conditions.len(), 1);
+        assert_eq!(bm1.area, "2-5");
+        assert_eq!(bm1.rank, "S");
+
+        // Bm3: 旗艦軽巡 + 軽巡駆逐のみ
+        let bm3 = quests.iter().find(|q| q.quest_id == "Bm3").unwrap();
+        assert_eq!(bm3.conditions.len(), 2);
+
+        // Bm6: 空母2 + 駆逐2
+        let bm6 = quests.iter().find(|q| q.quest_id == "Bm6").unwrap();
+        assert_eq!(bm6.conditions.len(), 2);
+
+        // Bm7: 旗艦駆逐 + 重巡1 + 軽巡1 + 駆逐4
+        let bm7 = quests.iter().find(|q| q.quest_id == "Bm7").unwrap();
+        assert_eq!(bm7.conditions.len(), 4);
+
+        // Bq6: 長波改二 + 高波改/沖波改/朝霜改
+        let bq6 = quests.iter().find(|q| q.quest_id == "Bq6").unwrap();
+        assert_eq!(bq6.conditions.len(), 2);
+
+        // Bq7: 三川艦隊 4隻
+        let bq7 = quests.iter().find(|q| q.quest_id == "Bq7").unwrap();
+        assert_eq!(bq7.conditions.len(), 1);
     }
 
     #[test]

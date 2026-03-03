@@ -263,11 +263,13 @@
     "area": "任意",
     "rank": "",
     "boss_only": false,
-    "count": 1,
+    "count": 3,
     "reset": "daily",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "enemy_type": "carrier",
+    "note": "※敵空母を3隻撃沈"
   },
   {
     "id": 212,
@@ -276,11 +278,13 @@
     "area": "任意",
     "rank": "",
     "boss_only": false,
-    "count": 1,
+    "count": 5,
     "reset": "daily",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "enemy_type": "transport",
+    "note": "※敵補給艦を5隻撃沈"
   },
   {
     "id": 213,
@@ -289,11 +293,13 @@
     "area": "任意",
     "rank": "",
     "boss_only": false,
-    "count": 1,
+    "count": 20,
     "reset": "weekly",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "enemy_type": "transport",
+    "note": "※敵補給艦を20隻撃沈"
   },
   {
     "id": 214,
@@ -302,11 +308,37 @@
     "area": "任意",
     "rank": "",
     "boss_only": false,
-    "count": 1,
+    "count": 36,
     "reset": "weekly",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "sub_goals": [
+      {
+        "name": "出撃",
+        "count": 36,
+        "boss_only": false,
+        "rank": ""
+      },
+      {
+        "name": "S勝利",
+        "count": 6,
+        "boss_only": false,
+        "rank": "S"
+      },
+      {
+        "name": "ボス到達",
+        "count": 24,
+        "boss_only": true,
+        "rank": ""
+      },
+      {
+        "name": "ボス勝利",
+        "count": 12,
+        "boss_only": true,
+        "rank": "B"
+      }
+    ]
   },
   {
     "id": 215,
@@ -328,7 +360,7 @@
     "name": "敵艦隊主力を撃滅せよ！",
     "area": "任意",
     "rank": "B",
-    "boss_only": true,
+    "boss_only": false,
     "count": 1,
     "reset": "daily",
     "no_conditions": true,
@@ -346,7 +378,9 @@
     "reset": "once",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "enemy_type": "carrier",
+    "note": "※敵空母を撃沈"
   },
   {
     "id": 218,
@@ -355,11 +389,13 @@
     "area": "任意",
     "rank": "",
     "boss_only": false,
-    "count": 1,
+    "count": 3,
     "reset": "daily",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "enemy_type": "transport",
+    "note": "※敵補給艦を3隻撃沈"
   },
   {
     "id": 219,
@@ -441,11 +477,13 @@
     "area": "任意",
     "rank": "",
     "boss_only": false,
-    "count": 1,
+    "count": 20,
     "reset": "weekly",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "enemy_type": "carrier",
+    "note": "※敵空母を20隻撃沈"
   },
   {
     "id": 221,
@@ -454,11 +492,13 @@
     "area": "任意",
     "rank": "",
     "boss_only": false,
-    "count": 1,
+    "count": 50,
     "reset": "weekly",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "enemy_type": "transport",
+    "note": "※敵補給艦を50隻撃沈"
   },
   {
     "id": 222,
@@ -909,11 +949,13 @@
     "area": "任意",
     "rank": "",
     "boss_only": false,
-    "count": 1,
+    "count": 15,
     "reset": "weekly",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "enemy_type": "submarine",
+    "note": "※敵潜水艦を15隻撃沈"
   },
   {
     "id": 229,
@@ -1053,11 +1095,13 @@
     "area": "任意",
     "rank": "",
     "boss_only": false,
-    "count": 1,
+    "count": 6,
     "reset": "daily",
     "conditions": [],
     "recommended": [],
-    "no_conditions": true
+    "no_conditions": true,
+    "enemy_type": "submarine",
+    "note": "※敵潜水艦を6隻撃沈"
   },
   {
     "id": 231,
@@ -2909,7 +2953,21 @@
     "reset": "monthly",
     "conditions": [
       {
-        "type": "ShipTypeCount",
+        "type": "ContainsShipNameAny",
+        "names": [
+          "大和",
+          "武蔵",
+          "長門",
+          "陸奥",
+          "伊勢",
+          "日向",
+          "扶桑",
+          "山城"
+        ],
+        "count": 3
+      },
+      {
+        "type": "MaxShipTypeCount",
         "ship_type": "戦艦級",
         "stypes": [
           8,
@@ -10090,7 +10148,7 @@
     "quest_id": "Bq2",
     "name": "戦果拡張任務！「Z作戦」前段作戦",
     "area": "2-4/6-1/6-3/6-4",
-    "rank": "A",
+    "rank": "",
     "boss_only": true,
     "count": 1,
     "reset": "quarterly",
@@ -10224,7 +10282,37 @@
         ]
       }
     ],
-    "no_conditions": true
+    "no_conditions": true,
+    "sub_goals": [
+      {
+        "name": "2-4",
+        "count": 1,
+        "boss_only": true,
+        "rank": "A",
+        "area": "2-4"
+      },
+      {
+        "name": "6-1",
+        "count": 1,
+        "boss_only": true,
+        "rank": "A",
+        "area": "6-1"
+      },
+      {
+        "name": "6-3",
+        "count": 1,
+        "boss_only": true,
+        "rank": "A",
+        "area": "6-3"
+      },
+      {
+        "name": "6-4",
+        "count": 1,
+        "boss_only": true,
+        "rank": "S",
+        "area": "6-4"
+      }
+    ]
   },
   {
     "id": 855,
@@ -15713,12 +15801,33 @@
         ]
       },
       {
-        "type": "ShipTypeCount",
-        "ship_type": "駆逐",
-        "stypes": [
-          2
-        ],
-        "value": 2
+        "type": "OrConditions",
+        "desc": "由良改二 or 六水戦駆逐2隻",
+        "alternatives": [
+          [
+            {
+              "type": "ContainsShipName",
+              "names": [
+                "由良改二"
+              ],
+              "count": 1
+            }
+          ],
+          [
+            {
+              "type": "ContainsShipNameAny",
+              "names": [
+                "睦月",
+                "如月",
+                "弥生",
+                "卯月",
+                "菊月",
+                "望月"
+              ],
+              "count": 2
+            }
+          ]
+        ]
       }
     ],
     "recommended": [
@@ -33422,7 +33531,7 @@
     ]
   },
   {
-    "id": 10001,
+    "id": 234,
     "quest_id": "2602B1",
     "name": "バレンタイン2026特別限定任務",
     "area": "1-3/1-4/2-1",
@@ -33821,7 +33930,8 @@
     "reset": "monthly",
     "no_conditions": true,
     "conditions": [],
-    "recommended": []
+    "recommended": [],
+    "counter_reset": "daily"
   },
   {
     "id": 318,
@@ -33852,7 +33962,7 @@
     "rank": "B",
     "boss_only": false,
     "count": 4,
-    "reset": "quarterly",
+    "reset": "once",
     "conditions": [
       {
         "type": "ContainsShipName",
@@ -33879,7 +33989,7 @@
     "rank": "B",
     "boss_only": false,
     "count": 4,
-    "reset": "quarterly",
+    "reset": "once",
     "conditions": [
       {
         "type": "ContainsShipName",
@@ -33950,7 +34060,8 @@
         "value": 2
       }
     ],
-    "recommended": []
+    "recommended": [],
+    "counter_reset": "daily"
   },
   {
     "id": 337,
@@ -33991,7 +34102,8 @@
         "count": 1
       }
     ],
-    "recommended": []
+    "recommended": [],
+    "counter_reset": "daily"
   },
   {
     "id": 339,
@@ -34032,7 +34144,8 @@
         "count": 1
       }
     ],
-    "recommended": []
+    "recommended": [],
+    "counter_reset": "daily"
   },
   {
     "id": 342,
@@ -34064,7 +34177,8 @@
         "value": 4
       }
     ],
-    "recommended": []
+    "recommended": [],
+    "counter_reset": "daily"
   },
   {
     "id": 345,
@@ -35106,6 +35220,451 @@
           2
         ],
         "value": 2
+      }
+    ],
+    "recommended": []
+  },
+  {
+    "id": 340,
+    "quest_id": "2603C1",
+    "name": "【桃の節句任務】桃の節句艦隊演習2026",
+    "area": "演習",
+    "rank": "S",
+    "boss_only": false,
+    "count": 3,
+    "reset": "weekly",
+    "conditions": [
+      {
+        "type": "ShipTypeCount",
+        "ship_type": "駆逐/海防",
+        "stypes": [
+          1,
+          2
+        ],
+        "value": 3
+      }
+    ],
+    "recommended": [],
+    "note": "※海防艦3隻または駆逐艦4隻を含む艦隊で当日中にS勝利3回"
+  },
+  {
+    "id": 906,
+    "quest_id": "2603B1",
+    "name": "【桃の節句】鎮守府近海 春の安全確保2026",
+    "area": "1-2/1-3/1-5/1-6",
+    "rank": "A",
+    "boss_only": true,
+    "count": 1,
+    "reset": "limited",
+    "conditions": [
+      {
+        "type": "ShipTypeCount",
+        "ship_type": "駆逐/海防",
+        "stypes": [
+          1,
+          2
+        ],
+        "value": 3
+      }
+    ],
+    "recommended": [
+      {
+        "area": "1-2",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐/海防",
+            "stypes": [
+              1,
+              2
+            ],
+            "value": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          }
+        ]
+      },
+      {
+        "area": "1-3",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐/海防",
+            "stypes": [
+              1,
+              2
+            ],
+            "value": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          }
+        ]
+      },
+      {
+        "area": "1-5",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐/海防",
+            "stypes": [
+              1,
+              2
+            ],
+            "value": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "1-6",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐/海防",
+            "stypes": [
+              1,
+              2
+            ],
+            "value": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 907,
+    "quest_id": "2603B2",
+    "name": "【桃の節句】南西諸島海域 春の戦闘哨戒2026",
+    "area": "2-1/2-2/2-3",
+    "rank": "S",
+    "boss_only": true,
+    "count": 2,
+    "reset": "limited",
+    "conditions": [
+      {
+        "type": "ShipTypeCount",
+        "ship_type": "駆逐/海防",
+        "stypes": [
+          1,
+          2
+        ],
+        "value": 4
+      }
+    ],
+    "recommended": [
+      {
+        "area": "2-1",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐/海防",
+            "stypes": [
+              1,
+              2
+            ],
+            "value": 4
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "2-2",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐/海防",
+            "stypes": [
+              1,
+              2
+            ],
+            "value": 4
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "2-3",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐/海防",
+            "stypes": [
+              1,
+              2
+            ],
+            "value": 4
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "水母",
+            "stypes": [
+              16
+            ],
+            "value": 1
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 908,
+    "quest_id": "2603B3",
+    "name": "【桃の節句】春の雛祭り艦隊決戦！2026",
+    "area": "2-4/2-5/7-2(2nd)",
+    "rank": "S",
+    "boss_only": true,
+    "count": 2,
+    "reset": "limited",
+    "conditions": [
+      {
+        "type": "ContainsShipNameAny",
+        "names": [
+          "Minneapolis",
+          "Samuel B.Roberts",
+          "夕雲",
+          "潮"
+        ],
+        "count": 2
+      }
+    ],
+    "recommended": [
+      {
+        "area": "2-4",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": [
+              "Minneapolis",
+              "Samuel B.Roberts",
+              "夕雲",
+              "潮"
+            ],
+            "count": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "高速戦艦",
+            "stypes": [
+              8
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      },
+      {
+        "area": "2-5",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": [
+              "Minneapolis",
+              "Samuel B.Roberts",
+              "夕雲",
+              "潮"
+            ],
+            "count": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "高速戦艦",
+            "stypes": [
+              8
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 3
+          }
+        ]
+      },
+      {
+        "area": "7-2(2nd)",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": [
+              "Minneapolis",
+              "Samuel B.Roberts",
+              "夕雲",
+              "潮"
+            ],
+            "count": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "高速戦艦",
+            "stypes": [
+              8
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 374,
+    "quest_id": "2603C2",
+    "name": "【期間限定任務】「三十二駆」特別演習！",
+    "area": "演習",
+    "rank": "S",
+    "boss_only": false,
+    "count": 3,
+    "reset": "weekly",
+    "conditions": [
+      {
+        "type": "ContainsShipNameAny",
+        "names": [
+          "玉波",
+          "涼波",
+          "藤波",
+          "早波",
+          "浜波"
+        ],
+        "count": 3
+      }
+    ],
+    "recommended": [],
+    "note": "※当日中にS勝利3回"
+  },
+  {
+    "id": 1022,
+    "quest_id": "2412B5",
+    "name": "【期間限定任務】「三十二駆」月次戦闘哨戒！",
+    "area": "2-3/7-1/4-1/5-1",
+    "rank": "A",
+    "boss_only": true,
+    "count": 1,
+    "reset": "monthly",
+    "conditions": [
+      {
+        "type": "ContainsShipNameAny",
+        "names": [
+          "玉波",
+          "涼波",
+          "藤波",
+          "早波",
+          "浜波"
+        ],
+        "count": 3
       }
     ],
     "recommended": []

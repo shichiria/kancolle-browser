@@ -118,6 +118,7 @@ interface SortieQuestDef {
   count: number;
   reset: string;
   no_conditions: boolean;
+  sub_goals?: { name: string; count: number; boss_only: boolean; rank: string }[];
 }
 
 interface ActiveQuestDetail {
@@ -825,7 +826,7 @@ function SortieQuestChecker({
                 </span>
               </>
             ) : (
-              <span className="sortie-quest-status quest-unknown">編成条件なし</span>
+              <span className="sortie-quest-status quest-unknown">データなし</span>
             )}
           </div>
           {checkResult.note && (
@@ -846,7 +847,10 @@ function SortieQuestChecker({
           {(() => {
             // Merge recommended areas and progress-only areas into one list
             const recAreas = checkResult.recommended;
-            const uncoveredAreas = currentProgress
+            // Exclude sub_goals entries from uncovered areas (shown in QuestProgressDisplay)
+            const curDef = currentApiNo != null ? questById.get(currentApiNo) : undefined;
+            const isSubGoals = curDef?.sub_goals && curDef.sub_goals.length > 0;
+            const uncoveredAreas = currentProgress && !isSubGoals
               ? currentProgress.area_progress.filter((ap) => !recommendedAreas.has(ap.area))
               : [];
             if (recAreas.length === 0 && uncoveredAreas.length === 0) return null;
@@ -956,8 +960,45 @@ function QuestProgressDisplay({
     return null;
   }, [questId, questById]);
 
+  const questDef = useMemo(() => {
+    if (apiNo == null) return null;
+    return questById.get(apiNo) ?? null;
+  }, [apiNo, questById]);
+
   const progress = apiNo != null ? questProgress.get(apiNo) : undefined;
   if (!progress) return null;
+
+  const hasSubGoals = questDef?.sub_goals && questDef.sub_goals.length > 0;
+
+  // Sub-goals quests: show each sub-goal as a simple progress row
+  if (hasSubGoals) {
+    const setSubGoalCount = async (name: string, value: number) => {
+      if (apiNo == null) return;
+      await invoke("update_quest_progress", { questId: apiNo, area: name, count: value });
+    };
+
+    return (
+      <div className="quest-progress quest-progress-sub-goals">
+        <span className="quest-progress-label">進捗</span>
+        {progress.completed && <span className="quest-progress-badge">達成</span>}
+        {progress.area_progress.map((ap) => (
+          <div key={ap.area} className="sub-goal-row">
+            <span className={`sub-goal-name ${ap.cleared ? "sub-goal-cleared" : ""}`}>{ap.area}</span>
+            <select
+              className="qp-count-select"
+              value={ap.count}
+              onChange={(e) => setSubGoalCount(ap.area, parseInt(e.target.value, 10))}
+            >
+              {Array.from({ length: ap.count_max + 1 }, (_, i) => (
+                <option key={i} value={i}>{i}</option>
+              ))}
+            </select>
+            <span className="qp-count-max">/{ap.count_max}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   // Area quests with all areas covered by recommended → nothing to show here
   const hasUncoveredAreas = progress.area_progress.some(
@@ -2516,7 +2557,9 @@ function App() {
   const [showApiLog, setShowApiLog] = useState<boolean>(() => {
     return localStorage.getItem("show-api-log") === "true";
   });
-  const [rawApiEnabled, setRawApiEnabled] = useState(false);
+  const [rawApiEnabled, setRawApiEnabled] = useState<boolean>(() => {
+    return localStorage.getItem("raw-api-enabled") === "true";
+  });
 
   // Weapon icon sprite sheet for damecon indicator
   const [weaponIconSheet, setWeaponIconSheet] = useState<string | null>(null);
@@ -2681,8 +2724,11 @@ function App() {
     // Load Google Drive sync status
     invoke<typeof driveStatus>("get_drive_status").then(setDriveStatus).catch(console.error);
 
-    // Load raw API enabled state
-    invoke<boolean>("get_raw_api_enabled").then(setRawApiEnabled).catch(console.error);
+    // Restore raw API enabled state from localStorage to backend
+    const savedRawApi = localStorage.getItem("raw-api-enabled") === "true";
+    if (savedRawApi) {
+      invoke("set_raw_api_enabled", { enabled: true }).catch(console.error);
+    }
 
     return () => {
       unlistenProxy.then((f) => f());
@@ -3142,6 +3188,7 @@ function App() {
                     onChange={async (e) => {
                       const enabled = e.target.checked;
                       setRawApiEnabled(enabled);
+                      localStorage.setItem("raw-api-enabled", String(enabled));
                       await invoke("set_raw_api_enabled", { enabled });
                     }}
                   />

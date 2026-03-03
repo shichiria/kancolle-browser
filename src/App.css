@@ -1698,6 +1698,26 @@ html, body, #root {
   color: #4caf50;
 }
 
+/* Sub-goals progress (e.g. あ号作戦) */
+.quest-progress-sub-goals {
+  flex-wrap: wrap;
+}
+
+.sub-goal-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sub-goal-name {
+  font-size: 10px;
+  color: #aaa;
+}
+
+.sub-goal-name.sub-goal-cleared {
+  color: #4caf50;
+}
+
 .qp-inline-progress .qp-area-select {
   font-size: 10px;
 }
