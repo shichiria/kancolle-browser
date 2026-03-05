@@ -1108,34 +1108,28 @@ function FleetPanel({
               >
                 {ship.cond}
               </span>
-              {ship.damecon_name && weaponIconSheet && (
+              {ship.damecon_name && (
                 <span
-                  className="damecon-icon"
+                  className={weaponIconSheet ? "damecon-icon" : "mark-noimage"}
                   title={ship.damecon_name}
-                  style={{
-                    backgroundImage: `url(${weaponIconSheet})`,
-                  }}
+                  style={weaponIconSheet ? { backgroundImage: `url(${weaponIconSheet})` } : undefined}
                 />
               )}
-              {ship.special_equips.length > 0 && weaponIconSheet && (
+              {ship.special_equips.length > 0 && (
                 ship.special_equips.map((eq, j) => (
                   <span
                     key={`seq-${j}`}
-                    className={`special-equip-icon special-equip-icon-${eq.icon_type}`}
+                    className={weaponIconSheet ? `special-equip-icon special-equip-icon-${eq.icon_type}` : "mark-noimage mark-noimage-sm"}
                     title={eq.name}
-                    style={{
-                      backgroundImage: `url(${weaponIconSheet})`,
-                    }}
+                    style={weaponIconSheet ? { backgroundImage: `url(${weaponIconSheet})` } : undefined}
                   />
                 ))
               )}
-              {ship.can_opening_asw && weaponIconSheet && (
+              {ship.can_opening_asw && (
                 <span
-                  className="opening-asw-icon"
+                  className={weaponIconSheet ? "opening-asw-icon" : "mark-noimage"}
                   title="先制対潜"
-                  style={{
-                    backgroundImage: `url(${weaponIconSheet})`,
-                  }}
+                  style={weaponIconSheet ? { backgroundImage: `url(${weaponIconSheet})` } : undefined}
                 />
               )}
             </div>

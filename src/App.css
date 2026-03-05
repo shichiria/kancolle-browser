@@ -580,6 +580,24 @@ html, body, #root {
   flex-shrink: 0;
 }
 
+/* Fallback "no image" icon when weapon sprite sheet is not cached */
+.mark-noimage {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  border: 1px solid #888;
+  border-radius: 2px;
+  background: #333 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 10l3-4 2 2 2-3 2 4' stroke='%23888' stroke-width='1.2' fill='none'/%3E%3Ccircle cx='4.5' cy='4.5' r='1.2' fill='%23888'/%3E%3C/svg%3E") center/contain no-repeat;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.mark-noimage-sm {
+  width: 11px;
+  height: 11px;
+  min-width: 11px;
+}
+
 /* Supply bars */
 .ship-supply {
   display: flex;
