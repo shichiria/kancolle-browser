@@ -100,8 +100,15 @@ fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: usize) {
 
     // Control bar is 28 CSS pixels, scaled by zoom and DPI
     // Game coordinates are also scaled by zoom
-    let dx = (bx * zoom * scale) as i32;
-    let dy = ((28.0 + by) * zoom * scale) as i32;
+    let mut dx = (bx * zoom * scale) as i32;
+    let mut dy = ((28.0 + by) * zoom * scale) as i32;
+
+    // macOS: adjust for platform-specific coordinate offset
+    #[cfg(target_os = "macos")]
+    {
+        dx += (6.0 * scale) as i32;
+        dy += (30.0 * scale) as i32;
+    }
     let phys_w = (bw * zoom * scale) as u32;
     let phys_h = (bh * zoom * scale) as u32;
 
