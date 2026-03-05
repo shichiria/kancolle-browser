@@ -48,11 +48,11 @@ fn get_formation_button_rect(formation: i32, _ship_count: usize) -> Option<(f64,
     // Row Y: derived from kcauto search regions (row1: 278, row2: 517)
     let (cx, cy) = match formation {
         1 => (663.0, 278.0),   // 単縦陣 col1 row1
-        2 => (861.0, 278.0),   // 複縦陣 col2 row1
-        3 => (1059.0, 278.0),  // 輪形陣 col3 row1
-        4 => (663.0, 517.0),   // 梯形陣 col1 row2
-        5 => (861.0, 517.0),   // 単横陣 col2 row2
-        6 => (1059.0, 517.0),  // 警戒陣 col3 row2
+        2 => (858.0, 278.0),   // 複縦陣 col2 row1
+        3 => (1056.0, 278.0),  // 輪形陣 col3 row1
+        4 => (766.0, 517.0),   // 梯形陣 col1 row2
+        5 => (960.0, 517.0),   // 単横陣 col2 row2
+        6 => (1048.0, 517.0),  // 警戒陣 col3 row2
         // Combined fleet formations (from kcauto CF regions, same cx-5 adjustment)
         11 => (743.0, 263.0),  // 第一警戒航行序列
         12 => (993.0, 263.0),  // 第二警戒航行序列
@@ -93,14 +93,17 @@ fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: usize) {
     };
     let scale = game_win.scale_factor().unwrap_or(1.0);
 
-    // Control bar is 28 CSS pixels, scaled by DPI
-    let bar_physical = (28.0 * scale) as i32;
+    // Get current game zoom level
+    let zoom = app.try_state::<crate::AppState>()
+        .map(|s| *s.game_zoom.lock().unwrap())
+        .unwrap_or(1.0);
 
-    // Offset from game window inner position (physical pixels)
-    let dx = (bx * scale) as i32;
-    let dy = bar_physical + (by * scale) as i32;
-    let phys_w = (bw * scale) as u32;
-    let phys_h = (bh * scale) as u32;
+    // Control bar is 28 CSS pixels, scaled by zoom and DPI
+    // Game coordinates are also scaled by zoom
+    let dx = (bx * zoom * scale) as i32;
+    let dy = ((28.0 + by) * zoom * scale) as i32;
+    let phys_w = (bw * zoom * scale) as u32;
+    let phys_h = (bh * zoom * scale) as u32;
 
     // Save offset in AppState for window-move tracking
     if let Some(app_state) = app.try_state::<crate::AppState>() {

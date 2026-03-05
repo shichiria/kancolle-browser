@@ -36,6 +36,8 @@ pub struct AppState {
     pub taiha_alert_enabled: AtomicBool,
     /// Formation hint window offset relative to game window inner position
     pub formation_hint_rect: Mutex<FormationHintRect>,
+    /// Current game zoom level (1.0 = 100%)
+    pub game_zoom: Mutex<f64>,
 }
 
 /// Get the proxy port for the frontend
@@ -1428,6 +1430,11 @@ fn set_game_zoom(app: tauri::AppHandle, zoom: f64) -> Result<(), String> {
         .get_window("game")
         .ok_or("Game window not found")?;
 
+    // Save zoom level to AppState
+    if let Some(state) = app.try_state::<AppState>() {
+        *state.game_zoom.lock().unwrap() = zoom;
+    }
+
     // Set webview zoom
     game_wv.set_zoom(zoom).map_err(|e| e.to_string())?;
 
@@ -1825,6 +1832,7 @@ pub fn run() {
             formation_hint_enabled: AtomicBool::new(true),
             taiha_alert_enabled: AtomicBool::new(true),
             formation_hint_rect: Mutex::new(FormationHintRect::default()),
+            game_zoom: Mutex::new(1.0),
         })
         .invoke_handler(tauri::generate_handler![
             get_proxy_port,
