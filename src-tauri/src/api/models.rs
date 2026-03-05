@@ -168,6 +168,10 @@ pub struct GameStateInner {
     pub senka: SenkaTracker,
     /// Sync notifier — sends SyncCommand to the background sync engine
     pub sync_notifier: Option<tokio::sync::mpsc::Sender<crate::drive_sync::SyncCommand>>,
+    /// Formation memory: "{map_area}-{map_no}-{cell_no}" -> formation_id
+    pub formation_memory: HashMap<String, i32>,
+    /// Path to formation memory file
+    pub formation_memory_path: std::path::PathBuf,
 }
 
 /// Thread-safe game state accessible via Tauri managed state
@@ -192,6 +196,11 @@ impl GameState {
         let quest_progress_path = sync_dir.join("quest_progress.json");
         inner.history.quest_progress = crate::quest_progress::load_progress(&quest_progress_path);
         inner.quest_progress_path = quest_progress_path;
+
+        // Load formation memory
+        let formation_memory_path = sync_dir.join("formation_memory.json");
+        inner.formation_memory = load_formation_memory(&formation_memory_path);
+        inner.formation_memory_path = formation_memory_path;
 
         // Initialize senka tracker
         inner.senka = SenkaTracker::new(&data_dir);
@@ -603,4 +612,19 @@ pub struct EquipListItem {
 pub struct EquipListResponse {
     pub items: Vec<EquipListItem>,
     pub equip_types: Vec<(i32, String)>,
+}
+
+/// Load formation memory from disk
+pub fn load_formation_memory(path: &std::path::Path) -> HashMap<String, i32> {
+    match std::fs::read_to_string(path) {
+        Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
+        Err(_) => HashMap::new(),
+    }
+}
+
+/// Save formation memory to disk
+pub fn save_formation_memory(path: &std::path::Path, memory: &HashMap<String, i32>) {
+    if let Ok(json) = serde_json::to_string_pretty(memory) {
+        let _ = std::fs::write(path, json);
+    }
 }

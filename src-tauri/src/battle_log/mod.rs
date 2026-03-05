@@ -391,7 +391,7 @@ impl BattleLogger {
             "BattleLogger initialized with {} saved records",
             completed.len()
         );
-        Self {
+        let mut logger = Self {
             active_sortie: None,
             pending_battle: None,
             completed,
@@ -399,7 +399,9 @@ impl BattleLogger {
             raw_dir: Some(raw_dir),
             raw_enabled: false,
             raw_seq: 0,
-        }
+        };
+        logger.fix_interrupted_records();
+        logger
     }
 
     /// Allocate raw API filename and increment sequence number.
@@ -1027,11 +1029,96 @@ impl BattleLogger {
         }
     }
 
+    /// Load records from disk filtered by date range (file name based).
+    /// date_from/date_to are in YYYYMMDD format. Both inclusive.
+    pub fn get_records_by_date_range(
+        &self,
+        date_from: &str,
+        date_to: &str,
+    ) -> Vec<SortieRecordSummary> {
+        let dir = match &self.save_dir {
+            Some(d) => d,
+            None => return Vec::new(),
+        };
+        let entries = match fs::read_dir(dir) {
+            Ok(e) => e,
+            Err(_) => return Vec::new(),
+        };
+
+        // Collect and filter filenames first, then sort before reading
+        let mut matching_paths: Vec<_> = entries
+            .flatten()
+            .filter_map(|entry| {
+                let path = entry.path();
+                if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                    return None;
+                }
+                let stem = path.file_stem()?.to_str()?.to_string();
+                if stem.len() < 8 {
+                    return None;
+                }
+                let file_date = &stem[..8];
+                if file_date >= date_from && file_date <= date_to {
+                    Some((stem, path))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Sort by filename descending (newest first) - avoids parsing JSON for ordering
+        matching_paths.sort_by(|a, b| b.0.cmp(&a.0));
+
+        let mut records = Vec::new();
+        for (_stem, path) in matching_paths {
+            match fs::read_to_string(&path) {
+                Ok(content) => match serde_json::from_str::<SortieRecord>(&content) {
+                    Ok(mut record) => {
+                        for node in &mut record.nodes {
+                            node.migrate_legacy();
+                        }
+                        records.push(SortieRecordSummary::from(&record));
+                    }
+                    Err(e) => {
+                        warn!("Failed to parse battle log {:?}: {}", path.file_name(), e);
+                    }
+                },
+                Err(e) => {
+                    warn!("Failed to read battle log {:?}: {}", path.file_name(), e);
+                }
+            }
+        }
+
+        records
+    }
+
     /// Reload completed records from disk (used after sync downloads new files).
     pub fn reload_from_disk(&mut self) {
         if let Some(dir) = &self.save_dir {
             self.completed = Self::load_from_disk(dir);
             info!("BattleLogger reloaded: {} records", self.completed.len());
+            self.fix_interrupted_records();
+        }
+    }
+
+    /// Fix sortie records that were interrupted (crash, browser close, etc.)
+    /// Records with end_time = None on disk are no longer active, so mark them completed.
+    fn fix_interrupted_records(&mut self) {
+        let active_id = self.active_sortie.as_ref().map(|s| s.id.clone());
+        let mut fixed_indices = Vec::new();
+
+        for (i, record) in self.completed.iter_mut().enumerate() {
+            if record.end_time.is_none() && active_id.as_deref() != Some(&record.id) {
+                record.end_time = Some(record.start_time);
+                fixed_indices.push(i);
+            }
+        }
+
+        if !fixed_indices.is_empty() {
+            for &i in &fixed_indices {
+                self.save_to_disk(&self.completed[i]);
+            }
+            info!("Fixed {} interrupted sortie records", fixed_indices.len());
         }
     }
 

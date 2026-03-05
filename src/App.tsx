@@ -1919,15 +1919,172 @@ function BattleNodeDetail({
   );
 }
 
+/** Helper: format YYYY-MM-DD to compact display */
+function fmtDate(d: string) {
+  const [y, m, dd] = d.split("-");
+  return `${y}/${m}/${dd}`;
+}
+
+/** Helper: get days in month */
+function daysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+/** Helper: YYYY-MM-DD string from Date parts */
+function toDateStr(y: number, m: number, d: number) {
+  return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** Date range picker with calendar - select FROM and TO by clicking */
+function DateRangePicker({
+  dateFrom,
+  dateTo,
+  onChange,
+}: {
+  dateFrom: string;
+  dateTo: string;
+  onChange: (from: string, to: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [viewYear, setViewMonth_year] = useState(() => {
+    const d = dateFrom ? new Date(dateFrom) : new Date();
+    return d.getFullYear();
+  });
+  const [viewMonth, setViewMonth_month] = useState(() => {
+    const d = dateFrom ? new Date(dateFrom) : new Date();
+    return d.getMonth();
+  });
+  // Selection state: null = picking start, string = start picked, picking end
+  const [pickStart, setPickStart] = useState<string | null>(null);
+  const [hoverDate, setHoverDate] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setPickStart(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth_year(viewYear - 1); setViewMonth_month(11); }
+    else setViewMonth_month(viewMonth - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth_year(viewYear + 1); setViewMonth_month(0); }
+    else setViewMonth_month(viewMonth + 1);
+  };
+
+  const handleDayClick = (dateStr: string) => {
+    if (pickStart === null) {
+      // First click: set start
+      setPickStart(dateStr);
+    } else {
+      // Second click: set range (auto-swap if needed)
+      const [a, b] = pickStart <= dateStr ? [pickStart, dateStr] : [dateStr, pickStart];
+      onChange(a, b);
+      setPickStart(null);
+      setOpen(false);
+    }
+  };
+
+  const today = new Date();
+  const todayStr = toDateStr(today.getFullYear(), today.getMonth(), today.getDate());
+
+  // Build calendar grid
+  const firstDow = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const totalDays = daysInMonth(viewYear, viewMonth);
+  const weeks: (number | null)[][] = [];
+  let week: (number | null)[] = Array(firstDow).fill(null);
+  for (let d = 1; d <= totalDays; d++) {
+    week.push(d);
+    if (week.length === 7) { weeks.push(week); week = []; }
+  }
+  if (week.length > 0) {
+    while (week.length < 7) week.push(null);
+    weeks.push(week);
+  }
+
+  // Determine effective range for highlighting
+  const effFrom = pickStart ?? dateFrom;
+  const effTo = pickStart ? (hoverDate ?? pickStart) : dateTo;
+  const rangeStart = effFrom <= effTo ? effFrom : effTo;
+  const rangeEnd = effFrom <= effTo ? effTo : effFrom;
+
+  return (
+    <div className="drp-container" ref={containerRef}>
+      <button className="drp-trigger" onClick={() => { setOpen(!open); setPickStart(null); }}>
+        {dateFrom && dateTo ? `${fmtDate(dateFrom)} 〜 ${fmtDate(dateTo)}` : "全期間"}
+      </button>
+      {open && (
+        <div className="drp-dropdown">
+          <div className="drp-calendar">
+            <div className="drp-nav">
+              <button onClick={prevMonth}>&lt;</button>
+              <span>{viewYear}年{viewMonth + 1}月</span>
+              <button onClick={nextMonth}>&gt;</button>
+            </div>
+            <div className="drp-grid">
+              {["日", "月", "火", "水", "木", "金", "土"].map((w) => (
+                <div key={w} className="drp-dow">{w}</div>
+              ))}
+              {weeks.flat().map((day, i) => {
+                if (day === null) return <div key={`e${i}`} className="drp-cell drp-empty" />;
+                const ds = toDateStr(viewYear, viewMonth, day);
+                const isInRange = ds >= rangeStart && ds <= rangeEnd;
+                const isStart = ds === rangeStart;
+                const isEnd = ds === rangeEnd;
+                const isToday = ds === todayStr;
+                return (
+                  <div
+                    key={ds}
+                    className={[
+                      "drp-cell",
+                      isInRange ? "drp-in-range" : "",
+                      isStart ? "drp-start" : "",
+                      isEnd ? "drp-end" : "",
+                      isToday ? "drp-today" : "",
+                    ].join(" ")}
+                    onClick={() => handleDayClick(ds)}
+                    onMouseEnter={() => setHoverDate(ds)}
+                    onMouseLeave={() => setHoverDate(null)}
+                  >
+                    {day}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {pickStart && (
+            <div className="drp-hint">終了日を選択してください</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Battle tab - full page battle log viewer */
 function BattleTab({
   battleLogs,
   onRefresh,
   totalRecords,
+  dateFrom,
+  dateTo,
+  onDateChange,
 }: {
   battleLogs: SortieRecord[];
   onRefresh: () => void;
   totalRecords: number;
+  dateFrom: string;
+  dateTo: string;
+  onDateChange: (from: string, to: string) => void;
 }) {
   const [selectedRecord, setSelectedRecord] = useState<SortieRecord | null>(null);
   const [mapFilter, setMapFilter] = useState("");
@@ -1950,8 +2107,24 @@ function BattleTab({
 
   return (
     <div className="battle-tab">
-      {/* Filter bar */}
+      {/* Date range + filter bar */}
       <div className="battle-filter-bar">
+        <DateRangePicker dateFrom={dateFrom} dateTo={dateTo} onChange={onDateChange} />
+        <button className="battle-preset-btn" onClick={() => {
+          const now = new Date();
+          const t = toDateStr(now.getFullYear(), now.getMonth(), now.getDate());
+          onDateChange(t, t);
+        }}>今日</button>
+        <button className="battle-preset-btn" onClick={() => {
+          const now = new Date();
+          const from = toDateStr(now.getFullYear(), now.getMonth(), 1);
+          const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+          const to = toDateStr(now.getFullYear(), now.getMonth(), lastDay);
+          onDateChange(from, to);
+        }}>今月</button>
+        <button className="battle-preset-btn" onClick={() => {
+          onDateChange("", "");
+        }}>全て</button>
         <select
           className="battle-filter-select"
           value={mapFilter}
@@ -2538,7 +2711,15 @@ function App() {
   const [portDataVersion, setPortDataVersion] = useState(0);
   const [battleLogs, setBattleLogs] = useState<SortieRecord[]>([]);
   const [battleLogsTotal, setBattleLogsTotal] = useState(0);
-  const [taihaWarningShips, setTaihaWarningShips] = useState<string[]>([]);
+  const [battleDateFrom, setBattleDateFrom] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  });
+  const [battleDateTo, setBattleDateTo] = useState(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  });
   const [activeTab, setActiveTab] = useState<TabId>("homeport");
   const [uiZoom, setUiZoom] = useState<number>(() => {
     const saved = localStorage.getItem("ui-zoom");
@@ -2582,16 +2763,26 @@ function App() {
 
   const refreshBattleLogs = useCallback(async () => {
     try {
-      const data = await invoke<BattleLogsResponse>("get_battle_logs", {
-        limit: 200,
-        offset: 0,
-      });
+      let params: Record<string, unknown>;
+      if (battleDateFrom && battleDateTo) {
+        const from = battleDateFrom.replace(/-/g, "");
+        const to = battleDateTo.replace(/-/g, "");
+        params = { dateFrom: from, dateTo: to };
+      } else {
+        params = { limit: 200, offset: 0 };
+      }
+      const data = await invoke<BattleLogsResponse>("get_battle_logs", params);
       setBattleLogs(data.records);
       setBattleLogsTotal(data.total);
     } catch (e) {
       console.error("Failed to load battle logs:", e);
     }
-  }, []);
+  }, [battleDateFrom, battleDateTo]);
+
+  // Re-fetch when view mode or date selection changes
+  useEffect(() => {
+    refreshBattleLogs();
+  }, [refreshBattleLogs]);
 
   useEffect(() => {
     const unlistenProxy = listen<number>("proxy-ready", (event) => {
@@ -2639,10 +2830,6 @@ function App() {
         }
         return [event.payload, ...prev].slice(0, 200);
       });
-    });
-
-    const unlistenTaihaWarning = listen<{ ships: string[] }>("taiha-advance-warning", (event) => {
-      setTaihaWarningShips(event.payload.ships);
     });
 
     const unlistenFleet = listen<FleetData[]>("fleet-updated", (event) => {
@@ -2736,7 +2923,6 @@ function App() {
       unlistenFleet.then((f) => f());
       unlistenSortie.then((f) => f());
       unlistenSortieUpdate.then((f) => f());
-      unlistenTaihaWarning.then((f) => f());
       unlistenQuest.then((f) => f());
       unlistenQuestProgress.then((f) => f());
       unlistenSenka.then((f) => f());
@@ -3036,6 +3222,9 @@ function App() {
             battleLogs={battleLogs}
             onRefresh={refreshBattleLogs}
             totalRecords={battleLogsTotal}
+            dateFrom={battleDateFrom}
+            dateTo={battleDateTo}
+            onDateChange={(from, to) => { setBattleDateFrom(from); setBattleDateTo(to); }}
           />
         )}
         {activeTab === "improvement" && (
@@ -3308,25 +3497,6 @@ function App() {
           </div>
         )}
       </div>
-      {taihaWarningShips.length > 0 && (
-        <div className="taiha-warning-overlay" onClick={() => setTaihaWarningShips([])}>
-          <div className="taiha-warning-dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="taiha-warning-icon">⚠</div>
-            <div className="taiha-warning-title">大破進撃警告</div>
-            <div className="taiha-warning-message">
-              大破状態の艦娘がダメコンなしで進撃しています！
-            </div>
-            <div className="taiha-warning-ships">
-              {taihaWarningShips.map((name, i) => (
-                <span key={i} className="taiha-warning-ship-name">{name}</span>
-              ))}
-            </div>
-            <button className="taiha-warning-close" onClick={() => setTaihaWarningShips([])}>
-              確認
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

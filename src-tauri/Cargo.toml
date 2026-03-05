@@ -1,6 +1,6 @@
 [package]
 name = "kancolle-browser"
-version = "0.1.2"
+version = "0.2.0"
 description = "Cross-platform KanColle Browser"
 authors = ["shichiria"]
 edition = "2021"

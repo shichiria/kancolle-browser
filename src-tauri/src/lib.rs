@@ -13,15 +13,29 @@ use log::{info, warn};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use tauri::{Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, State, WebviewBuilder, WebviewUrl, WindowBuilder};
 use url::Url;
 
 use api::models::GameState;
+
+/// Formation hint window offset from game window inner position (physical pixels)
+#[derive(Debug, Default, Clone, Copy)]
+pub struct FormationHintRect {
+    pub dx: i32,
+    pub dy: i32,
+    pub w: u32,
+    pub h: u32,
+    pub visible: bool,
+}
 
 /// Application state shared across the app
 pub struct AppState {
     pub proxy_port: Mutex<u16>,
     pub game_muted: AtomicBool,
+    pub formation_hint_enabled: AtomicBool,
+    pub taiha_alert_enabled: AtomicBool,
+    /// Formation hint window offset relative to game window inner position
+    pub formation_hint_rect: Mutex<FormationHintRect>,
 }
 
 /// Get the proxy port for the frontend
@@ -233,8 +247,8 @@ fn cookie_file_path(app: &tauri::AppHandle) -> PathBuf {
 #[tauri::command]
 async fn save_game_cookies(app: tauri::AppHandle) -> Result<usize, String> {
     let game_wv = app
-        .get_webview_window("game")
-        .ok_or("Game window not found")?;
+        .get_webview("game-content")
+        .ok_or("Game webview not found")?;
 
     let urls = [
         "https://www.dmm.com",
@@ -442,13 +456,21 @@ const GAME_INIT_SCRIPT: &str = r#"
             + '<option value="2">200%</option>'
             + '</select>'
             + '<button id="kc-mute">\u{1f50a}</button>'
+            + '<button id="kc-formation" title="\u{9663}\u{5F62}\u{8A18}\u{61B6}">\u{9663}\u{5F62}</button>'
+            + '<button id="kc-taiha" title="\u{5927}\u{7834}\u{8B66}\u{544A}">\u{26A0}\u{5927}\u{7834}</button>'
             + '<span class="spacer"></span>'
             + '<span class="label">KanColle Browser</span>';
         parent.appendChild(bar);
 
         // Restore saved zoom
         var saved = localStorage.getItem('kc-game-zoom');
-        if (saved) document.getElementById('kc-zoom').value = saved;
+        if (saved) {
+            document.getElementById('kc-zoom').value = saved;
+            var z = parseFloat(saved);
+            if (z && z !== 1 && window.__TAURI_INTERNALS__) {
+                window.__TAURI_INTERNALS__.invoke('set_game_zoom', { zoom: z });
+            }
+        }
 
         document.getElementById('kc-zoom').addEventListener('change', function() {
             var z = parseFloat(this.value);
@@ -475,6 +497,40 @@ const GAME_INIT_SCRIPT: &str = r#"
             this.className = muted ? 'muted' : '';
             window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_game_mute', { muted: muted });
         });
+
+        // Formation hint toggle
+        var fmtEnabled = true;
+        var fmtBtn = document.getElementById('kc-formation');
+        if (window.__TAURI_INTERNALS__) {
+            window.__TAURI_INTERNALS__.invoke('get_formation_hint_enabled').then(function(e) {
+                fmtEnabled = !!e;
+                fmtBtn.className = fmtEnabled ? '' : 'muted';
+                fmtBtn.title = fmtEnabled ? '\u{9663}\u{5F62}\u{8A18}\u{61B6} ON' : '\u{9663}\u{5F62}\u{8A18}\u{61B6} OFF';
+            }).catch(function() {});
+        }
+        fmtBtn.addEventListener('click', function() {
+            fmtEnabled = !fmtEnabled;
+            this.className = fmtEnabled ? '' : 'muted';
+            this.title = fmtEnabled ? '\u{9663}\u{5F62}\u{8A18}\u{61B6} ON' : '\u{9663}\u{5F62}\u{8A18}\u{61B6} OFF';
+            window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('set_formation_hint_enabled', { enabled: fmtEnabled });
+        });
+
+        // Taiha alert toggle
+        var taihaEnabled = true;
+        var taihaBtn = document.getElementById('kc-taiha');
+        if (window.__TAURI_INTERNALS__) {
+            window.__TAURI_INTERNALS__.invoke('get_taiha_alert_enabled').then(function(e) {
+                taihaEnabled = !!e;
+                taihaBtn.className = taihaEnabled ? '' : 'muted';
+                taihaBtn.title = taihaEnabled ? '\u{5927}\u{7834}\u{8B66}\u{544A} ON' : '\u{5927}\u{7834}\u{8B66}\u{544A} OFF';
+            }).catch(function() {});
+        }
+        taihaBtn.addEventListener('click', function() {
+            taihaEnabled = !taihaEnabled;
+            this.className = taihaEnabled ? '' : 'muted';
+            this.title = taihaEnabled ? '\u{5927}\u{7834}\u{8B66}\u{544A} ON' : '\u{5927}\u{7834}\u{8B66}\u{544A} OFF';
+            window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('set_taiha_alert_enabled', { enabled: taihaEnabled });
+        });
     }
 
     if (document.body) addControlBar();
@@ -482,12 +538,13 @@ const GAME_INIT_SCRIPT: &str = r#"
 })();
 "#;
 
-/// Open the KanColle game in a separate window with proxy configured
+/// Open the KanColle game in a separate window with proxy configured.
+/// Uses multi-webview: game-content (game) + game-overlay (transparent overlay).
 #[tauri::command]
 async fn open_game_window(app: tauri::AppHandle) -> Result<(), String> {
     // Check if game window already exists
-    if app.get_webview_window("game").is_some() {
-        if let Some(win) = app.get_webview_window("game") {
+    if app.get_window("game").is_some() {
+        if let Some(win) = app.get_window("game") {
             win.set_focus().map_err(|e| e.to_string())?;
         }
         return Ok(());
@@ -521,27 +578,28 @@ async fn open_game_window(app: tauri::AppHandle) -> Result<(), String> {
     let restore_script = build_cookie_restore_script(&app).await;
     let final_init_script = format!("{}\n{}", GAME_INIT_SCRIPT, restore_script);
 
-    let mut game_window_builder =
-        WebviewWindowBuilder::new(&app, "game", WebviewUrl::External(game_url))
-            .title("KanColle")
-            .inner_size(
-                GAME_WIDTH,
-                GAME_HEIGHT + CONTROL_BAR_HEIGHT + MACOS_TITLEBAR_HEIGHT,
-            )
-            .min_inner_size(
-                GAME_WIDTH * 0.5,
-                GAME_HEIGHT * 0.5 + CONTROL_BAR_HEIGHT + MACOS_TITLEBAR_HEIGHT,
-            )
+    let win_width = GAME_WIDTH;
+    let win_height = GAME_HEIGHT + CONTROL_BAR_HEIGHT + MACOS_TITLEBAR_HEIGHT;
+
+    // Create the window (without a built-in webview)
+    let game_window = WindowBuilder::new(&app, "game")
+        .title("KanColle")
+        .inner_size(win_width, win_height)
+        .min_inner_size(GAME_WIDTH * 0.5, GAME_HEIGHT * 0.5 + CONTROL_BAR_HEIGHT + MACOS_TITLEBAR_HEIGHT)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    // Add game webview (bottom layer)
+    let mut game_wv_builder =
+        WebviewBuilder::new("game-content", WebviewUrl::External(game_url))
             .proxy_url(proxy_url)
             .initialization_script(&final_init_script)
             .on_navigation(move |nav_url| {
                 let url_str = nav_url.to_string();
                 info!("Game navigation: {}", url_str);
-                // Automatically save cookies to disk after navigating around DMM domains
                 if url_str.contains("dmm.com") {
                     let handle = app_handle.clone();
                     tauri::async_runtime::spawn(async move {
-                        // Wait for the new session cookies to arrive and settle
                         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
                         match save_game_cookies(handle).await {
                             Ok(n) => info!("Auto-saved {} cookies after navigation", n),
@@ -552,22 +610,80 @@ async fn open_game_window(app: tauri::AppHandle) -> Result<(), String> {
                 true
             });
 
-    // On macOS, setting data_directory makes WKWebView ephemeral and wipes cache/storage.
-    // We only set data_directory on Windows to separate Edge profiles.
     #[cfg(not(target_os = "macos"))]
     {
-        game_window_builder = game_window_builder.data_directory(data_dir);
+        game_wv_builder = game_wv_builder.data_directory(data_dir);
     }
 
-    let game_window = game_window_builder.build().map_err(|e| e.to_string())?;
+    let game_webview = game_window
+        .add_child(
+            game_wv_builder,
+            tauri::LogicalPosition::new(0.0, 0.0),
+            tauri::LogicalSize::new(win_width, win_height),
+        )
+        .map_err(|e| e.to_string())?;
 
-    // Give the Cookie Manager (especially WKHTTPCookieStore IPC) time to process the injected cookies
-    // before we launch the actual HTTPS request, to prevent race conditions.
-    let game_window_clone = game_window.clone();
+    // Add overlay webview (top layer, transparent, hidden by default via 1x1 size)
+    let _overlay = game_window
+        .add_child(
+            WebviewBuilder::new("game-overlay", WebviewUrl::App("overlay.html".into()))
+                .transparent(true),
+            tauri::LogicalPosition::new(0.0, 0.0),
+            tauri::LogicalSize::new(1.0, 1.0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    // Create click-through formation hint window (separate window so it doesn't block game input)
+    let hint_win = WindowBuilder::new(&app, "formation-hint")
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .visible(false)
+        .skip_taskbar(true)
+        .inner_size(200.0, 170.0)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    hint_win
+        .set_ignore_cursor_events(true)
+        .map_err(|e| e.to_string())?;
+
+    let _hint_wv = hint_win
+        .add_child(
+            WebviewBuilder::new(
+                "formation-hint-content",
+                WebviewUrl::App("formation-hint.html".into()),
+            )
+            .transparent(true),
+            tauri::LogicalPosition::new(0.0, 0.0),
+            tauri::LogicalSize::new(200.0, 170.0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    // Sync game webview on resize, reposition formation hint on move/resize
+    let resize_app = app.clone();
+    game_window.on_window_event(move |event| {
+        match event {
+            tauri::WindowEvent::Resized(size) => {
+                if let Some(wv) = resize_app.get_webview("game-content") {
+                    let _ = wv.set_size(*size);
+                }
+                // Reposition formation hint
+                reposition_formation_hint(&resize_app);
+            }
+            tauri::WindowEvent::Moved(_) => {
+                reposition_formation_hint(&resize_app);
+            }
+            _ => {}
+        }
+    });
+
+    // Give the Cookie Manager time to process injected cookies, then navigate to DMM
+    let game_wv_clone = game_webview.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         let actual_url: Url = "https://play.games.dmm.com/game/kancolle".parse().unwrap();
-        if let Err(e) = game_window_clone.navigate(actual_url) {
+        if let Err(e) = game_wv_clone.navigate(actual_url) {
             log::error!("Failed to navigate to DMM: {}", e);
         }
     });
@@ -1041,7 +1157,7 @@ async fn clear_resource_cache(app: tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 async fn clear_browser_cache(app: tauri::AppHandle) -> Result<String, String> {
     // Ensure game window is closed first
-    if app.get_webview_window("game").is_some() {
+    if app.get_window("game").is_some() {
         return Err("ゲーム画面を閉じてから実行してください".to_string());
     }
 
@@ -1221,28 +1337,66 @@ async fn get_map_sprite(
     result
 }
 
+/// Reposition the formation hint window to follow the game window
+fn reposition_formation_hint(app: &tauri::AppHandle) {
+    let state = app.state::<AppState>();
+    let rect = *state.formation_hint_rect.lock().unwrap();
+    if !rect.visible {
+        return;
+    }
+    let game_win = match app.get_window("game") {
+        Some(w) => w,
+        None => return,
+    };
+    let hint_win = match app.get_window("formation-hint") {
+        Some(w) => w,
+        None => return,
+    };
+    let inner_pos = match game_win.inner_position() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let screen_x = inner_pos.x + rect.dx;
+    let screen_y = inner_pos.y + rect.dy;
+    let _ = hint_win.set_position(tauri::PhysicalPosition::new(screen_x, screen_y));
+}
+
 /// Get battle log records
 #[tauri::command]
 async fn get_battle_logs(
     limit: Option<usize>,
     offset: Option<usize>,
+    date_from: Option<String>,
+    date_to: Option<String>,
     state: tauri::State<'_, api::models::GameState>,
 ) -> Result<serde_json::Value, String> {
     let inner = state.inner.read().await;
-    let limit = limit.unwrap_or(50);
-    let offset = offset.unwrap_or(0);
-    let records = inner.sortie.battle_logger.get_records(limit, offset);
-    let total = inner.sortie.battle_logger.record_count();
-    Ok(serde_json::json!({
-        "records": records,
-        "total": total,
-    }))
+    if let (Some(from), Some(to)) = (&date_from, &date_to) {
+        let records = inner.sortie.battle_logger.get_records_by_date_range(from, to);
+        let total = records.len();
+        Ok(serde_json::json!({
+            "records": records,
+            "total": total,
+        }))
+    } else {
+        let limit = limit.unwrap_or(50);
+        let offset = offset.unwrap_or(0);
+        let records = inner.sortie.battle_logger.get_records(limit, offset);
+        let total = inner.sortie.battle_logger.record_count();
+        Ok(serde_json::json!({
+            "records": records,
+            "total": total,
+        }))
+    }
 }
 
 /// Close the game window
 #[tauri::command]
 async fn close_game_window(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(win) = app.get_webview_window("game") {
+    if let Some(hint_win) = app.get_window("formation-hint") {
+        let _ = hint_win.close();
+    }
+    if let Some(win) = app.get_window("game") {
         // Force save cookies immediately before closing
         match save_game_cookies(app.clone()).await {
             Ok(n) => info!("Saved {} cookies on explicit close", n),
@@ -1267,18 +1421,27 @@ const MACOS_TITLEBAR_HEIGHT: f64 = 0.0;
 /// Set zoom level for the game window and resize the window accordingly
 #[tauri::command]
 fn set_game_zoom(app: tauri::AppHandle, zoom: f64) -> Result<(), String> {
+    let game_wv = app
+        .get_webview("game-content")
+        .ok_or("Game webview not found")?;
     let win = app
-        .get_webview_window("game")
+        .get_window("game")
         .ok_or("Game window not found")?;
 
     // Set webview zoom
-    win.set_zoom(zoom).map_err(|e| e.to_string())?;
+    game_wv.set_zoom(zoom).map_err(|e| e.to_string())?;
 
     // Resize the window to fit the zoomed game + control bar + macOS titlebar compensation
     let new_width = GAME_WIDTH * zoom;
     let new_height = GAME_HEIGHT * zoom + CONTROL_BAR_HEIGHT + MACOS_TITLEBAR_HEIGHT;
     let size = tauri::LogicalSize::new(new_width, new_height);
     win.set_size(size).map_err(|e| e.to_string())?;
+
+    // Resize game webview to match (on_window_event also handles this)
+    // NOTE: Do NOT resize overlay here — overlay is 1x1 when hidden and only
+    // expanded by set_overlay_visible(). Expanding it here blocks game clicks.
+    let wv_size = tauri::LogicalSize::new(new_width, new_height);
+    let _ = game_wv.set_size(wv_size);
 
     info!(
         "Game zoom set to {}% ({}x{})",
@@ -1306,9 +1469,9 @@ fn toggle_game_mute(
         );
     }
 
-    let win = app
-        .get_webview_window("game")
-        .ok_or("Game window not found")?;
+    let game_wv = app
+        .get_webview("game-content")
+        .ok_or("Game webview not found")?;
 
     #[cfg(target_os = "macos")]
     {
@@ -1316,7 +1479,7 @@ fn toggle_game_mute(
         use objc2::runtime::AnyObject;
 
         let muted_state: u64 = if muted { 1 } else { 0 }; // _WKMediaAudioMuted = 1 << 0
-        win.with_webview(move |webview| unsafe {
+        game_wv.with_webview(move |webview| unsafe {
             let wk: *mut AnyObject = webview.inner().cast();
             let _: () = msg_send![wk, _setPageMuted: muted_state];
         })
@@ -1328,7 +1491,7 @@ fn toggle_game_mute(
         use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_8;
         use windows_core::Interface;
 
-        win.with_webview(move |webview| unsafe {
+        game_wv.with_webview(move |webview| unsafe {
             let controller = webview.controller();
             if let Ok(core) = controller.CoreWebView2() {
                 if let Ok(core8) = core.cast::<ICoreWebView2_8>() {
@@ -1347,6 +1510,83 @@ fn toggle_game_mute(
 #[tauri::command]
 fn get_game_mute(state: State<AppState>) -> bool {
     state.game_muted.load(Ordering::Relaxed)
+}
+
+#[tauri::command]
+fn set_formation_hint_enabled(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    state
+        .formation_hint_enabled
+        .store(enabled, Ordering::Relaxed);
+
+    // Persist to disk
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let _ = std::fs::write(
+            dir.join("local").join("formation_hint_enabled"),
+            if enabled { "1" } else { "0" },
+        );
+    }
+
+    // Hide hint window immediately when disabled
+    if !enabled {
+        crate::api::hide_formation_hint(&app);
+    }
+
+    info!("Formation hint set to {}", if enabled { "enabled" } else { "disabled" });
+    Ok(())
+}
+
+#[tauri::command]
+fn get_formation_hint_enabled(state: State<AppState>) -> bool {
+    state.formation_hint_enabled.load(Ordering::Relaxed)
+}
+
+#[tauri::command]
+fn set_taiha_alert_enabled(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    state.taiha_alert_enabled.store(enabled, Ordering::Relaxed);
+
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let _ = std::fs::write(
+            dir.join("local").join("taiha_alert_enabled"),
+            if enabled { "1" } else { "0" },
+        );
+    }
+
+    info!("Taiha alert set to {}", if enabled { "enabled" } else { "disabled" });
+    Ok(())
+}
+
+#[tauri::command]
+fn get_taiha_alert_enabled(state: State<AppState>) -> bool {
+    state.taiha_alert_enabled.load(Ordering::Relaxed)
+}
+
+/// Show or hide the overlay webview (called from overlay JS).
+#[tauri::command]
+fn set_overlay_visible(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
+    let overlay = app
+        .get_webview("game-overlay")
+        .ok_or("Overlay not found")?;
+    if visible {
+        let win = app.get_window("game").ok_or("Game window not found")?;
+        let size = win.inner_size().map_err(|e| e.to_string())?;
+        overlay
+            .set_position(tauri::LogicalPosition::new(0.0, 0.0))
+            .map_err(|e| e.to_string())?;
+        overlay.set_size(size).map_err(|e| e.to_string())?;
+    } else {
+        overlay
+            .set_size(tauri::LogicalSize::new(1.0, 1.0))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// Get quest progress for active quests
@@ -1582,6 +1822,9 @@ pub fn run() {
         .manage(AppState {
             proxy_port: Mutex::new(0),
             game_muted: AtomicBool::new(false),
+            formation_hint_enabled: AtomicBool::new(true),
+            taiha_alert_enabled: AtomicBool::new(true),
+            formation_hint_rect: Mutex::new(FormationHintRect::default()),
         })
         .invoke_handler(tauri::generate_handler![
             get_proxy_port,
@@ -1614,6 +1857,11 @@ pub fn run() {
             set_game_zoom,
             toggle_game_mute,
             get_game_mute,
+            set_overlay_visible,
+            set_formation_hint_enabled,
+            get_formation_hint_enabled,
+            set_taiha_alert_enabled,
+            get_taiha_alert_enabled,
             get_quest_progress,
             update_quest_progress,
             clear_quest_progress,
@@ -1643,6 +1891,26 @@ pub fn run() {
                     let state = app.state::<AppState>();
                     state.game_muted.store(true, Ordering::Relaxed);
                     info!("Restored mute state: muted");
+                }
+            }
+
+            // Restore formation hint enabled state from disk (default: enabled)
+            let hint_file = data_dir.join("local").join("formation_hint_enabled");
+            if let Ok(content) = std::fs::read_to_string(&hint_file) {
+                if content.trim() == "0" {
+                    let state = app.state::<AppState>();
+                    state.formation_hint_enabled.store(false, Ordering::Relaxed);
+                    info!("Restored formation hint state: disabled");
+                }
+            }
+
+            // Restore taiha alert enabled state from disk (default: enabled)
+            let taiha_file = data_dir.join("local").join("taiha_alert_enabled");
+            if let Ok(content) = std::fs::read_to_string(&taiha_file) {
+                if content.trim() == "0" {
+                    let state = app.state::<AppState>();
+                    state.taiha_alert_enabled.store(false, Ordering::Relaxed);
+                    info!("Restored taiha alert state: disabled");
                 }
             }
 
