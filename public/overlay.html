@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #e0e0e0;
+}
+
+/* Taiha Warning */
+.taiha-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex; align-items: center; justify-content: center;
+  animation: taiha-flash 0.5s ease-in-out 3;
+}
+@keyframes taiha-flash {
+  0%, 100% { background: rgba(0, 0, 0, 0.7); }
+  50% { background: rgba(180, 30, 30, 0.7); }
+}
+.taiha-dialog {
+  background: linear-gradient(135deg, #1a0000 0%, #2d0a0a 100%);
+  border: 2px solid #f44336;
+  border-radius: 12px;
+  padding: 24px 32px;
+  text-align: center;
+  max-width: 400px;
+  box-shadow: 0 0 40px rgba(244, 67, 54, 0.5), inset 0 0 20px rgba(244, 67, 54, 0.1);
+}
+.taiha-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 0 8px rgba(244, 67, 54, 0.8));
+}
+.taiha-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #f44336;
+  margin-bottom: 12px;
+  text-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+}
+.taiha-message {
+  font-size: 13px;
+  color: #ffcdd2;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+.taiha-ships {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.taiha-ship-name {
+  background: rgba(244, 67, 54, 0.2);
+  border: 1px solid rgba(244, 67, 54, 0.5);
+  border-radius: 4px;
+  padding: 4px 12px;
+  color: #ff8a80;
+  font-size: 14px;
+  font-weight: bold;
+}
+.taiha-close {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 32px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.taiha-close:hover { background: #d32f2f; }
+
+#overlay-root { display: none; }
+</style>
+</head>
+<body>
+<div id="overlay-root"></div>
+<script>
+(function() {
+  var T = window.__TAURI_INTERNALS__;
+  var root = document.getElementById('overlay-root');
+
+  // Called from Rust via Webview::eval()
+  window.showTaihaWarning = function(ships) {
+    var shipsHtml = ships.map(function(name) {
+      return '<span class="taiha-ship-name">' + name + '</span>';
+    }).join('');
+
+    root.innerHTML =
+      '<div class="taiha-overlay">' +
+        '<div class="taiha-dialog">' +
+          '<div class="taiha-icon">\u26A0</div>' +
+          '<div class="taiha-title">\u5927\u7834\u9032\u6483\u8B66\u544A</div>' +
+          '<div class="taiha-message">\u5927\u7834\u72B6\u614B\u306E\u8266\u5A18\u304C\u30C0\u30E1\u30B3\u30F3\u306A\u3057\u3067\u9032\u6483\u3057\u3066\u3044\u307E\u3059\uFF01</div>' +
+          '<div class="taiha-ships">' + shipsHtml + '</div>' +
+          '<button class="taiha-close" id="taiha-dismiss">\u78BA\u8A8D</button>' +
+        '</div>' +
+      '</div>';
+    root.style.display = 'block';
+
+    document.getElementById('taiha-dismiss').addEventListener('click', function() {
+      root.style.display = 'none';
+      root.innerHTML = '';
+      // Hide overlay (shrink to 1x1) so game receives input again
+      if (T) T.invoke('set_overlay_visible', { visible: false });
+    });
+  };
+})();
+</script>
+</body>
+</html>

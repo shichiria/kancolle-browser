@@ -18,6 +18,129 @@ fn notify_sync(state: &models::GameStateInner, paths: Vec<&str>) {
     }
 }
 
+/// Get Japanese name for a formation ID
+fn formation_name(id: i32) -> &'static str {
+    match id {
+        1 => "単縦陣",
+        2 => "複縦陣",
+        3 => "輪形陣",
+        4 => "梯形陣",
+        5 => "単横陣",
+        6 => "警戒陣",
+        11 => "第一警戒航行序列(対潜警戒)",
+        12 => "第二警戒航行序列(前方警戒)",
+        13 => "第三警戒航行序列(輪形陣)",
+        14 => "第四警戒航行序列(戦闘隊形)",
+        _ => "不明",
+    }
+}
+
+/// Formation button label rect in game canvas (1200x720) coordinates: (x, y, w, h)
+/// Positions derived from sprite atlas (sally_jin.json: label=150x48) and kcauto reference data.
+/// Grid layout: 3 columns (x=668,866,1064) × 2 rows (y=278,517), same for all ship counts.
+fn get_formation_button_rect(formation: i32, _ship_count: usize) -> Option<(f64, f64, f64, f64)> {
+    // Label sprite is 150x48 in sally_jin atlas; yellow border is slightly wider
+    const BW: f64 = 154.0;
+    const BH: f64 = 48.0;
+
+    // Button center positions in game canvas coordinates
+    // Column X: derived from kcauto search regions + fine-tuned (left+7, right-3 → cx-5)
+    // Row Y: derived from kcauto search regions (row1: 278, row2: 517)
+    let (cx, cy) = match formation {
+        1 => (663.0, 278.0),   // 単縦陣 col1 row1
+        2 => (861.0, 278.0),   // 複縦陣 col2 row1
+        3 => (1059.0, 278.0),  // 輪形陣 col3 row1
+        4 => (663.0, 517.0),   // 梯形陣 col1 row2
+        5 => (861.0, 517.0),   // 単横陣 col2 row2
+        6 => (1059.0, 517.0),  // 警戒陣 col3 row2
+        // Combined fleet formations (from kcauto CF regions, same cx-5 adjustment)
+        11 => (743.0, 263.0),  // 第一警戒航行序列
+        12 => (993.0, 263.0),  // 第二警戒航行序列
+        13 => (743.0, 468.0),  // 第三警戒航行序列
+        14 => (993.0, 468.0),  // 第四警戒航行序列
+        _ => return None,
+    };
+
+    Some((cx - BW / 2.0, cy - BH / 2.0, BW, BH))
+}
+
+/// Show formation highlight using the click-through formation-hint window
+fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: usize) {
+    // Check if formation hint is enabled
+    if let Some(state) = app.try_state::<crate::AppState>() {
+        if !state.formation_hint_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
+    }
+
+    let game_win = match app.get_window("game") {
+        Some(w) => w,
+        None => return,
+    };
+    let hint_win = match app.get_window("formation-hint") {
+        Some(w) => w,
+        None => return,
+    };
+
+    let (bx, by, bw, bh) = match get_formation_button_rect(formation, ship_count) {
+        Some(r) => r,
+        None => return,
+    };
+
+    let inner_pos = match game_win.inner_position() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let scale = game_win.scale_factor().unwrap_or(1.0);
+
+    // Control bar is 28 CSS pixels, scaled by DPI
+    let bar_physical = (28.0 * scale) as i32;
+
+    // Offset from game window inner position (physical pixels)
+    let dx = (bx * scale) as i32;
+    let dy = bar_physical + (by * scale) as i32;
+    let phys_w = (bw * scale) as u32;
+    let phys_h = (bh * scale) as u32;
+
+    // Save offset in AppState for window-move tracking
+    if let Some(app_state) = app.try_state::<crate::AppState>() {
+        let mut rect = app_state.formation_hint_rect.lock().unwrap();
+        rect.dx = dx;
+        rect.dy = dy;
+        rect.w = phys_w;
+        rect.h = phys_h;
+        rect.visible = true;
+    }
+
+    let screen_x = inner_pos.x + dx;
+    let screen_y = inner_pos.y + dy;
+
+    // Also check outer_position and game webview position for debugging
+    let outer_pos = game_win.outer_position().ok();
+    let win_size = game_win.inner_size().ok();
+    log::info!(
+        "FormationHint: formation={}, ship_count={}, scale={}, inner_pos=({},{}), outer_pos={:?}, win_size={:?}, dx={}, dy={}, screen=({},{}), rect={}x{}",
+        formation, ship_count, scale, inner_pos.x, inner_pos.y, outer_pos, win_size, dx, dy, screen_x, screen_y, phys_w, phys_h
+    );
+
+    let _ = hint_win.set_size(tauri::PhysicalSize::new(phys_w, phys_h));
+    if let Some(wv) = app.get_webview("formation-hint-content") {
+        let _ = wv.set_size(tauri::PhysicalSize::new(phys_w, phys_h));
+    }
+    let _ = hint_win.set_position(tauri::PhysicalPosition::new(screen_x, screen_y));
+    let _ = hint_win.show();
+}
+
+/// Hide formation hint window
+pub fn hide_formation_hint(app: &AppHandle) {
+    if let Some(app_state) = app.try_state::<crate::AppState>() {
+        app_state.formation_hint_rect.lock().unwrap().visible = false;
+    }
+    if let Some(hint_win) = app.get_window("formation-hint") {
+        let _ = hint_win.hide();
+    }
+}
+
 /// Helper to get a material value by api_id from the material array
 fn get_material(materials: &[models::Material], id: i32) -> i32 {
     materials
@@ -989,10 +1112,25 @@ fn process_battle(
             if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                 let summary = crate::battle_log::SortieRecordSummary::from(sortie);
                 let _ = app.emit("sortie-update", &summary);
+
+                // Show formation hint for first cell if previously visited
+                if let Some(node) = sortie.nodes.last() {
+                    let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
+                    if let Some(&formation) = state.formation_memory.get(&key) {
+                        let ship_count = sortie.ships.len();
+                        info!("Formation hint: {} -> {} (ships={})", key, formation_name(formation), ship_count);
+                        show_formation_hint(app, formation, ship_count);
+                    }
+                }
             }
         }
         "/kcsapi/api_req_map/next" => {
             // Check for taiha (大破) ships advancing — warn the player
+            let mut taiha_shown = false;
+            let taiha_enabled = app.try_state::<crate::AppState>()
+                .map(|s| s.taiha_alert_enabled.load(std::sync::atomic::Ordering::Relaxed))
+                .unwrap_or(true);
+            if taiha_enabled {
             if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                 let fleet_id = sortie.fleet_id as usize;
                 let fleet_idx = fleet_id.saturating_sub(1);
@@ -1021,13 +1159,23 @@ fn process_battle(
                         }
                     }
                     if !taiha_names.is_empty() {
+                        taiha_shown = true;
                         warn!("TAIHA ADVANCE WARNING: {} ships critically damaged: {:?}", taiha_names.len(), taiha_names);
-                        let _ = app.emit("taiha-advance-warning", serde_json::json!({
-                            "ships": taiha_names,
-                        }));
+                        // Show overlay directly via eval (more reliable than event system in multi-webview)
+                        if let Some(overlay) = app.get_webview("game-overlay") {
+                            if let Some(win) = app.get_window("game") {
+                                if let Ok(size) = win.inner_size() {
+                                    let _ = overlay.set_position(tauri::LogicalPosition::new(0.0, 0.0));
+                                    let _ = overlay.set_size(size);
+                                }
+                            }
+                            let ships_json = serde_json::to_string(&taiha_names).unwrap_or_else(|_| "[]".to_string());
+                            let _ = overlay.eval(&format!("window.showTaihaWarning({})", ships_json));
+                        }
                     }
                 }
             }
+            } // taiha_enabled
 
             match serde_json::from_value::<
                 models::ApiResponse<crate::api::dto::battle::ApiMapNextResponse>,
@@ -1036,6 +1184,20 @@ fn process_battle(
                 Ok(resp) => {
                     if let Some(data) = resp.api_data {
                         state.sortie.battle_logger.on_map_next(&data, json);
+
+                        // Show formation hint for new cell (skip if taiha warning is active)
+                        if !taiha_shown {
+                            if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
+                                if let Some(node) = sortie.nodes.last() {
+                                    let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
+                                    if let Some(&formation) = state.formation_memory.get(&key) {
+                                        let ship_count = sortie.ships.len();
+                                        info!("Formation hint: {} -> {} (ships={})", key, formation_name(formation), ship_count);
+                                        show_formation_hint(app, formation, ship_count);
+                                    }
+                                }
+                            }
+                        }
 
                         // 1-6 goal node detection: event_id 9 = goal reached
                         // 1-6 has no boss battle so EO bonus comes from reaching the goal
@@ -1084,6 +1246,23 @@ fn process_battle(
                 Ok(resp) => {
                     if let Some(data) = resp.api_data {
                         state.sortie.battle_logger.on_battle(&data, json);
+
+                        // Save formation to memory and hide hint
+                        if let Some(arr) = &data.api_formation {
+                            let friendly_formation = arr.first().copied().unwrap_or(0);
+                            if friendly_formation > 0 {
+                                if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
+                                    if let Some(node) = sortie.nodes.last() {
+                                        let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
+                                        info!("Formation saved: {} = {} ({})", key, friendly_formation, formation_name(friendly_formation));
+                                        state.formation_memory.insert(key, friendly_formation);
+                                        models::save_formation_memory(&state.formation_memory_path, &state.formation_memory);
+                                        notify_sync(&state, vec!["formation_memory.json"]);
+                                    }
+                                }
+                            }
+                        }
+                        hide_formation_hint(app);
                     }
                 }
                 Err(e) => error!("Failed to parse battle response: {}", e),
