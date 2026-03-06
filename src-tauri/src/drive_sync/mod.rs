@@ -33,6 +33,14 @@ pub const SYNC_TARGETS: &[SyncTarget] = &[
         relative: "raw_api",
         is_dir: true,
     },
+    SyncTarget {
+        relative: "senka_log.json",
+        is_dir: false,
+    },
+    SyncTarget {
+        relative: "formation_memory.json",
+        is_dir: false,
+    },
 ];
 
 /// Sync manifest persisted to disk to track Drive file metadata.

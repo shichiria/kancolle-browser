@@ -1438,8 +1438,12 @@ fn process_battle(
                 }
 
                 // Check for EO ranking bonus (api_get_exmap_rate)
+                // Note: API returns this as a string (e.g. "75"), not a number
                 if let Some(exmap_rate) = api_data.get("api_get_exmap_rate") {
-                    let rate = exmap_rate.as_i64().unwrap_or(0);
+                    let rate = exmap_rate
+                        .as_i64()
+                        .or_else(|| exmap_rate.as_str().and_then(|s| s.parse().ok()))
+                        .unwrap_or(0);
                     if rate > 0 {
                         let map_display = state
                             .sortie
