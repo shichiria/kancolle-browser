@@ -151,6 +151,52 @@ pub fn hide_formation_hint(app: &AppHandle) {
     }
 }
 
+/// Send minimap data to overlay webview
+fn update_minimap_overlay(app: &AppHandle, sortie: &crate::battle_log::SortieRecord) {
+    let minimap_on = app
+        .try_state::<crate::AppState>()
+        .map(|s| s.minimap_enabled.load(std::sync::atomic::Ordering::Relaxed))
+        .unwrap_or(false);
+    if !minimap_on {
+        return;
+    }
+    send_minimap_data(app, sortie);
+}
+
+/// Send minimap data to overlay and resize it (called from toggle_minimap too)
+pub fn send_minimap_data(app: &AppHandle, sortie: &crate::battle_log::SortieRecord) {
+    if let Some(overlay) = app.get_webview("game-overlay") {
+        let nodes_json: Vec<serde_json::Value> = sortie
+            .nodes
+            .iter()
+            .map(|n| {
+                serde_json::json!({
+                    "cell_no": n.cell_no,
+                    "event_kind": n.event_kind,
+                    "event_id": n.event_id,
+                    "has_battle": n.battle.is_some(),
+                })
+            })
+            .collect();
+        let map_display = &sortie.map_display;
+        let js = format!(
+            "window.updateMinimap({}, {})",
+            serde_json::to_string(map_display).unwrap_or_else(|_| "\"\"".into()),
+            serde_json::to_string(&nodes_json).unwrap_or_else(|_| "[]".into()),
+        );
+        let _ = crate::show_minimap_overlay(app);
+        let _ = overlay.eval(&js);
+    }
+}
+
+/// Hide minimap on overlay
+fn hide_minimap_overlay(app: &AppHandle) {
+    if let Some(overlay) = app.get_webview("game-overlay") {
+        let _ = overlay.eval("window.hideMinimap()");
+        let _ = overlay.set_size(tauri::LogicalSize::new(1.0, 1.0));
+    }
+}
+
 /// Helper to get a material value by api_id from the material array
 fn get_material(materials: &[models::Material], id: i32) -> i32 {
     materials
@@ -833,6 +879,7 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
             let summary = crate::battle_log::SortieRecordSummary::from(&record);
             let _ = app.emit("sortie-complete", &summary);
         }
+        hide_minimap_overlay(app);
     }
 
     // Check quest progress resets on returning to port
@@ -1123,6 +1170,9 @@ fn process_battle(
                 let summary = crate::battle_log::SortieRecordSummary::from(sortie);
                 let _ = app.emit("sortie-update", &summary);
 
+                // Update minimap overlay
+                update_minimap_overlay(app, sortie);
+
                 // Show formation hint for first cell if previously visited
                 if let Some(node) = sortie.nodes.last() {
                     let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
@@ -1207,6 +1257,13 @@ fn process_battle(
                                     }
                                 }
                             }
+                        }
+
+                        // Emit sortie-update for minimap real-time tracking
+                        if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
+                            let summary = crate::battle_log::SortieRecordSummary::from(sortie);
+                            let _ = app.emit("sortie-update", &summary);
+                            update_minimap_overlay(app, sortie);
                         }
 
                         // 1-6 goal node detection: event_id 9 = goal reached
@@ -1470,6 +1527,7 @@ fn process_battle(
             if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                 let summary = crate::battle_log::SortieRecordSummary::from(sortie);
                 let _ = app.emit("sortie-update", &summary);
+                update_minimap_overlay(app, sortie);
             }
         }
         _ => {

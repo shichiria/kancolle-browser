@@ -78,14 +78,126 @@ html, body {
 .taiha-close:hover { background: #d32f2f; }
 
 #overlay-root { display: none; }
+
+/* Minimap */
+#minimap-root {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  display: none;
+}
+.minimap-panel {
+  position: relative;
+  background: rgba(10, 25, 47, 0.94);
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  overflow: hidden;
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+}
+.minimap-titlebar {
+  height: 18px;
+  background: rgba(15, 52, 96, 0.8);
+  border-bottom: 1px solid #0f3460;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.minimap-titlebar:active { cursor: grabbing; }
+.minimap-titlebar-grip {
+  width: 30px; height: 4px;
+  border-radius: 2px;
+  background: rgba(176, 190, 197, 0.4);
+}
+.minimap-map {
+  flex: 1;
+  position: relative;
+  background: #0a192f;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.minimap-map-inner {
+  position: relative;
+  width: 100%;
+  padding-bottom: 60%; /* 720/1200 = 0.6 → 5:3 aspect ratio */
+}
+.minimap-map-inner > * {
+  pointer-events: none;
+}
+.minimap-current-node {
+  padding: 4px 8px;
+  font-size: 13px;
+  color: #b0bec5;
+  background: rgba(15, 52, 96, 0.6);
+  border-top: 1px solid #0f3460;
+  text-align: center;
+  flex-shrink: 0;
+}
+.minimap-node-label {
+  color: #ffeb3b;
+  font-weight: bold;
+  font-size: 15px;
+}
+.minimap-resize {
+  position: absolute;
+  right: 0; bottom: 0;
+  width: 14px; height: 14px;
+  cursor: nwse-resize;
+  z-index: 10;
+  background: linear-gradient(135deg, transparent 50%, rgba(176,190,197,0.5) 50%);
+  border-radius: 0 0 4px 0;
+}
 </style>
 </head>
 <body>
 <div id="overlay-root"></div>
+<div id="minimap-root"></div>
 <script>
 (function() {
   var T = window.__TAURI_INTERNALS__;
   var root = document.getElementById('overlay-root');
+  var minimapRoot = document.getElementById('minimap-root');
+  var edgesData = null;
+  var currentMapDisplay = null;
+  var mapSprites = { bg: null, point: null, routes: [] };
+  var mapInfo = null;
+
+  // Load edges data
+  fetch('edges.json').then(function(r) { return r.json(); }).then(function(d) {
+    edgesData = d;
+  }).catch(function() {});
+
+  // Node colors by event_kind (matching battle details)
+  var CELL_COLORS = {
+    0: '#4caf50',  // start - green
+    2: '#ffc107',  // resource - yellow
+    3: '#9c27b0',  // maelstrom - purple
+    4: '#f44336',  // battle - red
+    5: '#d32f2f',  // boss - dark red
+    6: '#78909c',  // nothing - grey
+    7: '#29b6f6',  // aerial - light blue
+    8: '#ff7043',  // air raid - orange
+    9: '#8d6e63',  // landing - brown
+    10: '#26a69a'  // anchorage - teal
+  };
+
+  function getNodeColor(node) {
+    return CELL_COLORS[node.event_kind] || '#78909c';
+  }
+
+  function getNodeLabel(mapDisplay, edgeId) {
+    if (!edgesData) return null;
+    var key = 'World ' + mapDisplay;
+    var mapEdges = edgesData[key];
+    if (!mapEdges) return null;
+    var edge = mapEdges[String(edgeId)];
+    if (!edge || edge.length < 2) return null;
+    return edge[1];
+  }
 
   // Called from Rust via Webview::eval()
   window.showTaihaWarning = function(ships) {
@@ -104,14 +216,252 @@ html, body {
         '</div>' +
       '</div>';
     root.style.display = 'block';
+    minimapRoot.style.display = 'none';
 
     document.getElementById('taiha-dismiss').addEventListener('click', function() {
       root.style.display = 'none';
       root.innerHTML = '';
-      // Hide overlay (shrink to 1x1) so game receives input again
-      if (T) T.invoke('set_overlay_visible', { visible: false });
+      if (currentMapDisplay) minimapRoot.style.display = 'block';
+      if (T) T.invoke('dismiss_overlay');
     });
   };
+
+  // Minimap: called from Rust via eval
+  window.updateMinimap = function(mapDisplay, nodes) {
+    minimapRoot.style.display = 'block';
+
+    if (mapDisplay !== currentMapDisplay) {
+      currentMapDisplay = mapDisplay;
+      mapSprites = { bg: null, point: null, routes: [] };
+      mapInfo = null;
+      loadMapData(mapDisplay, function() {
+        renderMinimap(mapDisplay, nodes);
+      });
+    } else {
+      renderMinimap(mapDisplay, nodes);
+    }
+  };
+
+  window.hideMinimap = function() {
+    minimapRoot.style.display = 'none';
+    currentMapDisplay = null;
+    mapInfo = null;
+    mapSprites = { bg: null, point: null, routes: [] };
+  };
+
+  function loadMapData(mapDisplay, callback) {
+    var parts = mapDisplay.split('-');
+    var area = String(parseInt(parts[0], 10) || 0).padStart(3, '0');
+    var map = String(parseInt(parts[1], 10) || 0).padStart(2, '0');
+    var infoPath = 'kcs2/resources/map/' + area + '/' + map + '_info.json';
+    var atlasPath = 'kcs2/resources/map/' + area + '/' + map + '_image.json';
+
+    Promise.all([
+      T.invoke('get_cached_resource', { path: infoPath }),
+      T.invoke('get_cached_resource', { path: atlasPath })
+    ]).then(function(results) {
+      var infoStr = results[0];
+      var atlasStr = results[1];
+      if (!infoStr) { callback(); return; }
+
+      var info = JSON.parse(infoStr);
+      mapInfo = info;
+
+      var atlas = null;
+      if (atlasStr) { try { atlas = JSON.parse(atlasStr); } catch(e) {} }
+
+      var prefix = 'map' + area + map + '_';
+      var result = { bg: null, point: null, routes: [] };
+      var promises = [];
+
+      if (info.bg && info.bg[0]) {
+        promises.push(
+          T.invoke('get_map_sprite', { mapDisplay: mapDisplay, frameName: info.bg[0] })
+            .then(function(uri) { if (uri) result.bg = uri; })
+            .catch(function() {})
+        );
+      }
+      if (info.bg && info.bg[1]) {
+        promises.push(
+          T.invoke('get_map_sprite', { mapDisplay: mapDisplay, frameName: info.bg[1] })
+            .then(function(uri) { if (uri) result.point = uri; })
+            .catch(function() {})
+        );
+      }
+
+      var spotsWithLine = info.spots.filter(function(s) { return s.line; });
+      for (var i = 0; i < spotsWithLine.length; i++) {
+        (function(idx) {
+          var spot = spotsWithLine[idx];
+          var frameName = (spot.line && spot.line.img) ? spot.line.img : ('route_' + (idx + 1));
+          var fullFrameName = prefix + frameName;
+          var frame = atlas && atlas.frames && atlas.frames[fullFrameName] ? atlas.frames[fullFrameName].frame : null;
+          if (frame && spot.line) {
+            var rx = spot.x + spot.line.x;
+            var ry = spot.y + spot.line.y;
+            promises.push(
+              T.invoke('get_map_sprite', { mapDisplay: mapDisplay, frameName: frameName, tintCyan: false, routeIdx: idx + 1, spotNo: spot.no })
+                .then(function(uri) {
+                  if (uri) result.routes.push({ uri: uri, x: rx, y: ry, w: frame.w, h: frame.h, spotNo: spot.no });
+                })
+                .catch(function() {})
+            );
+          }
+        })(i);
+      }
+
+      Promise.all(promises).then(function() {
+        mapSprites = result;
+        callback();
+      });
+    }).catch(function() { callback(); });
+  }
+
+  function renderMinimap(mapDisplay, nodes) {
+    if (!mapInfo) {
+      minimapRoot.innerHTML = '<div class="minimap-panel"><div style="padding:10px;text-align:center;color:#78909c;font-size:11px;">\u30DE\u30C3\u30D7\u30C7\u30FC\u30BF\u672A\u53D6\u5F97</div></div>';
+      return;
+    }
+
+    var visitedSet = {};
+    for (var i = 0; i < nodes.length; i++) visitedSet[nodes[i].cell_no] = true;
+
+    var currentNode = nodes.length > 0 ? nodes[nodes.length - 1] : null;
+    var currentLabel = currentNode ? (getNodeLabel(mapDisplay, currentNode.cell_no) || String(currentNode.cell_no)) : null;
+
+    var spotMap = {};
+    for (var i = 0; i < mapInfo.spots.length; i++) {
+      spotMap[mapInfo.spots[i].no] = mapInfo.spots[i];
+    }
+
+    var html = '<div class="minimap-panel">'
+      + '<div class="minimap-titlebar" id="minimap-drag"><div class="minimap-titlebar-grip"></div></div>'
+      + '<div class="minimap-map"><div class="minimap-map-inner">';
+
+    // Background
+    if (mapSprites.bg) {
+      html += '<img src="' + mapSprites.bg + '" style="position:absolute;left:0;top:0;width:100%;height:100%;" />';
+    }
+
+    // Point overlay
+    if (mapSprites.point) {
+      html += '<img src="' + mapSprites.point + '" style="position:absolute;left:0;top:0;width:100%;height:100%;z-index:1;" />';
+    }
+
+    // Route sprites
+    for (var i = 0; i < mapSprites.routes.length; i++) {
+      var r = mapSprites.routes[i];
+      var visited = !!visitedSet[r.spotNo];
+      html += '<img src="' + r.uri + '" style="position:absolute;'
+        + 'left:' + (r.x / 1200 * 100) + '%;top:' + (r.y / 720 * 100) + '%;'
+        + 'width:' + (r.w / 1200 * 100) + '%;height:' + (r.h / 720 * 100) + '%;'
+        + 'z-index:2;filter:' + (visited ? 'none' : 'grayscale(100%) opacity(40%)') + ';" />';
+    }
+
+    // SVG overlay for visited cells
+    html += '<svg style="position:absolute;left:0;top:0;width:100%;height:100%;z-index:3;" viewBox="0 0 1200 720">';
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var spot = spotMap[node.cell_no];
+      if (!spot) continue;
+      var label = getNodeLabel(mapDisplay, node.cell_no) || String(node.cell_no);
+      var isCurrent = currentNode && node.cell_no === currentNode.cell_no && i === nodes.length - 1;
+      var isBoss = node.event_id === 5 || node.event_kind === 5;
+      var color = getNodeColor(node);
+      var r = isBoss ? 18 : 14;
+      var fontSize = label.length > 2 ? 9 : (isBoss ? 14 : 11);
+
+      html += '<g>';
+      html += '<circle cx="' + spot.x + '" cy="' + spot.y + '" r="' + r + '" fill="' + color + '" stroke="#fff" stroke-width="1.5" />';
+      html += '<text x="' + spot.x + '" y="' + spot.y + '" text-anchor="middle" dominant-baseline="central" fill="#fff" font-size="' + fontSize + '" font-weight="bold" style="pointer-events:none;">' + label + '</text>';
+      if (isCurrent) {
+        html += '<circle cx="' + spot.x + '" cy="' + spot.y + '" r="22" fill="none" stroke="#ffeb3b" stroke-width="3">'
+          + '<animate attributeName="r" values="20;26;20" dur="1.5s" repeatCount="indefinite" />'
+          + '<animate attributeName="opacity" values="1;0.5;1" dur="1.5s" repeatCount="indefinite" />'
+          + '</circle>';
+      }
+      html += '</g>';
+    }
+    html += '</svg>';
+
+    html += '</div>'; // .minimap-map-inner
+    html += '</div>'; // .minimap-map
+
+    if (currentLabel) {
+      html += '<div class="minimap-current-node">\u73FE\u5728: <span class="minimap-node-label">' + currentLabel + '</span></div>';
+    }
+
+    html += '<div class="minimap-resize" id="minimap-resize-handle"></div>';
+    html += '</div>'; // .minimap-panel
+    minimapRoot.innerHTML = html;
+
+    // Attach drag handler to title bar
+    var dragBar = document.getElementById('minimap-drag');
+    if (dragBar) {
+      dragBar.addEventListener('mousedown', onDragStart);
+    }
+    // Attach resize handler
+    var resizeHandle = document.getElementById('minimap-resize-handle');
+    if (resizeHandle) {
+      resizeHandle.addEventListener('mousedown', onResizeStart);
+    }
+  }
+
+  // Drag handling
+  var dragStartX = 0, dragStartY = 0, isDragging = false;
+
+  function onDragStart(e) {
+    if (e.button !== 0) return;
+    isDragging = true;
+    dragStartX = e.screenX;
+    dragStartY = e.screenY;
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
+    e.preventDefault();
+  }
+
+  function onDragMove(e) {
+    if (!isDragging) return;
+    var dx = e.screenX - dragStartX;
+    var dy = e.screenY - dragStartY;
+    if (dx === 0 && dy === 0) return;
+    dragStartX = e.screenX;
+    dragStartY = e.screenY;
+    if (T) T.invoke('move_minimap', { dx: dx, dy: dy }).catch(function() {});
+  }
+
+  function onDragEnd() {
+    isDragging = false;
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup', onDragEnd);
+  }
+
+  // Resize handling
+  var resizeStartX = 0, resizeStartW = 0, isResizing = false;
+
+  function onResizeStart(e) {
+    if (e.button !== 0) return;
+    isResizing = true;
+    resizeStartX = e.screenX;
+    resizeStartW = document.documentElement.clientWidth || 310;
+    document.addEventListener('mousemove', onResizeMove);
+    document.addEventListener('mouseup', onResizeEnd);
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function onResizeMove(e) {
+    if (!isResizing) return;
+    var dw = e.screenX - resizeStartX;
+    var newW = resizeStartW + dw;
+    if (T) T.invoke('resize_minimap', { w: newW }).catch(function() {});
+  }
+
+  function onResizeEnd() {
+    isResizing = false;
+    document.removeEventListener('mousemove', onResizeMove);
+    document.removeEventListener('mouseup', onResizeEnd);
+  }
 })();
 </script>
 </body>

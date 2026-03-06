@@ -34,10 +34,15 @@ pub struct AppState {
     pub game_muted: AtomicBool,
     pub formation_hint_enabled: AtomicBool,
     pub taiha_alert_enabled: AtomicBool,
+    pub minimap_enabled: AtomicBool,
     /// Formation hint window offset relative to game window inner position
     pub formation_hint_rect: Mutex<FormationHintRect>,
     /// Current game zoom level (1.0 = 100%)
     pub game_zoom: Mutex<f64>,
+    /// Minimap position (logical x, y) — None means use default bottom-right
+    pub minimap_position: Mutex<Option<(f64, f64)>>,
+    /// Minimap size (logical w, h)
+    pub minimap_size: Mutex<(f64, f64)>,
 }
 
 /// Get the proxy port for the frontend
@@ -460,6 +465,7 @@ const GAME_INIT_SCRIPT: &str = r#"
             + '<button id="kc-mute">\u{1f50a}</button>'
             + '<button id="kc-formation" title="\u{9663}\u{5F62}\u{8A18}\u{61B6}">\u{9663}\u{5F62}</button>'
             + '<button id="kc-taiha" title="\u{5927}\u{7834}\u{8B66}\u{544A}">\u{26A0}\u{5927}\u{7834}</button>'
+            + '<button id="kc-minimap" title="\u{30DF}\u{30CB}\u{30DE}\u{30C3}\u{30D7}">MAP</button>'
             + '<span class="spacer"></span>'
             + '<span class="label">KanColle Browser</span>';
         parent.appendChild(bar);
@@ -532,6 +538,24 @@ const GAME_INIT_SCRIPT: &str = r#"
             this.className = taihaEnabled ? '' : 'muted';
             this.title = taihaEnabled ? '\u{5927}\u{7834}\u{8B66}\u{544A} ON' : '\u{5927}\u{7834}\u{8B66}\u{544A} OFF';
             window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('set_taiha_alert_enabled', { enabled: taihaEnabled });
+        });
+
+        // Minimap toggle
+        var minimapEnabled = true;
+        var minimapBtn = document.getElementById('kc-minimap');
+        if (window.__TAURI_INTERNALS__) {
+            window.__TAURI_INTERNALS__.invoke('get_minimap_enabled').then(function(e) {
+                minimapEnabled = !!e;
+                minimapBtn.className = minimapEnabled ? '' : 'muted';
+            }).catch(function() {});
+        }
+        minimapBtn.addEventListener('click', function() {
+            if (window.__TAURI_INTERNALS__) {
+                window.__TAURI_INTERNALS__.invoke('toggle_minimap').then(function(enabled) {
+                    minimapEnabled = enabled;
+                    minimapBtn.className = minimapEnabled ? '' : 'muted';
+                }).catch(function() {});
+            }
         });
     }
 
@@ -687,6 +711,10 @@ async fn open_game_window(app: tauri::AppHandle) -> Result<(), String> {
                 }
                 // Reposition formation hint
                 reposition_formation_hint(&resize_app);
+                // Reposition minimap if enabled
+                if resize_app.state::<AppState>().minimap_enabled.load(Ordering::Relaxed) {
+                    let _ = show_minimap_overlay(&resize_app);
+                }
             }
             tauri::WindowEvent::Moved(_) => {
                 reposition_formation_hint(&resize_app);
@@ -1499,6 +1527,11 @@ fn set_game_zoom(app: tauri::AppHandle, zoom: f64) -> Result<(), String> {
     let wv_size = tauri::LogicalSize::new(new_width, new_height);
     let _ = game_wv.set_size(wv_size);
 
+    // Reposition minimap if enabled
+    if app.state::<AppState>().minimap_enabled.load(Ordering::Relaxed) {
+        let _ = show_minimap_overlay(&app);
+    }
+
     info!(
         "Game zoom set to {}% ({}x{})",
         (zoom * 100.0) as i32,
@@ -1624,7 +1657,7 @@ fn get_taiha_alert_enabled(state: State<AppState>) -> bool {
     state.taiha_alert_enabled.load(Ordering::Relaxed)
 }
 
-/// Show or hide the overlay webview (called from overlay JS).
+/// Show or hide the overlay webview.
 #[tauri::command]
 fn set_overlay_visible(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
     let overlay = app
@@ -1642,6 +1675,144 @@ fn set_overlay_visible(app: tauri::AppHandle, visible: bool) -> Result<(), Strin
             .set_size(tauri::LogicalSize::new(1.0, 1.0))
             .map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+/// Dismiss taiha overlay — restore minimap if active, otherwise hide overlay.
+#[tauri::command]
+fn dismiss_overlay(app: tauri::AppHandle, state: State<AppState>) -> Result<(), String> {
+    let minimap_on = state.minimap_enabled.load(Ordering::Relaxed);
+    if minimap_on {
+        show_minimap_overlay(&app)?;
+    } else {
+        set_overlay_visible(app, false)?;
+    }
+    Ok(())
+}
+
+/// Minimap overlay defaults and constraints
+const MINIMAP_DEFAULT_W: f64 = 310.0;
+const MINIMAP_DEFAULT_H: f64 = 210.0;
+const MINIMAP_MIN_W: f64 = 200.0;
+const MINIMAP_MAX_W: f64 = 600.0;
+const MINIMAP_MARGIN: f64 = 6.0;
+/// Aspect ratio: 5:3 map + titlebar(18px) + footer(~24px) overhead
+const MINIMAP_ASPECT: f64 = 0.68; // h/w ratio
+
+/// Position overlay to minimap area (saved position or default bottom-right)
+pub fn show_minimap_overlay(app: &tauri::AppHandle) -> Result<(), String> {
+    let overlay = app.get_webview("game-overlay").ok_or("Overlay not found")?;
+    let win = app.get_window("game").ok_or("Game window not found")?;
+    let phys = win.inner_size().map_err(|e| e.to_string())?;
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let logical = phys.to_logical::<f64>(scale);
+
+    let state = app.state::<AppState>();
+    let (mw, mh) = *state.minimap_size.lock().unwrap();
+    let zoom = *state.game_zoom.lock().unwrap();
+    let bar_h = CONTROL_BAR_HEIGHT * zoom;
+
+    let saved_pos = *state.minimap_position.lock().unwrap();
+    let (x, y) = match saved_pos {
+        Some((sx, sy)) => {
+            let x = sx.max(0.0).min(logical.width - mw);
+            let y = sy.max(bar_h).min(logical.height - mh);
+            (x, y)
+        }
+        None => {
+            let x = logical.width - mw - MINIMAP_MARGIN;
+            let y = logical.height - mh - MINIMAP_MARGIN;
+            (x, y)
+        }
+    };
+
+    overlay.set_position(tauri::LogicalPosition::new(x, y)).map_err(|e| e.to_string())?;
+    overlay.set_size(tauri::LogicalSize::new(mw, mh)).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Toggle minimap on/off (called from game control bar)
+#[tauri::command]
+async fn toggle_minimap(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    game_state: State<'_, api::models::GameState>,
+) -> Result<bool, String> {
+    let was_enabled = state.minimap_enabled.load(Ordering::Relaxed);
+    let enabled = !was_enabled;
+    state.minimap_enabled.store(enabled, Ordering::Relaxed);
+
+    // Persist to disk
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let path = dir.join("local").join("minimap_enabled");
+        let _ = std::fs::write(&path, if enabled { "1" } else { "0" });
+    }
+
+    let overlay = app.get_webview("game-overlay").ok_or("Overlay not found")?;
+    if enabled {
+        // Immediately show minimap with current sortie data if in sortie
+        let inner = game_state.inner.read().await;
+        if let Some(sortie) = inner.sortie.battle_logger.active_sortie_ref() {
+            api::send_minimap_data(&app, sortie);
+        }
+        // If no active sortie, overlay stays 1x1 — nothing to show
+    } else {
+        let _ = overlay.eval("window.hideMinimap()");
+        overlay.set_size(tauri::LogicalSize::new(1.0, 1.0)).map_err(|e| e.to_string())?;
+    }
+    Ok(enabled)
+}
+
+#[tauri::command]
+fn get_minimap_enabled(state: State<AppState>) -> bool {
+    state.minimap_enabled.load(Ordering::Relaxed)
+}
+
+/// Move minimap overlay by delta (called from overlay JS during drag)
+#[tauri::command]
+fn move_minimap(app: tauri::AppHandle, state: State<AppState>, dx: f64, dy: f64) -> Result<(), String> {
+    let overlay = app.get_webview("game-overlay").ok_or("Overlay not found")?;
+    let win = app.get_window("game").ok_or("Game window not found")?;
+    let phys = win.inner_size().map_err(|e| e.to_string())?;
+    let scale = win.scale_factor().unwrap_or(1.0);
+    let logical = phys.to_logical::<f64>(scale);
+
+    let (mw, mh) = *state.minimap_size.lock().unwrap();
+    let zoom = *state.game_zoom.lock().unwrap();
+    let bar_h = CONTROL_BAR_HEIGHT * zoom;
+
+    let cur_pos = overlay.position().map_err(|e| e.to_string())?;
+    let cur_logical = cur_pos.to_logical::<f64>(scale);
+
+    let x = (cur_logical.x + dx).max(0.0).min(logical.width - mw);
+    let y = (cur_logical.y + dy).max(bar_h).min(logical.height - mh);
+
+    overlay.set_position(tauri::LogicalPosition::new(x, y)).map_err(|e| e.to_string())?;
+
+    *state.minimap_position.lock().unwrap() = Some((x, y));
+
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let path = dir.join("local").join("minimap_position.json");
+        let _ = std::fs::write(&path, serde_json::to_string(&(x, y)).unwrap_or_default());
+    }
+
+    Ok(())
+}
+
+/// Resize minimap overlay (called from overlay JS during resize drag)
+#[tauri::command]
+fn resize_minimap(app: tauri::AppHandle, state: State<AppState>, w: f64) -> Result<(), String> {
+    let new_w = w.max(MINIMAP_MIN_W).min(MINIMAP_MAX_W);
+    let new_h = (new_w * MINIMAP_ASPECT).round();
+
+    *state.minimap_size.lock().unwrap() = (new_w, new_h);
+    show_minimap_overlay(&app)?;
+
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let path = dir.join("local").join("minimap_size.json");
+        let _ = std::fs::write(&path, serde_json::to_string(&(new_w, new_h)).unwrap_or_default());
+    }
+
     Ok(())
 }
 
@@ -1880,8 +2051,11 @@ pub fn run() {
             game_muted: AtomicBool::new(false),
             formation_hint_enabled: AtomicBool::new(true),
             taiha_alert_enabled: AtomicBool::new(true),
+            minimap_enabled: AtomicBool::new(true),
             formation_hint_rect: Mutex::new(FormationHintRect::default()),
             game_zoom: Mutex::new(1.0),
+            minimap_position: Mutex::new(None),
+            minimap_size: Mutex::new((MINIMAP_DEFAULT_W, MINIMAP_DEFAULT_H)),
         })
         .invoke_handler(tauri::generate_handler![
             get_proxy_port,
@@ -1915,6 +2089,11 @@ pub fn run() {
             toggle_game_mute,
             get_game_mute,
             set_overlay_visible,
+            dismiss_overlay,
+            toggle_minimap,
+            get_minimap_enabled,
+            move_minimap,
+            resize_minimap,
             set_formation_hint_enabled,
             get_formation_hint_enabled,
             set_taiha_alert_enabled,
@@ -1971,6 +2150,36 @@ pub fn run() {
                 }
             }
 
+            // Restore minimap enabled state from disk (default: enabled)
+            let minimap_file = data_dir.join("local").join("minimap_enabled");
+            if let Ok(content) = std::fs::read_to_string(&minimap_file) {
+                if content.trim() == "0" {
+                    let state = app.state::<AppState>();
+                    state.minimap_enabled.store(false, Ordering::Relaxed);
+                    info!("Restored minimap state: disabled");
+                }
+            }
+
+            // Restore minimap position from disk
+            let minimap_pos_file = data_dir.join("local").join("minimap_position.json");
+            if let Ok(content) = std::fs::read_to_string(&minimap_pos_file) {
+                if let Ok(pos) = serde_json::from_str::<(f64, f64)>(&content) {
+                    let state = app.state::<AppState>();
+                    *state.minimap_position.lock().unwrap() = Some(pos);
+                    info!("Restored minimap position: ({}, {})", pos.0, pos.1);
+                }
+            }
+
+            // Restore minimap size from disk
+            let minimap_size_file = data_dir.join("local").join("minimap_size.json");
+            if let Ok(content) = std::fs::read_to_string(&minimap_size_file) {
+                if let Ok(size) = serde_json::from_str::<(f64, f64)>(&content) {
+                    let state = app.state::<AppState>();
+                    *state.minimap_size.lock().unwrap() = size;
+                    info!("Restored minimap size: ({}, {})", size.0, size.1);
+                }
+            }
+
             // Create cache directory for proxy resource caching
             let cache_dir = data_dir.join("local").join("cache");
             let _ = std::fs::create_dir_all(&cache_dir);
@@ -2020,6 +2229,54 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = &event {
+                // Save DMM cookies before the app exits so login persists across restarts
+                if let Some(game_wv) = app_handle.get_webview("game-content") {
+                    let urls = [
+                        "https://www.dmm.com",
+                        "https://accounts.dmm.com",
+                        "https://play.games.dmm.com",
+                        "https://osapi.dmm.com",
+                    ];
+                    let mut all_cookies: Vec<serde_json::Value> = Vec::new();
+                    let mut seen = std::collections::HashSet::new();
+                    for url_str in &urls {
+                        if let Ok(url) = url_str.parse::<Url>() {
+                            if let Ok(cookies) = game_wv.cookies_for_url(url) {
+                                for cookie in cookies {
+                                    let key = format!(
+                                        "{}={}",
+                                        cookie.name(),
+                                        cookie.domain().unwrap_or("")
+                                    );
+                                    if seen.insert(key) {
+                                        all_cookies.push(serde_json::json!({
+                                            "name": cookie.name(),
+                                            "value": cookie.value(),
+                                            "domain": cookie.domain(),
+                                            "path": cookie.path(),
+                                            "http_only": cookie.http_only().unwrap_or(false),
+                                            "secure": cookie.secure().unwrap_or(false),
+                                        }));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if !all_cookies.is_empty() {
+                        let path = cookie_file_path(app_handle);
+                        if let Some(parent) = path.parent() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                        if let Ok(json) = serde_json::to_string_pretty(&all_cookies) {
+                            let _ = std::fs::write(&path, json);
+                            info!("Saved {} cookies on app exit", all_cookies.len());
+                        }
+                    }
+                }
+            }
+        });
 }
