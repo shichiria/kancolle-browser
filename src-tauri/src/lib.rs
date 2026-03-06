@@ -565,7 +565,10 @@ async fn open_game_window(app: tauri::AppHandle) -> Result<(), String> {
 
     info!("Opening game window with proxy: {}", proxy_url);
 
-    // Use a persistent data_directory so cookies/sessions survive across app restarts
+    // Use a persistent data store so cookies/sessions survive across app restarts.
+    // Windows: data_directory (file-based WebView2 profile)
+    // macOS: data_store_identifier (WKWebsiteDataStore, requires macOS >= 14)
+    #[cfg(not(target_os = "macos"))]
     let data_dir = app
         .path()
         .app_local_data_dir()
@@ -615,6 +618,18 @@ async fn open_game_window(app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(not(target_os = "macos"))]
     {
         game_wv_builder = game_wv_builder.data_directory(data_dir);
+    }
+
+    // macOS: use a fixed data_store_identifier for persistent WKWebsiteDataStore (macOS >= 14)
+    // This persists cookies (including httpOnly), sessions, and cache natively.
+    #[cfg(target_os = "macos")]
+    {
+        // Fixed UUID: "kancolle-browser-game" as deterministic 16-byte identifier
+        const GAME_DATA_STORE_ID: [u8; 16] = [
+            0x6b, 0x61, 0x6e, 0x63, 0x6f, 0x6c, 0x6c, 0x65, // "kancolle"
+            0x2d, 0x62, 0x72, 0x6f, 0x77, 0x73, 0x65, 0x72, // "-browser"
+        ];
+        game_wv_builder = game_wv_builder.data_store_identifier(GAME_DATA_STORE_ID);
     }
 
     let game_webview = game_window
@@ -1155,16 +1170,20 @@ async fn clear_resource_cache(app: tauri::AppHandle) -> Result<String, String> {
 }
 
 /// Clear the browser cache (HTTP cache, code cache, GPU cache, etc.).
-/// On Windows: clears WebView2 EBWebView cache directories.
-/// On macOS: clears WKWebView NetworkCache directories.
-/// The game window must be closed before calling this.
+/// If the game webview is open, uses the WebView API (clear_all_browsing_data).
+/// If the game webview is closed, falls back to file-system deletion.
 #[tauri::command]
 async fn clear_browser_cache(app: tauri::AppHandle) -> Result<String, String> {
-    // Ensure game window is closed first
-    if app.get_window("game").is_some() {
-        return Err("ゲーム画面を閉じてから実行してください".to_string());
+    // If game webview is open, use the WebView API to clear browsing data
+    if let Some(game_wv) = app.get_webview("game-content") {
+        game_wv
+            .clear_all_browsing_data()
+            .map_err(|e| e.to_string())?;
+        info!("Browser cache cleared via WebView API");
+        return Ok("ブラウザキャッシュを削除しました".to_string());
     }
 
+    // Game webview is closed — fall back to file-system deletion
     let mut deleted = 0u64;
 
     #[cfg(not(target_os = "macos"))]
@@ -1204,21 +1223,20 @@ async fn clear_browser_cache(app: tauri::AppHandle) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
         // WKWebView stores NetworkCache under ~/Library/Caches/<app-name>/WebKit/
-        // The app may use either the product name or bundle identifier as directory name
         if let Some(home) = dirs::home_dir() {
             let caches_dir = home.join("Library/Caches");
             let app_names = ["kancolle-browser", "com.eo.kancolle-browser"];
 
             for app_name in &app_names {
-                let network_cache = caches_dir.join(app_name).join("WebKit/NetworkCache");
-                if network_cache.exists() {
-                    match std::fs::remove_dir_all(&network_cache) {
+                let webkit_dir = caches_dir.join(app_name).join("WebKit");
+                if webkit_dir.exists() {
+                    match std::fs::remove_dir_all(&webkit_dir) {
                         Ok(_) => {
                             deleted += 1;
-                            info!("Deleted WKWebView NetworkCache: {}", app_name);
+                            info!("Deleted WKWebView cache: {}/WebKit", app_name);
                         }
                         Err(e) => {
-                            log::warn!("Failed to delete NetworkCache for {}: {}", app_name, e);
+                            log::warn!("Failed to delete WebKit cache for {}: {}", app_name, e);
                         }
                     }
                 }
@@ -1230,7 +1248,10 @@ async fn clear_browser_cache(app: tauri::AppHandle) -> Result<String, String> {
         return Ok("ブラウザキャッシュはありません".to_string());
     }
 
-    info!("Browser cache cleared: {} directories/caches deleted", deleted);
+    info!(
+        "Browser cache cleared: {} directories/caches deleted",
+        deleted
+    );
     Ok(format!(
         "ブラウザキャッシュを削除しました（{}箇所）",
         deleted
