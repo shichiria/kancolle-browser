@@ -1154,7 +1154,9 @@ async fn clear_resource_cache(app: tauri::AppHandle) -> Result<String, String> {
     Ok(format!("保存リソースを削除しました（{}ファイル）", count))
 }
 
-/// Clear the WebView2 browser cache (HTTP cache, code cache, GPU cache, etc.).
+/// Clear the browser cache (HTTP cache, code cache, GPU cache, etc.).
+/// On Windows: clears WebView2 EBWebView cache directories.
+/// On macOS: clears WKWebView NetworkCache directories.
 /// The game window must be closed before calling this.
 #[tauri::command]
 async fn clear_browser_cache(app: tauri::AppHandle) -> Result<String, String> {
@@ -1163,37 +1165,63 @@ async fn clear_browser_cache(app: tauri::AppHandle) -> Result<String, String> {
         return Err("ゲーム画面を閉じてから実行してください".to_string());
     }
 
-    let webview_dir = app
-        .path()
-        .app_local_data_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join("local")
-        .join("game-webview")
-        .join("EBWebView");
+    let mut deleted = 0u64;
 
-    if !webview_dir.exists() {
-        return Ok("ブラウザキャッシュはありません".to_string());
+    #[cfg(not(target_os = "macos"))]
+    {
+        let webview_dir = app
+            .path()
+            .app_local_data_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("local")
+            .join("game-webview")
+            .join("EBWebView");
+
+        if webview_dir.exists() {
+            let cache_dirs = [
+                "Default/Cache",
+                "Default/Code Cache",
+                "Default/GPUCache",
+                "Default/DawnGraphiteCache",
+                "Default/DawnWebGPUCache",
+                "ShaderCache",
+                "GrShaderCache",
+                "GraphiteDawnCache",
+            ];
+
+            for dir_name in &cache_dirs {
+                let dir_path = webview_dir.join(dir_name);
+                if dir_path.exists() {
+                    if let Ok(_) = std::fs::remove_dir_all(&dir_path) {
+                        deleted += 1;
+                        info!("Deleted browser cache: {}", dir_name);
+                    }
+                }
+            }
+        }
     }
 
-    // Target cache-related directories only (preserve cookies, history, etc.)
-    let cache_dirs = [
-        "Default/Cache",
-        "Default/Code Cache",
-        "Default/GPUCache",
-        "Default/DawnGraphiteCache",
-        "Default/DawnWebGPUCache",
-        "ShaderCache",
-        "GrShaderCache",
-        "GraphiteDawnCache",
-    ];
+    #[cfg(target_os = "macos")]
+    {
+        // WKWebView stores NetworkCache under ~/Library/Caches/<app-name>/WebKit/
+        // The app may use either the product name or bundle identifier as directory name
+        if let Some(home) = dirs::home_dir() {
+            let caches_dir = home.join("Library/Caches");
+            let app_names = ["kancolle-browser", "com.eo.kancolle-browser"];
 
-    let mut deleted = 0u64;
-    for dir_name in &cache_dirs {
-        let dir_path = webview_dir.join(dir_name);
-        if dir_path.exists() {
-            if let Ok(_) = std::fs::remove_dir_all(&dir_path) {
-                deleted += 1;
-                info!("Deleted browser cache: {}", dir_name);
+            for app_name in &app_names {
+                let network_cache = caches_dir.join(app_name).join("WebKit/NetworkCache");
+                if network_cache.exists() {
+                    match std::fs::remove_dir_all(&network_cache) {
+                        Ok(_) => {
+                            deleted += 1;
+                            info!("Deleted WKWebView NetworkCache: {}", app_name);
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to delete NetworkCache for {}: {}", app_name, e);
+                        }
+                    }
+                }
             }
         }
     }
@@ -1202,9 +1230,9 @@ async fn clear_browser_cache(app: tauri::AppHandle) -> Result<String, String> {
         return Ok("ブラウザキャッシュはありません".to_string());
     }
 
-    info!("Browser cache cleared: {} directories deleted", deleted);
+    info!("Browser cache cleared: {} directories/caches deleted", deleted);
     Ok(format!(
-        "ブラウザキャッシュを削除しました（{}ディレクトリ）",
+        "ブラウザキャッシュを削除しました（{}箇所）",
         deleted
     ))
 }

@@ -1040,6 +1040,49 @@ function formatDuration(minutes: number): string {
   return `${m}m`;
 }
 
+function ClearButton({ label, desc, command }: {
+  label: string;
+  desc: string;
+  command: string;
+}) {
+  const [status, setStatus] = useState<"idle" | "confirm" | "busy" | "done" | "error">("idle");
+  const [message, setMessage] = useState("");
+
+  return (
+    <div className="options-clear-row">
+      <span className="options-clear-label">{label}</span>
+      <span className="options-clear-desc">
+        {status === "done" || status === "error" ? message : desc}
+      </span>
+      {status === "confirm" ? (
+        <>
+          <button className="options-clear-btn options-clear-btn-danger" onClick={async () => {
+            setStatus("busy");
+            try {
+              const msg = await invoke<string>(command);
+              setMessage(msg);
+              setStatus("done");
+            } catch (e) {
+              setMessage(`${e}`);
+              setStatus("error");
+            }
+            setTimeout(() => { setStatus("idle"); setMessage(""); }, 5000);
+          }}>実行</button>
+          <button className="options-clear-btn" onClick={() => setStatus("idle")}>取消</button>
+        </>
+      ) : (
+        <button
+          className="options-clear-btn"
+          disabled={status === "busy"}
+          onClick={() => setStatus("confirm")}
+        >
+          {status === "busy" ? "処理中..." : status === "done" ? "完了" : status === "error" ? "失敗" : "クリア"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function FleetPanel({
   fleet,
   now,
@@ -3437,42 +3480,16 @@ function App() {
                     クリア
                   </button>
                 </div>
-                <div className="options-clear-row">
-                  <span className="options-clear-label">ブラウザキャッシュ</span>
-                  <span className="options-clear-desc">WebViewのHTTP/GPUキャッシュ</span>
-                  <button
-                    className="options-clear-btn"
-                    onClick={async () => {
-                      if (!confirm("ブラウザキャッシュを削除しますか？（ゲーム画面を閉じてから実行）")) return;
-                      try {
-                        const msg = await invoke<string>("clear_browser_cache");
-                        alert(msg);
-                      } catch (e) {
-                        alert(`エラー: ${e}`);
-                      }
-                    }}
-                  >
-                    クリア
-                  </button>
-                </div>
-                <div className="options-clear-row">
-                  <span className="options-clear-label">保存リソース</span>
-                  <span className="options-clear-desc">プロキシ経由で保存したマップ画像等</span>
-                  <button
-                    className="options-clear-btn"
-                    onClick={async () => {
-                      if (!confirm("保存リソースを削除しますか？次回出撃時に再取得されます。")) return;
-                      try {
-                        const msg = await invoke<string>("clear_resource_cache");
-                        alert(msg);
-                      } catch (e) {
-                        alert(`エラー: ${e}`);
-                      }
-                    }}
-                  >
-                    クリア
-                  </button>
-                </div>
+                <ClearButton
+                  label="ブラウザキャッシュ"
+                  desc="WebViewのHTTP/GPUキャッシュ"
+                  command="clear_browser_cache"
+                />
+                <ClearButton
+                  label="保存リソース"
+                  desc="プロキシ経由で保存したマップ画像等"
+                  command="clear_resource_cache"
+                />
                 <div className="options-clear-row">
                   <span className="options-clear-label">Cookie</span>
                   <span className="options-clear-desc">DMM保存Cookie（再ログイン必要）</span>
