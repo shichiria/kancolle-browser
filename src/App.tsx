@@ -1041,10 +1041,11 @@ function formatDuration(minutes: number): string {
   return `${m}m`;
 }
 
-function ClearButton({ label, desc, command }: {
+function ClearButton({ label, desc, command, onSuccess }: {
   label: string;
   desc: string;
   command: string;
+  onSuccess?: () => void;
 }) {
   const [status, setStatus] = useState<"idle" | "confirm" | "busy" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -1061,8 +1062,9 @@ function ClearButton({ label, desc, command }: {
             setStatus("busy");
             try {
               const msg = await invoke<string>(command);
-              setMessage(msg);
+              setMessage(msg || "完了しました");
               setStatus("done");
+              onSuccess?.();
             } catch (e) {
               setMessage(`${e}`);
               setStatus("error");
@@ -3485,60 +3487,27 @@ function App() {
             <div className="options-section">
               <div className="options-section-title">データクリア</div>
               <div className="options-clear-list">
-                <div className="options-clear-row">
-                  <span className="options-clear-label">改修履歴</span>
-                  <span className="options-clear-desc">改修した装備の記録</span>
-                  <button
-                    className="options-clear-btn"
-                    onClick={async () => {
-                      if (!confirm("改修履歴をクリアしますか？")) return;
-                      await invoke("clear_improved_history");
-                    }}
-                  >
-                    クリア
-                  </button>
-                </div>
-                <div className="options-clear-row">
-                  <span className="options-clear-label">戦闘ログ</span>
-                  <span className="options-clear-desc">出撃・戦闘の記録</span>
-                  <button
-                    className="options-clear-btn"
-                    onClick={async () => {
-                      if (!confirm("戦闘ログをクリアしますか？")) return;
-                      await invoke("clear_battle_logs");
-                      setBattleLogs([]);
-                      setBattleLogsTotal(0);
-                    }}
-                  >
-                    クリア
-                  </button>
-                </div>
-                <div className="options-clear-row">
-                  <span className="options-clear-label">生APIダンプ</span>
-                  <span className="options-clear-desc">傍受したAPIの生データ</span>
-                  <button
-                    className="options-clear-btn"
-                    onClick={async () => {
-                      if (!confirm("生APIダンプをクリアしますか？")) return;
-                      await invoke("clear_raw_api");
-                    }}
-                  >
-                    クリア
-                  </button>
-                </div>
-                <div className="options-clear-row">
-                  <span className="options-clear-label">任務進捗</span>
-                  <span className="options-clear-desc">任務の進捗データ</span>
-                  <button
-                    className="options-clear-btn"
-                    onClick={async () => {
-                      if (!confirm("任務進捗をクリアしますか？")) return;
-                      await invoke("clear_quest_progress");
-                    }}
-                  >
-                    クリア
-                  </button>
-                </div>
+                <ClearButton
+                  label="改修履歴"
+                  desc="改修した装備の記録"
+                  command="clear_improved_history"
+                />
+                <ClearButton
+                  label="戦闘ログ"
+                  desc="出撃・戦闘の記録"
+                  command="clear_battle_logs"
+                  onSuccess={() => { setBattleLogs([]); setBattleLogsTotal(0); }}
+                />
+                <ClearButton
+                  label="生APIダンプ"
+                  desc="傍受したAPIの生データ"
+                  command="clear_raw_api"
+                />
+                <ClearButton
+                  label="任務進捗"
+                  desc="任務の進捗データ"
+                  command="clear_quest_progress"
+                />
                 <ClearButton
                   label="ブラウザキャッシュ"
                   desc="WebViewのHTTP/GPUキャッシュ"
@@ -3549,37 +3518,16 @@ function App() {
                   desc="プロキシ経由で保存したマップ画像等"
                   command="clear_resource_cache"
                 />
-                <div className="options-clear-row">
-                  <span className="options-clear-label">Cookie</span>
-                  <span className="options-clear-desc">DMM保存Cookie（再ログイン必要）</span>
-                  <button
-                    className="options-clear-btn options-clear-btn-danger"
-                    onClick={async () => {
-                      if (!confirm("保存済みCookieをクリアしますか？次回起動時に再ログインが必要です。")) return;
-                      await invoke("clear_cookies");
-                    }}
-                  >
-                    クリア
-                  </button>
-                </div>
-                <div className="options-clear-row">
-                  <span className="options-clear-label">ブラウザデータ全削除</span>
-                  <span className="options-clear-desc">Cookie・セッション・キャッシュ等を全て削除（ゲーム画面を閉じてから実行）</span>
-                  <button
-                    className="options-clear-btn options-clear-btn-danger"
-                    onClick={async () => {
-                      if (!confirm("ブラウザデータを全て削除しますか？再ログインが必要になります。")) return;
-                      try {
-                        const msg = await invoke<string>("reset_browser_data");
-                        alert(msg);
-                      } catch (e) {
-                        alert(String(e));
-                      }
-                    }}
-                  >
-                    リセット
-                  </button>
-                </div>
+                <ClearButton
+                  label="Cookie"
+                  desc="DMM保存Cookie（再ログイン必要）"
+                  command="clear_cookies"
+                />
+                <ClearButton
+                  label="ブラウザデータ全削除"
+                  desc="Cookie・セッション・キャッシュ等を全て削除"
+                  command="reset_browser_data"
+                />
               </div>
             </div>
           </div>

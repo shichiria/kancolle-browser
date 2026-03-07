@@ -1128,34 +1128,114 @@ fn clear_cookies(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Reset all WebView2 browsing data (cookies, session, cache, etc.).
-/// The game window must be closed before calling this so files are not locked.
+/// Reset all browsing data (cookies, session, cache, etc.).
+/// If the game webview is open, uses the WebView API first, then deletes files.
 #[tauri::command]
 fn reset_browser_data(app: tauri::AppHandle) -> Result<String, String> {
+    // Windows: require game window to be closed (EBWebView directory is locked)
+    #[cfg(not(target_os = "macos"))]
     if app.get_window("game").is_some() {
         return Err("ゲーム画面を閉じてから実行してください".to_string());
     }
 
-    let webview_dir = app
-        .path()
-        .app_local_data_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join("local")
-        .join("game-webview")
-        .join("EBWebView");
-
     let mut deleted = false;
-    if webview_dir.exists() {
-        std::fs::remove_dir_all(&webview_dir).map_err(|e| e.to_string())?;
-        info!("Deleted WebView2 data: {}", webview_dir.display());
-        deleted = true;
+
+    // macOS: if game webview is open, clear via API and close the window
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(game_wv) = app.get_webview("game-content") {
+            if let Err(e) = game_wv.clear_all_browsing_data() {
+                log::warn!("Failed to clear browsing data via API: {}", e);
+            } else {
+                info!("Cleared browsing data via WebView API");
+                deleted = true;
+            }
+        }
+        if let Some(win) = app.get_window("game") {
+            let _ = win.close();
+        }
     }
 
+    // Windows: delete WebView2 user data
+    #[cfg(not(target_os = "macos"))]
+    {
+        let webview_dir = app
+            .path()
+            .app_local_data_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("local")
+            .join("game-webview")
+            .join("EBWebView");
+
+        if webview_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&webview_dir) {
+                log::warn!("Failed to delete WebView2 data: {}", e);
+            } else {
+                info!("Deleted WebView2 data: {}", webview_dir.display());
+                deleted = true;
+            }
+        }
+    }
+
+    // macOS: delete WKWebView caches and WKWebsiteDataStore data
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(home) = dirs::home_dir() {
+            let app_names = ["kancolle-browser", "com.eo.kancolle-browser"];
+
+            // ~/Library/Caches/<app-name>/ (HTTP cache, WebKit cache)
+            let caches_dir = home.join("Library/Caches");
+            for app_name in &app_names {
+                let app_cache = caches_dir.join(app_name);
+                if app_cache.exists() {
+                    if let Err(e) = std::fs::remove_dir_all(&app_cache) {
+                        log::warn!("Failed to delete cache for {}: {}", app_name, e);
+                    } else {
+                        info!("Deleted WKWebView cache: {}", app_name);
+                        deleted = true;
+                    }
+                }
+            }
+
+            // ~/Library/WebKit/<app-name>/ (WKWebsiteDataStore: cookies, local storage, etc.)
+            let webkit_dir = home.join("Library/WebKit");
+            for app_name in &app_names {
+                let app_data = webkit_dir.join(app_name);
+                if app_data.exists() {
+                    if let Err(e) = std::fs::remove_dir_all(&app_data) {
+                        log::warn!("Failed to delete WebKit data for {}: {}", app_name, e);
+                    } else {
+                        info!("Deleted WKWebsiteDataStore: {}", app_name);
+                        deleted = true;
+                    }
+                }
+            }
+
+            // ~/Library/HTTPStorages/<app-name>/ (cookies and HTTP storage)
+            let http_storages_dir = home.join("Library/HTTPStorages");
+            for app_name in &app_names {
+                let app_storage = http_storages_dir.join(app_name);
+                if app_storage.exists() {
+                    if let Err(e) = std::fs::remove_dir_all(&app_storage) {
+                        log::warn!("Failed to delete HTTPStorages for {}: {}", app_name, e);
+                    } else {
+                        info!("Deleted HTTPStorages: {}", app_name);
+                        deleted = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Delete saved cookies
     let cookie_path = cookie_file_path(&app);
     if cookie_path.exists() {
-        std::fs::remove_file(&cookie_path).map_err(|e| e.to_string())?;
-        info!("Deleted saved cookies");
-        deleted = true;
+        if let Err(e) = std::fs::remove_file(&cookie_path) {
+            log::warn!("Failed to delete cookies: {}", e);
+        } else {
+            info!("Deleted saved cookies");
+            deleted = true;
+        }
     }
 
     if deleted {
