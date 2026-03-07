@@ -190,7 +190,9 @@ async fn build_cookie_restore_script(app: &tauri::AppHandle) -> String {
         Err(_) => return String::new(),
     };
 
-    let mut script = String::from("(function() {\n");
+    // Only restore cookies on about:blank (initial page before DMM navigation).
+    // Running on other pages would overwrite fresh session cookies set by the login flow.
+    let mut script = String::from("(function() {\n  if (window.location.href !== 'about:blank') return;\n");
     let expires = (chrono::Utc::now() + chrono::Duration::days(365))
         .format("%a, %d %b %Y %H:%M:%S GMT")
         .to_string();
@@ -1124,6 +1126,43 @@ fn clear_cookies(app: tauri::AppHandle) -> Result<(), String> {
     }
     info!("Cleared saved cookies");
     Ok(())
+}
+
+/// Reset all WebView2 browsing data (cookies, session, cache, etc.).
+/// The game window must be closed before calling this so files are not locked.
+#[tauri::command]
+fn reset_browser_data(app: tauri::AppHandle) -> Result<String, String> {
+    if app.get_window("game").is_some() {
+        return Err("ゲーム画面を閉じてから実行してください".to_string());
+    }
+
+    let webview_dir = app
+        .path()
+        .app_local_data_dir()
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join("local")
+        .join("game-webview")
+        .join("EBWebView");
+
+    let mut deleted = false;
+    if webview_dir.exists() {
+        std::fs::remove_dir_all(&webview_dir).map_err(|e| e.to_string())?;
+        info!("Deleted WebView2 data: {}", webview_dir.display());
+        deleted = true;
+    }
+
+    let cookie_path = cookie_file_path(&app);
+    if cookie_path.exists() {
+        std::fs::remove_file(&cookie_path).map_err(|e| e.to_string())?;
+        info!("Deleted saved cookies");
+        deleted = true;
+    }
+
+    if deleted {
+        Ok("ブラウザデータをリセットしました（次回ゲーム起動時に再ログインが必要です）".to_string())
+    } else {
+        Ok("リセット対象のデータはありません".to_string())
+    }
 }
 
 /// Get a cached game resource (image or JSON) from the local cache.
@@ -2216,6 +2255,7 @@ pub fn run() {
             set_raw_api_enabled,
             get_raw_api_enabled,
             clear_cookies,
+            reset_browser_data,
             get_cached_resource,
             get_map_sprite,
             clear_resource_cache,

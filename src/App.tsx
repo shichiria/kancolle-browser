@@ -3562,6 +3562,24 @@ function App() {
                     クリア
                   </button>
                 </div>
+                <div className="options-clear-row">
+                  <span className="options-clear-label">ブラウザデータ全削除</span>
+                  <span className="options-clear-desc">Cookie・セッション・キャッシュ等を全て削除（ゲーム画面を閉じてから実行）</span>
+                  <button
+                    className="options-clear-btn options-clear-btn-danger"
+                    onClick={async () => {
+                      if (!confirm("ブラウザデータを全て削除しますか？再ログインが必要になります。")) return;
+                      try {
+                        const msg = await invoke<string>("reset_browser_data");
+                        alert(msg);
+                      } catch (e) {
+                        alert(String(e));
+                      }
+                    }}
+                  >
+                    リセット
+                  </button>
+                </div>
               </div>
             </div>
           </div>
