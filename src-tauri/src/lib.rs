@@ -35,6 +35,7 @@ pub struct AppState {
     pub formation_hint_enabled: AtomicBool,
     pub taiha_alert_enabled: AtomicBool,
     pub minimap_enabled: AtomicBool,
+    pub expedition_notify_visible: AtomicBool,
     /// Formation hint window offset relative to game window inner position
     pub formation_hint_rect: Mutex<FormationHintRect>,
     /// Current game zoom level (1.0 = 100%)
@@ -701,6 +702,33 @@ async fn open_game_window(app: tauri::AppHandle) -> Result<(), String> {
         )
         .map_err(|e| e.to_string())?;
 
+    // Create expedition notification window (click-through, transparent)
+    let notify_win = WindowBuilder::new(&app, "expedition-notify")
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .visible(false)
+        .skip_taskbar(true)
+        .inner_size(250.0, 100.0)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    notify_win
+        .set_ignore_cursor_events(true)
+        .map_err(|e| e.to_string())?;
+
+    let _notify_wv = notify_win
+        .add_child(
+            WebviewBuilder::new(
+                "expedition-notify-content",
+                WebviewUrl::App("expedition-notify.html".into()),
+            )
+            .transparent(true),
+            tauri::LogicalPosition::new(0.0, 0.0),
+            tauri::LogicalSize::new(250.0, 100.0),
+        )
+        .map_err(|e| e.to_string())?;
+
     // Sync game webview on resize, reposition formation hint on move/resize
     let resize_app = app.clone();
     game_window.on_window_event(move |event| {
@@ -715,9 +743,12 @@ async fn open_game_window(app: tauri::AppHandle) -> Result<(), String> {
                 if resize_app.state::<AppState>().minimap_enabled.load(Ordering::Relaxed) {
                     let _ = show_minimap_overlay(&resize_app);
                 }
+                // Reposition expedition notification if visible
+                reposition_expedition_notification(&resize_app);
             }
             tauri::WindowEvent::Moved(_) => {
                 reposition_formation_hint(&resize_app);
+                reposition_expedition_notification(&resize_app);
             }
             _ => {}
         }
@@ -1475,6 +1506,9 @@ async fn close_game_window(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(hint_win) = app.get_window("formation-hint") {
         let _ = hint_win.close();
     }
+    if let Some(notify_win) = app.get_window("expedition-notify") {
+        let _ = notify_win.close();
+    }
     if let Some(win) = app.get_window("game") {
         // Force save cookies immediately before closing
         match save_game_cookies(app.clone()).await {
@@ -1816,6 +1850,106 @@ fn resize_minimap(app: tauri::AppHandle, state: State<AppState>, w: f64) -> Resu
     Ok(())
 }
 
+/// Expedition notification window dimensions
+const EXPEDITION_NOTIFY_W: f64 = 250.0;
+const EXPEDITION_NOTIFY_ITEM_H: f64 = 18.0;
+const EXPEDITION_NOTIFY_BASE_H: f64 = 28.0;
+const EXPEDITION_NOTIFY_MARGIN: f64 = 8.0;
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+struct ExpeditionNotifyItem {
+    fleet_id: i32,
+    mission_name: String,
+}
+
+/// Show expedition completion notification at top-right of game window
+#[tauri::command]
+fn show_expedition_notification(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    notifications: Vec<ExpeditionNotifyItem>,
+) -> Result<(), String> {
+    let notify_win = app
+        .get_window("expedition-notify")
+        .ok_or("Notification window not found")?;
+    let game_win = app.get_window("game").ok_or("Game window not found")?;
+
+    let scale = game_win.scale_factor().unwrap_or(1.0);
+    let phys_pos = game_win.inner_position().map_err(|e| e.to_string())?;
+    let phys_size = game_win.inner_size().map_err(|e| e.to_string())?;
+
+    let notify_h = EXPEDITION_NOTIFY_BASE_H + notifications.len() as f64 * EXPEDITION_NOTIFY_ITEM_H;
+    let top_offset = MACOS_TITLEBAR_HEIGHT + CONTROL_BAR_HEIGHT + EXPEDITION_NOTIFY_MARGIN;
+
+    let x = phys_pos.x + phys_size.width as i32
+        - ((EXPEDITION_NOTIFY_W + EXPEDITION_NOTIFY_MARGIN) * scale) as i32;
+    let y = phys_pos.y + (top_offset * scale) as i32;
+
+    notify_win
+        .set_position(tauri::PhysicalPosition::new(x, y))
+        .map_err(|e| e.to_string())?;
+    notify_win
+        .set_size(tauri::LogicalSize::new(EXPEDITION_NOTIFY_W, notify_h))
+        .map_err(|e| e.to_string())?;
+
+    if let Some(wv) = app.get_webview("expedition-notify-content") {
+        let _ = wv.set_size(tauri::LogicalSize::new(EXPEDITION_NOTIFY_W, notify_h));
+        let json = serde_json::to_string(&notifications).unwrap_or_default();
+        let _ = wv.eval(&format!("window.showNotifications({})", json));
+    }
+
+    let _ = notify_win.show();
+    state
+        .expedition_notify_visible
+        .store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+/// Hide expedition completion notification
+#[tauri::command]
+fn hide_expedition_notification(app: tauri::AppHandle, state: State<AppState>) -> Result<(), String> {
+    if let Some(win) = app.get_window("expedition-notify") {
+        let _ = win.hide();
+    }
+    state
+        .expedition_notify_visible
+        .store(false, Ordering::Relaxed);
+    Ok(())
+}
+
+/// Reposition expedition notification to follow the game window
+fn reposition_expedition_notification(app: &tauri::AppHandle) {
+    let state = app.state::<AppState>();
+    if !state.expedition_notify_visible.load(Ordering::Relaxed) {
+        return;
+    }
+    let game_win = match app.get_window("game") {
+        Some(w) => w,
+        None => return,
+    };
+    let notify_win = match app.get_window("expedition-notify") {
+        Some(w) => w,
+        None => return,
+    };
+
+    let scale = game_win.scale_factor().unwrap_or(1.0);
+    let phys_pos = match game_win.inner_position() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let phys_size = match game_win.inner_size() {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+
+    let top_offset = MACOS_TITLEBAR_HEIGHT + CONTROL_BAR_HEIGHT + EXPEDITION_NOTIFY_MARGIN;
+    let x = phys_pos.x + phys_size.width as i32
+        - ((EXPEDITION_NOTIFY_W + EXPEDITION_NOTIFY_MARGIN) * scale) as i32;
+    let y = phys_pos.y + (top_offset * scale) as i32;
+
+    let _ = notify_win.set_position(tauri::PhysicalPosition::new(x, y));
+}
+
 /// Get quest progress for active quests
 #[tauri::command]
 async fn get_quest_progress(
@@ -2052,6 +2186,7 @@ pub fn run() {
             formation_hint_enabled: AtomicBool::new(true),
             taiha_alert_enabled: AtomicBool::new(true),
             minimap_enabled: AtomicBool::new(true),
+            expedition_notify_visible: AtomicBool::new(false),
             formation_hint_rect: Mutex::new(FormationHintRect::default()),
             game_zoom: Mutex::new(1.0),
             minimap_position: Mutex::new(None),
@@ -2096,6 +2231,8 @@ pub fn run() {
             resize_minimap,
             set_formation_hint_enabled,
             get_formation_hint_enabled,
+            show_expedition_notification,
+            hide_expedition_notification,
             set_taiha_alert_enabled,
             get_taiha_alert_enabled,
             get_quest_progress,

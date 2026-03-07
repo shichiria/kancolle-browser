@@ -30,6 +30,7 @@ interface ShipData {
   fuel: number;
   bull: number;
   damecon_name?: string | null;
+  command_facility_name?: string | null;
   special_equips: SpecialEquip[];
   can_opening_asw?: boolean;
   soku: number;
@@ -1157,6 +1158,11 @@ function FleetPanel({
                   title={ship.damecon_name}
                   style={weaponIconSheet ? { backgroundImage: `url(${weaponIconSheet})` } : undefined}
                 />
+              )}
+              {ship.command_facility_name && (
+                <span className="command-facility-badge" title={ship.command_facility_name}>
+                  司
+                </span>
               )}
               {ship.special_equips.length > 0 && (
                 ship.special_equips.map((eq, j) => (
@@ -2565,6 +2571,13 @@ function EquipListTab({ portDataVersion }: { portDataVersion: number }) {
 
 // ── Improvement Tab Types & Component ──
 
+interface ConsumedEquipInfo {
+  eq_id: number;
+  name: string;
+  counts: [number, number, number]; // [p1(★0-5), p2(★6-9), conv(更新)]
+  owned: number; // unlocked count
+}
+
 interface ImprovementItem {
   eq_id: number;
   name: string;
@@ -2575,6 +2588,7 @@ interface ImprovementItem {
   today_helpers: string[];
   matches_secretary: boolean;
   previously_improved: boolean;
+  consumed_equips: ConsumedEquipInfo[];
 }
 
 interface ImprovementListResponse {
@@ -2711,6 +2725,22 @@ function ImprovementTab({ portDataVersion }: { portDataVersion: number }) {
               {item.name}
             </span>
             <span className="imp-type">{item.type_name}</span>
+            {item.consumed_equips.length > 0 && (
+              <span className="imp-consumed">
+                {item.consumed_equips.map((ce) => (
+                  <span
+                    key={ce.eq_id}
+                    className={`imp-consumed-item${ce.owned === 0 ? " imp-consumed-zero" : ""}`}
+                    title={`${ce.name}\n★0-5: ×${ce.counts[0]}  ★6-9: ×${ce.counts[1]}  更新: ×${ce.counts[2]}\n所持(ロックなし): ${ce.owned}`}
+                  >
+                    {ce.name} ×{ce.counts[0]}/{ce.counts[1]}/{ce.counts[2]}
+                    <span className={`imp-owned${ce.owned === 0 ? " imp-owned-zero" : ""}`}>
+                      ({ce.owned})
+                    </span>
+                  </span>
+                ))}
+              </span>
+            )}
             {item.previously_improved && (
               <span className="imp-history" title="改修済み">
                 ★
@@ -2787,6 +2817,35 @@ function App() {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Expedition completion notification (1 minute before return)
+  const prevNotifyKeyRef = useRef("");
+  useEffect(() => {
+    if (!portData || !gameOpen) return;
+
+    const ready: { fleet_id: number; mission_name: string }[] = [];
+    for (const fleet of portData.fleets) {
+      if (!fleet.expedition || fleet.expedition.return_time <= 0) continue;
+      if (fleet.expedition.return_time - now <= 60000) {
+        ready.push({
+          fleet_id: fleet.id,
+          mission_name: fleet.expedition.mission_name,
+        });
+      }
+    }
+
+    const key = ready.map((f) => f.fleet_id).sort().join(",");
+    if (key === prevNotifyKeyRef.current) return;
+    prevNotifyKeyRef.current = key;
+
+    if (ready.length > 0) {
+      invoke("show_expedition_notification", { notifications: ready }).catch(
+        console.error,
+      );
+    } else {
+      invoke("hide_expedition_notification").catch(console.error);
+    }
+  }, [portData, now, gameOpen]);
 
   // Check CA status
   const checkCa = useCallback(async () => {
