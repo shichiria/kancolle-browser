@@ -121,6 +121,8 @@ pub struct UserProfile {
     pub slotitems: HashMap<i32, PlayerSlotItem>,
     /// Fleet compositions: fleet_index (0-3) -> ship instance IDs
     pub fleets: Vec<Vec<i32>>,
+    /// Combined fleet flag: 0=none, 1=carrier TF, 2=surface TF, 3=transport escort
+    pub combined_flag: i32,
 }
 
 /// Sortie session and battle logging state
@@ -325,6 +327,8 @@ pub struct ApiPort {
     pub api_deck_port: Vec<Fleet>,
     pub api_ndock: Vec<RepairDock>,
     pub api_material: Vec<Material>,
+    #[serde(default)]
+    pub api_combined_flag: i32,
     #[serde(flatten)]
     _extra: serde_json::Value,
 }
@@ -478,6 +482,8 @@ pub struct ShipSummary {
     pub bull: i32,
     /// Damage control item name if equipped (icon_type 14), e.g. "応急修理要員"
     pub damecon_name: Option<String>,
+    /// Command facility name if activation conditions are met
+    pub command_facility_name: Option<String>,
     /// Special equipment for expedition display (drums icon_type=25, landing craft icon_type=20)
     pub special_equips: Vec<SpecialEquip>,
     /// Whether this ship can perform opening ASW attack

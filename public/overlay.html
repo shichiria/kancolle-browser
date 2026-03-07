@@ -388,7 +388,8 @@ html, body {
     html += '</div>'; // .minimap-map
 
     if (currentLabel) {
-      html += '<div class="minimap-current-node">\u73FE\u5728: <span class="minimap-node-label">' + currentLabel + '</span></div>';
+      var currentIsBoss = currentNode && (currentNode.event_id === 5 || currentNode.event_kind === 5);
+      html += '<div class="minimap-current-node">\u73FE\u5728: <span class="minimap-node-label">' + currentLabel + (currentIsBoss ? '\uFF08\u30DC\u30B9\uFF09' : '') + '</span></div>';
     }
 
     html += '<div class="minimap-resize" id="minimap-resize-handle"></div>';

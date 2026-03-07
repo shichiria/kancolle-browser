@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -25,7 +25,29 @@ struct ImprovementPath {
     #[serde(default)]
     convert: serde_json::Value,
     #[serde(default)]
-    costs: serde_json::Value,
+    costs: Option<ImprovementCosts>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ImprovementCosts {
+    #[serde(default)]
+    p1: Option<CostPhase>,
+    #[serde(default)]
+    p2: Option<CostPhase>,
+    #[serde(default)]
+    conv: Option<CostPhase>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CostPhase {
+    #[serde(default)]
+    equips: Vec<CostEquip>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CostEquip {
+    id: i32,
+    eq_count: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -56,6 +78,15 @@ pub struct ImprovementItem {
     pub today_helpers: Vec<String>,
     pub matches_secretary: bool,
     pub previously_improved: bool,
+    pub consumed_equips: Vec<ConsumedEquipInfo>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConsumedEquipInfo {
+    pub eq_id: i32,
+    pub name: String,
+    pub counts: [i32; 3], // [p1(★0-5), p2(★6-9), conv(更新)]
+    pub owned: i32,       // unlocked count
 }
 
 // =============================================================================
@@ -246,6 +277,45 @@ pub fn build_improvement_list(state: &GameStateInner) -> ImprovementListResponse
 
         let previously_improved = state.history.improved_equipment.contains(&entry.eq_id);
 
+        // Collect consumed equips across all improvement paths
+        let mut consumed_map: HashMap<i32, [i32; 3]> = HashMap::new();
+        for imp in &entry.improvement {
+            if let Some(ref costs) = imp.costs {
+                let phases = [costs.p1.as_ref(), costs.p2.as_ref(), costs.conv.as_ref()];
+                for (phase_idx, phase) in phases.iter().enumerate() {
+                    if let Some(p) = phase {
+                        for equip in &p.equips {
+                            let e = consumed_map.entry(equip.id).or_insert([0, 0, 0]);
+                            e[phase_idx] = e[phase_idx].max(equip.eq_count);
+                        }
+                    }
+                }
+            }
+        }
+        let consumed_equips: Vec<ConsumedEquipInfo> = consumed_map
+            .into_iter()
+            .map(|(eq_id, counts)| {
+                let name = state
+                    .master
+                    .slotitems
+                    .get(&eq_id)
+                    .map(|info| info.name.clone())
+                    .unwrap_or_else(|| format!("装備ID:{}", eq_id));
+                let owned = state
+                    .profile
+                    .slotitems
+                    .values()
+                    .filter(|item| item.slotitem_id == eq_id && !item.locked)
+                    .count() as i32;
+                ConsumedEquipInfo {
+                    eq_id,
+                    name,
+                    counts,
+                    owned,
+                }
+            })
+            .collect();
+
         items.push(ImprovementItem {
             eq_id: entry.eq_id,
             name: master_info.name.clone(),
@@ -256,6 +326,7 @@ pub fn build_improvement_list(state: &GameStateInner) -> ImprovementListResponse
             today_helpers,
             matches_secretary,
             previously_improved,
+            consumed_equips,
         });
     }
 

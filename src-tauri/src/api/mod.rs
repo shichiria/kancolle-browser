@@ -951,6 +951,9 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
         state.profile.fleets[fleet.api_id as usize - 1] = ship_ids;
     }
 
+    // Update combined fleet flag
+    state.profile.combined_flag = api_data.api_combined_flag;
+
     info!(
         "GameState updated: {} player ships, {} slotitems in memory",
         state.profile.ships.len(),
@@ -962,7 +965,7 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
         .api_deck_port
         .iter()
         .map(|fleet| {
-            let ships: Vec<models::ShipSummary> = fleet
+            let mut ships: Vec<models::ShipSummary> = fleet
                 .api_ship
                 .iter()
                 .filter(|&&id| id > 0)
@@ -983,6 +986,7 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
                             fuel: info.fuel,
                             bull: info.bull,
                             damecon_name: marks.damecon_name,
+                            command_facility_name: None,
                             special_equips: marks.special_equips,
                             can_opening_asw: marks.can_opening_asw,
                             soku: info.soku,
@@ -990,6 +994,14 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
                     })
                 })
                 .collect();
+
+            resolve_command_facility(
+                &mut ships,
+                fleet.api_id,
+                state.profile.combined_flag,
+                &state.profile,
+                &state.master.slotitems,
+            );
 
             let expedition = parse_expedition(&fleet.api_mission, &state.master.missions);
 
@@ -1859,6 +1871,73 @@ fn process_slot_deprive(
     emit_fleet_update(state, app);
 }
 
+/// Check if the flagship has a command facility whose activation conditions are met,
+/// and set `command_facility_name` on the flagship's ShipSummary if so.
+///
+/// Activation conditions:
+/// - 艦隊司令部施設 (107): combined fleet, fleet 1 flagship
+/// - 精鋭水雷戦隊 司令部 (413): not combined, flagship is CL(3)/DD(2), all escorts are DD(2)/CLT(4)
+/// - 遊撃部隊 艦隊司令部 (272): fleet 3, 7 ships
+fn resolve_command_facility(
+    ships: &mut [models::ShipSummary],
+    fleet_id: i32,
+    combined_flag: i32,
+    profile: &models::UserProfile,
+    master_slotitems: &std::collections::HashMap<i32, models::MasterSlotItemInfo>,
+) {
+    if ships.is_empty() {
+        return;
+    }
+    let flagship_instance_id = ships[0].id;
+    let Some(flagship_info) = profile.ships.get(&flagship_instance_id) else {
+        return;
+    };
+
+    // Scan flagship equipment for command facility
+    for &slot_id in flagship_info
+        .slot
+        .iter()
+        .chain(std::iter::once(&flagship_info.slot_ex))
+    {
+        if slot_id <= 0 {
+            continue;
+        }
+        let Some(player_item) = profile.slotitems.get(&slot_id) else {
+            continue;
+        };
+        let sid = player_item.slotitem_id;
+        let activated = match sid {
+            // 艦隊司令部施設: 連合艦隊の第1艦隊旗艦
+            107 => combined_flag > 0 && fleet_id == 1,
+            // 精鋭水雷戦隊 司令部: 非連合、旗艦CL/DD、随伴全員DD/CLT
+            413 => {
+                if combined_flag > 0 {
+                    false
+                } else {
+                    let fs_ok = flagship_info.stype == 2 || flagship_info.stype == 3;
+                    let escorts_ok = ships[1..].iter().all(|s| {
+                        profile
+                            .ships
+                            .get(&s.id)
+                            .map(|info| info.stype == 2 || info.stype == 4)
+                            .unwrap_or(false)
+                    });
+                    fs_ok && escorts_ok
+                }
+            }
+            // 遊撃部隊 艦隊司令部: 第3艦隊の7隻編成
+            272 => fleet_id == 3 && ships.len() == 7,
+            _ => continue,
+        };
+        if activated {
+            if let Some(master) = master_slotitems.get(&sid) {
+                ships[0].command_facility_name = Some(master.name.clone());
+            }
+            return;
+        }
+    }
+}
+
 /// Collected marks/indicators for a ship (damecon, special equips, opening ASW)
 struct ShipMarks {
     damecon_name: Option<String>,
@@ -2106,7 +2185,7 @@ fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle) {
         .iter()
         .enumerate()
         .map(|(i, ship_ids)| {
-            let ships: Vec<models::ShipSummary> = ship_ids
+            let mut ships: Vec<models::ShipSummary> = ship_ids
                 .iter()
                 .filter_map(|&id| {
                     state.profile.ships.get(&id).map(|info| {
@@ -2125,6 +2204,7 @@ fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle) {
                             fuel: info.fuel,
                             bull: info.bull,
                             damecon_name: marks.damecon_name,
+                            command_facility_name: None,
                             special_equips: marks.special_equips,
                             can_opening_asw: marks.can_opening_asw,
                             soku: info.soku,
@@ -2133,8 +2213,17 @@ fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle) {
                 })
                 .collect();
 
+            let fleet_id = (i + 1) as i32;
+            resolve_command_facility(
+                &mut ships,
+                fleet_id,
+                state.profile.combined_flag,
+                &state.profile,
+                &state.master.slotitems,
+            );
+
             models::FleetSummary {
-                id: (i + 1) as i32,
+                id: fleet_id,
                 name: format!("第{}艦隊", i + 1),
                 ships,
                 expedition: None, // Expedition info not available from hensei APIs

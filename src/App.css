@@ -526,6 +526,24 @@ html, body, #root {
   background: rgba(244, 67, 54, 0.15);
 }
 
+/* Command facility badge (司令部施設) — shown when activation conditions are met */
+.command-facility-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: #1565c0;
+  border-radius: 3px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
 /* Damage control icon (sprite: 54x54 at 59,118 in 467x458 sheet, displayed at 16x16) */
 .damecon-icon {
   display: inline-block;
@@ -2023,6 +2041,48 @@ html, body, #root {
 
 .imp-row.imp-unavailable .imp-type {
   color: #444;
+}
+
+.imp-consumed {
+  display: flex;
+  gap: 6px;
+  font-size: 9px;
+  color: #aaa;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.imp-consumed-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.imp-consumed-item.imp-consumed-zero {
+  color: #e94560;
+}
+
+.imp-owned {
+  margin-left: 2px;
+  color: #26c6da;
+}
+
+.imp-owned.imp-owned-zero {
+  color: #e94560;
+}
+
+.imp-row.imp-unavailable .imp-consumed {
+  color: #444;
+}
+
+.imp-row.imp-unavailable .imp-owned {
+  color: #444;
+}
+
+.imp-row.imp-unavailable .imp-consumed-zero,
+.imp-row.imp-unavailable .imp-owned-zero {
+  color: #555;
 }
 
 .imp-history {
