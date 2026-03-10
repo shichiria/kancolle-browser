@@ -33,9 +33,13 @@ pub enum ExpeditionCondition {
     FlagshipType { ship_type: String, stypes: Vec<i32> },
     SubmarineCount { value: i32 },
     AircraftCarrierCount { value: i32 },
+    /// 空母(水母,護母可): CV/CVL/CVB + AV(水母)
+    AircraftCarrierOrAVCount { value: i32 },
     EscortFleet,
     EscortFleetDD3,
     EscortFleetDD4,
+    /// 護衛艦隊 + (駆+海防)≥value (A3用)
+    EscortFleetSmall3,
     /// ミ船団護衛(二号船団): 護空1+(DD2 or DE2)+自由3(旗艦:護空) OR 軽空1+軽巡1+DD4(旗艦:軽空)
     MiConvoyEscort2,
     DrumShipCount { value: i32 },
@@ -121,24 +125,44 @@ fn is_aircraft_carrier_no_av(stype: i32) -> bool {
     stype == 11 || stype == STYPE_CVL || stype == 18 // CV, CVL, CVB
 }
 
+/// 空母(水母,護母可): CV/CVL/CVB + AV(水母) — for expeditions 15, 18, 26, 35
+const STYPE_AV: i32 = 16;
+fn is_aircraft_carrier_or_av(stype: i32) -> bool {
+    is_aircraft_carrier_no_av(stype) || stype == STYPE_AV
+}
+
 fn count_by_stypes(ships: &[FleetShipData], stypes: &[i32]) -> i32 {
     ships.iter().filter(|s| stypes.contains(&s.ship_type)).count() as i32
 }
 
-/// Escort fleet: (CL≥1 AND DD+DE≥2) OR (CVL≥1 AND DD≥2) OR (DD≥1 AND DE≥3) OR (CT≥1 AND DE≥2)
+/// Escort fleet (6 patterns):
+/// (CL≥1 AND DD≥2) OR (CL≥1 AND DE≥2) OR (CVE≥1 AND DD≥2) OR (CVE≥1 AND DE≥2) OR (DD≥1 AND DE≥3) OR (CT≥1 AND DE≥2)
 fn check_escort_fleet(ships: &[FleetShipData]) -> bool {
     let cl = count_by_stypes(ships, &[STYPE_CL]);
     let dd = count_by_stypes(ships, &[STYPE_DD]);
     let de = count_by_stypes(ships, &[STYPE_DE]);
-    let cvl = count_by_stypes(ships, &[STYPE_CVL]);
+    let cve = ships.iter().filter(|s| is_cve(s)).count() as i32;
     let ct = count_by_stypes(ships, &[STYPE_CT]);
 
-    (cl >= 1 && (dd + de) >= 2) || (cvl >= 1 && dd >= 2) || (dd >= 1 && de >= 3) || (ct >= 1 && de >= 2)
+    (cl >= 1 && dd >= 2)
+        || (cl >= 1 && de >= 2)
+        || (cve >= 1 && dd >= 2)
+        || (cve >= 1 && de >= 2)
+        || (dd >= 1 && de >= 3)
+        || (ct >= 1 && de >= 2)
 }
 
+/// Escort fleet + DD≥min_dd (for A5, A6 etc. where DD specifically required)
 fn check_escort_fleet_dd(ships: &[FleetShipData], min_dd: i32) -> bool {
     let dd = count_by_stypes(ships, &[STYPE_DD]);
     check_escort_fleet(ships) && dd >= min_dd
+}
+
+/// Escort fleet + (DD+DE)≥min_small (for A3 where 駆+海防 combined count)
+fn check_escort_fleet_small(ships: &[FleetShipData], min_small: i32) -> bool {
+    let dd = count_by_stypes(ships, &[STYPE_DD]);
+    let de = count_by_stypes(ships, &[STYPE_DE]);
+    check_escort_fleet(ships) && (dd + de) >= min_small
 }
 
 /// 護衛空母 (CVE) master ship IDs
@@ -270,6 +294,15 @@ fn check_condition(cond: &ExpeditionCondition, fleet: &FleetCheckData) -> Condit
                 required_value: format!("{}隻", value),
             }
         }
+        ExpeditionCondition::AircraftCarrierOrAVCount { value } => {
+            let current = fleet.ships.iter().filter(|s| is_aircraft_carrier_or_av(s.ship_type)).count() as i32;
+            ConditionResult {
+                condition: "空母(水母可)".into(),
+                satisfied: current >= *value,
+                current_value: format!("{}隻", current),
+                required_value: format!("{}隻", value),
+            }
+        }
         ExpeditionCondition::EscortFleet => {
             let satisfied = check_escort_fleet(&fleet.ships);
             ConditionResult {
@@ -282,10 +315,19 @@ fn check_condition(cond: &ExpeditionCondition, fleet: &FleetCheckData) -> Condit
         ExpeditionCondition::EscortFleetDD3 => {
             let satisfied = check_escort_fleet_dd(&fleet.ships, 3);
             ConditionResult {
-                condition: "護衛艦隊(DD3+)".into(),
+                condition: "護衛艦隊(駆逐3+)".into(),
                 satisfied,
                 current_value: if satisfied { "OK" } else { "NG" }.into(),
-                required_value: "護衛編成+DD3".into(),
+                required_value: "護衛編成+駆逐3".into(),
+            }
+        }
+        ExpeditionCondition::EscortFleetSmall3 => {
+            let satisfied = check_escort_fleet_small(&fleet.ships, 3);
+            ConditionResult {
+                condition: "護衛艦隊(駆+海防3+)".into(),
+                satisfied,
+                current_value: if satisfied { "OK" } else { "NG" }.into(),
+                required_value: "護衛編成+駆海防3".into(),
             }
         }
         ExpeditionCondition::EscortFleetDD4 => {
