@@ -1,0 +1,296 @@
+/* ── Fleets area ── */
+.fleets-area {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 1px;
+  background: #0f3460;
+  min-height: 0;
+}
+
+.fleet-panel {
+  flex: 1;
+  min-width: 200px;
+  min-height: 0;
+  background: #1a1a2e;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fleet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  background: #0f3460;
+  flex-shrink: 0;
+}
+
+.fleet-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e0e0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fleet-id {
+  color: #e94560;
+  font-weight: 700;
+}
+
+.fleet-expedition {
+  font-size: 10px;
+  color: #26c6da;
+  white-space: nowrap;
+  margin-left: 6px;
+}
+
+.fleet-speed-tag {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 0 4px;
+  border-radius: 3px;
+  margin-left: 6px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.speed-fast {
+  background: rgba(33, 150, 243, 0.2);
+  color: #64b5f6;
+}
+
+.speed-fast-plus {
+  background: rgba(156, 39, 176, 0.2);
+  color: #ce93d8;
+}
+
+.speed-fastest {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffd54f;
+}
+
+.speed-slow {
+  background: rgba(244, 67, 54, 0.2);
+  color: #ef9a9a;
+}
+
+
+.fleet-ships {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.fleet-no-detail {
+  padding: 6px 8px;
+  font-size: 10px;
+  color: #555;
+}
+
+/* Ship row */
+.ship-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-bottom: 1px solid rgba(15, 52, 96, 0.3);
+  min-height: 20px;
+}
+
+.ship-row:hover {
+  background: rgba(15, 52, 96, 0.3);
+}
+
+.ship-name {
+  font-size: 11px;
+  color: #e0e0e0;
+  width: 70px;
+  min-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ship-lv {
+  font-size: 9px;
+  color: #888;
+  width: 30px;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* HP bar */
+.hp-bar-container {
+  position: relative;
+  width: 60px;
+  min-width: 60px;
+  height: 12px;
+  background: #111;
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.hp-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.3s ease;
+}
+
+.hp-bar-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 2px #000;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cond */
+.ship-cond {
+  font-size: 10px;
+  font-weight: 600;
+  width: 22px;
+  min-width: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.cond-sparkle {
+  background: rgba(255, 183, 77, 0.15);
+}
+
+.cond-tired {
+  background: rgba(255, 235, 59, 0.1);
+}
+
+.cond-red {
+  background: rgba(244, 67, 54, 0.15);
+}
+
+/* Command facility badge (司令部施設) — shown when activation conditions are met */
+.command-facility-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: #1565c0;
+  border-radius: 3px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* Damage control icon (sprite: 54x54 at 59,118 in 467x458 sheet, displayed at 16x16) */
+.damecon-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  background-size: 138.4px 135.7px;
+  background-position: -17.5px -35px;
+  background-repeat: no-repeat;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Special equipment icons (drums/landing craft)
+   54x54 sprites in 467x458 sheet, crop 3px each side → 48x48 effective, displayed at 11x11
+   scale = 11/48, bg-size = 467*11/48 x 458*11/48 = 107.0 x 104.96 */
+.special-equip-icon {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  min-width: 11px;
+  background-size: 107.0px 105.0px;
+  background-repeat: no-repeat;
+  vertical-align: middle;
+  flex-shrink: 0;
+  margin-left: -1px;
+}
+
+/* Landing craft icon_type=20: sprite at (177,118), crop 3px → effective (180,121)
+   pos = -(180*11/48), -(121*11/48) = -41.3, -27.7 */
+.special-equip-icon-20 {
+  background-position: -41.3px -27.7px;
+}
+
+/* Drum canister icon_type=25: sprite at (236,0), crop 3px → effective (239,3)
+   pos = -(239*11/48), -(3*11/48) = -54.8, -0.7 */
+.special-equip-icon-25 {
+  background-position: -54.8px -0.7px;
+}
+
+/* Opening ASW icon (sonar icon_type=17: sprite at 177,59 in 467x458 sheet, displayed at 16x16)
+   scale = 16/54, bg-size same as damecon-icon */
+.opening-asw-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  background-size: 138.4px 135.7px;
+  background-position: -52.4px -17.5px;
+  background-repeat: no-repeat;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Fallback "no image" icon when weapon sprite sheet is not cached */
+.mark-noimage {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  border: 1px solid #888;
+  border-radius: 2px;
+  background: #333 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 10l3-4 2 2 2-3 2 4' stroke='%23888' stroke-width='1.2' fill='none'/%3E%3Ccircle cx='4.5' cy='4.5' r='1.2' fill='%23888'/%3E%3C/svg%3E") center/contain no-repeat;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.mark-noimage-sm {
+  width: 11px;
+  height: 11px;
+  min-width: 11px;
+}
+
+/* Supply bars */
+.ship-supply {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 24px;
+  min-width: 24px;
+}
+
+.supply-bar-container {
+  width: 100%;
+  height: 4px;
+  background: #222;
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.supply-bar-fill {
+  height: 100%;
+  border-radius: 1px;
+}
+

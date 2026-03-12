@@ -1,0 +1,141 @@
+/* ===========================================================================
+   Battle Tab
+   =========================================================================== */
+
+.battle-tab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+
+/* ── Filter bar ── */
+.battle-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+  flex-shrink: 0;
+}
+
+.battle-filter-select {
+  font-size: 10px;
+  padding: 3px 6px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border: 1px solid #0f3460;
+  border-radius: 3px;
+  outline: none;
+  min-width: 80px;
+}
+
+.battle-filter-select:focus {
+  border-color: #26c6da;
+}
+
+.battle-record-count {
+  font-size: 10px;
+  color: #666;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.battle-refresh-btn {
+  font-size: 10px;
+  padding: 2px 10px;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4080;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.battle-refresh-btn:hover {
+  background: #1a4080;
+}
+
+/* ── Record list ── */
+.battle-record-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.battle-record-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(15, 52, 96, 0.3);
+  transition: background 0.1s;
+}
+
+.battle-record-row:hover {
+  background: rgba(15, 52, 96, 0.4);
+}
+
+.br-map {
+  font-weight: 700;
+  color: #e94560;
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
+.br-in-progress {
+  font-size: 9px;
+  color: #fff;
+  background: #e94560;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.br-fleet {
+  color: #26c6da;
+  min-width: 52px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.br-ships {
+  color: #aaa;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.br-ranks {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.br-rank-badge {
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.br-drops {
+  color: #ffb74d;
+  font-weight: 600;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.br-time {
+  color: #555;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+

@@ -1,0 +1,233 @@
+/* ===========================================================================
+   Options Tab
+   =========================================================================== */
+
+.options-tab {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.options-section {
+  margin-bottom: 20px;
+}
+
+.options-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e94560;
+  margin-bottom: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #0f3460;
+}
+
+.options-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.options-label {
+  font-size: 11px;
+  color: #aaa;
+  min-width: 60px;
+}
+
+.options-slider {
+  flex: 1;
+  max-width: 200px;
+  accent-color: #e94560;
+}
+
+.options-value {
+  font-size: 11px;
+  color: #e0e0e0;
+  font-variant-numeric: tabular-nums;
+  min-width: 36px;
+  text-align: right;
+}
+
+.options-reset-btn {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4080;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.options-reset-btn:hover {
+  background: #1a4080;
+}
+
+.options-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.options-toggle input[type="checkbox"] {
+  accent-color: #e94560;
+}
+
+.options-toggle-text {
+  font-size: 11px;
+  color: #e0e0e0;
+}
+
+/* Data clear section */
+.options-clear-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.options-clear-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: rgba(15, 52, 96, 0.15);
+  border-radius: 3px;
+}
+
+.options-clear-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e0e0e0;
+  min-width: 80px;
+}
+
+.options-clear-desc {
+  font-size: 10px;
+  color: #666;
+  flex: 1;
+}
+
+.options-clear-btn {
+  font-size: 10px;
+  padding: 3px 12px;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4080;
+  border-radius: 3px;
+  cursor: pointer;
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: center;
+  transition: all 0.2s;
+}
+.options-clear-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.options-clear-btn:hover {
+  background: #1a4080;
+}
+
+.options-clear-btn-danger {
+  border-color: rgba(233, 69, 96, 0.4);
+  color: #e94560;
+}
+
+.options-clear-btn-danger:hover {
+  background: rgba(233, 69, 96, 0.15);
+}
+
+/* ===========================================================================
+   Google Drive Sync
+   =========================================================================== */
+
+.drive-sync-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drive-sync-desc {
+  font-size: 11px;
+  color: #888;
+  line-height: 1.5;
+}
+
+.drive-sync-btn {
+  font-size: 11px;
+  padding: 5px 16px;
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4080;
+  border-radius: 3px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.drive-sync-btn:hover {
+  background: #1a4080;
+}
+
+.drive-sync-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.drive-sync-btn-sm {
+  font-size: 10px;
+  padding: 2px 10px;
+}
+
+.drive-sync-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drive-sync-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.drive-sync-email {
+  font-size: 11px;
+  color: #26c6da;
+  font-weight: 600;
+}
+
+.drive-sync-status-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.drive-sync-status-label {
+  color: #888;
+  min-width: 60px;
+}
+
+.drive-sync-status-value {
+  color: #e0e0e0;
+}
+
+.drive-sync-status-value.syncing {
+  color: #26c6da;
+}
+
+.drive-sync-status-value.error {
+  color: #e94560;
+}
+
+.drive-sync-error {
+  font-size: 10px;
+  color: #e94560;
+  background: rgba(233, 69, 96, 0.1);
+  border: 1px solid rgba(233, 69, 96, 0.3);
+  border-radius: 3px;
+  padding: 4px 8px;
+  line-height: 1.5;
+}
+

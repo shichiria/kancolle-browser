@@ -1,0 +1,220 @@
+/* ===========================================================================
+   Improvement Tab
+   =========================================================================== */
+
+.improvement-tab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.improvement-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+  flex-shrink: 0;
+}
+
+.improvement-day {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e94560;
+}
+
+.improvement-secretary {
+  font-size: 11px;
+  color: #26c6da;
+}
+
+.improvement-count {
+  font-size: 10px;
+  color: #666;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Filter toggle buttons */
+.improvement-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 5px 8px;
+  background: rgba(22, 33, 62, 0.5);
+  border-bottom: 1px solid #0f3460;
+  flex-shrink: 0;
+}
+
+.imp-filter-btn {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: #1a1a2e;
+  color: #555;
+  border: 1px solid #0f3460;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.imp-filter-btn.active {
+  color: #e0e0e0;
+  border-color: #1a4080;
+  background: #0f3460;
+}
+
+.imp-filter-btn:hover {
+  border-color: #1a4080;
+  color: #aaa;
+}
+
+.imp-filter-clear {
+  font-size: 9px;
+  padding: 2px 8px;
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+  border: 1px solid rgba(233, 69, 96, 0.3);
+  border-radius: 3px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.imp-filter-clear:hover {
+  background: rgba(233, 69, 96, 0.25);
+}
+
+/* Equipment list */
+.improvement-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.imp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: 10px;
+  border-bottom: 1px solid rgba(15, 52, 96, 0.2);
+  transition: background 0.1s;
+}
+
+.imp-row:hover {
+  background: rgba(15, 52, 96, 0.3);
+}
+
+.imp-row.imp-available {
+  color: #e0e0e0;
+}
+
+.imp-row.imp-unavailable {
+  color: #555;
+  opacity: 0.6;
+}
+
+.imp-row.imp-match {
+  background: rgba(38, 198, 218, 0.06);
+}
+
+.imp-row.imp-match:hover {
+  background: rgba(38, 198, 218, 0.12);
+}
+
+.imp-name {
+  font-weight: 600;
+  width: 220px;
+  min-width: 220px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.imp-row.imp-available .imp-name {
+  color: #e0e0e0;
+}
+
+.imp-row.imp-match .imp-name {
+  color: #26c6da;
+}
+
+.imp-type {
+  font-size: 9px;
+  color: #888;
+  min-width: 70px;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.imp-row.imp-unavailable .imp-type {
+  color: #444;
+}
+
+.imp-consumed {
+  display: flex;
+  gap: 6px;
+  font-size: 9px;
+  color: #aaa;
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+}
+
+.imp-consumed-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.imp-consumed-item.imp-consumed-zero {
+  color: #e94560;
+}
+
+.imp-owned {
+  margin-left: 2px;
+  color: #26c6da;
+}
+
+.imp-owned.imp-owned-zero {
+  color: #e94560;
+}
+
+.imp-row.imp-unavailable .imp-consumed {
+  color: #444;
+}
+
+.imp-row.imp-unavailable .imp-owned {
+  color: #444;
+}
+
+.imp-row.imp-unavailable .imp-consumed-zero,
+.imp-row.imp-unavailable .imp-owned-zero {
+  color: #555;
+}
+
+.imp-history {
+  color: #ffd700;
+  font-size: 11px;
+  min-width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.imp-helpers {
+  color: #aaa;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.imp-row.imp-unavailable .imp-helpers {
+  color: #333;
+}
+

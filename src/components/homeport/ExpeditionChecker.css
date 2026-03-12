@@ -1,0 +1,117 @@
+/* ── Expedition Checker ── */
+.expedition-checker {
+  padding: 4px 6px;
+  border-top: 1px solid rgba(15, 52, 96, 0.5);
+  background: rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.expedition-select {
+  width: 100%;
+  font-size: 10px;
+  padding: 2px 4px;
+  background: #16213e;
+  color: #e0e0e0;
+  border: 1px solid #0f3460;
+  border-radius: 3px;
+  outline: none;
+}
+
+.expedition-select:focus {
+  border-color: #26c6da;
+}
+
+.expedition-timer {
+  display: flex;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 11px;
+}
+
+.expedition-timer-remaining {
+  color: #26c6da;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.expedition-timer-eta {
+  color: #aaa;
+  font-variant-numeric: tabular-nums;
+}
+
+.checking {
+  font-size: 9px;
+  color: #666;
+  margin-left: 4px;
+}
+
+.expedition-result {
+  margin-top: 4px;
+}
+
+.expedition-result-label {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  display: inline-block;
+  margin-bottom: 3px;
+}
+
+.result-great {
+  color: #fff;
+  background: #2e7d32;
+}
+
+.result-success {
+  color: #fff;
+  background: #1565c0;
+}
+
+.result-failure {
+  color: #fff;
+  background: #c62828;
+}
+
+.expedition-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.exp-cond {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.exp-cond.cond-ok {
+  background: rgba(46, 125, 50, 0.2);
+  color: #81c784;
+}
+
+.exp-cond.cond-ng {
+  background: rgba(198, 40, 40, 0.2);
+  color: #ef9a9a;
+}
+
+.exp-cond-name {
+  font-weight: 600;
+}
+
+.exp-cond-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.exp-cond-sep {
+  color: #555;
+}
+
+.exp-cond-req {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+

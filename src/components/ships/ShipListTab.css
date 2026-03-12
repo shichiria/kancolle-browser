@@ -1,0 +1,160 @@
+/* ===========================================================================
+   Ship List / Equipment List Tabs
+   =========================================================================== */
+
+.ship-list-tab,
+.equip-list-tab {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+  flex-shrink: 0;
+}
+
+.list-count {
+  font-size: 10px;
+  color: #666;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Filter toggle buttons (matches improvement tab) */
+.list-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 5px 8px;
+  background: rgba(22, 33, 62, 0.5);
+  border-bottom: 1px solid #0f3460;
+  flex-shrink: 0;
+}
+
+.list-filter-btn {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: #1a1a2e;
+  color: #555;
+  border: 1px solid #0f3460;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.list-filter-btn.active {
+  color: #e0e0e0;
+  border-color: #1a4080;
+  background: #0f3460;
+}
+
+.list-filter-btn:hover {
+  border-color: #1a4080;
+  color: #aaa;
+}
+
+.list-filter-clear {
+  font-size: 9px;
+  padding: 2px 8px;
+  background: rgba(233, 69, 96, 0.15);
+  color: #e94560;
+  border: 1px solid rgba(233, 69, 96, 0.3);
+  border-radius: 3px;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.list-filter-clear:hover {
+  background: rgba(233, 69, 96, 0.25);
+}
+
+.list-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.list-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.list-table th {
+  background: #0f3460;
+  color: #aaa;
+  font-weight: 600;
+  padding: 4px 6px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid #1a4080;
+  user-select: none;
+}
+
+.list-table th.sortable {
+  cursor: pointer;
+}
+
+.list-table th.sortable:hover {
+  color: #e0e0e0;
+}
+
+.list-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid rgba(15, 52, 96, 0.2);
+  white-space: nowrap;
+}
+
+.list-table tbody tr:hover {
+  background: rgba(15, 52, 96, 0.3);
+}
+
+.list-table tbody tr.unlocked {
+  opacity: 0.5;
+}
+
+.col-name {
+  font-weight: 600;
+  color: #e0e0e0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.col-stype {
+  color: #888;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.col-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #ccc;
+  min-width: 32px;
+}
+
+.col-lock {
+  text-align: center;
+  min-width: 24px;
+  font-size: 10px;
+}
+
+.col-improvements {
+  color: #ffd700;
+  font-size: 9px;
+}
+
