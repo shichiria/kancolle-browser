@@ -894,8 +894,8 @@ async fn check_expedition_cmd(
         return Err("Fleet is empty".to_string());
     }
 
-    // Drum canister: master slotitem category (api_type[2]) == 24
-    const DRUM_CATEGORY: i32 = 24;
+    // Drum canister: master slotitem category (api_type[2]) == 30 (輸送機材)
+    const DRUM_CATEGORY: i32 = 30;
 
     // Build FleetCheckData from GameState
     let mut ships = Vec::new();

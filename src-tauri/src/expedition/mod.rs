@@ -437,9 +437,17 @@ pub fn check_expedition(expedition_id: i32, fleet: &FleetCheckData) -> Expeditio
     let conditions: Vec<ConditionResult> = exp.conditions.iter().map(|c| check_condition(c, fleet)).collect();
     let all_satisfied = conditions.iter().all(|c| c.satisfied);
 
+    let sparkled_count = fleet.ships.iter().filter(|s| s.cond >= 50).count();
+    let all_sparkled = sparkled_count == fleet.ships.len();
+
+    let is_great_success = match exp.great_success_type {
+        GreatSuccessType::Regular => all_sparkled,
+        GreatSuccessType::Drum | GreatSuccessType::Level => sparkled_count >= 4 || all_sparkled,
+    };
+
     let result = if !all_satisfied {
         ExpeditionResultType::Failure
-    } else if fleet.ships.iter().all(|s| s.cond >= 50) {
+    } else if is_great_success {
         ExpeditionResultType::GreatSuccess
     } else {
         ExpeditionResultType::Success
