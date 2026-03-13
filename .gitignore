@@ -33,8 +33,6 @@ src-tauri/target/
 SESSION.md
 CAUTION.md
 GEMINI/
-SPEC/
-KNOWLEDGE/
 CLAUDE.md
 nul
 
@@ -46,7 +44,6 @@ nul
 
 # Reference repos (external)
 REF/
-ref/
 
 # Environment variables
 .env
