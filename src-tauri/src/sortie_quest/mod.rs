@@ -192,9 +192,13 @@ pub struct SortieQuestCheckResult {
 
 const SORTIE_QUESTS_JSON: &str = include_str!("../../data/sortie_quests.json");
 
-/// Load all sortie quest definitions from the embedded JSON.
+static SORTIE_QUESTS_DATA: std::sync::OnceLock<Vec<SortieQuestDef>> = std::sync::OnceLock::new();
+
+/// Load all sortie quest definitions from the embedded JSON (cached after first call).
 pub fn get_all_sortie_quests() -> Vec<SortieQuestDef> {
-    serde_json::from_str(SORTIE_QUESTS_JSON).expect("Failed to parse sortie_quests.json")
+    SORTIE_QUESTS_DATA.get_or_init(|| {
+        serde_json::from_str(SORTIE_QUESTS_JSON).expect("Failed to parse sortie_quests.json")
+    }).clone()
 }
 
 // =============================================================================
@@ -417,9 +421,13 @@ pub fn check_sortie_quest(
 
 const MAP_RECOMMENDATIONS_JSON: &str = include_str!("../../data/map_recommendations.json");
 
-/// Load all map recommendation definitions from the embedded JSON.
+static MAP_RECOMMENDATIONS_DATA: std::sync::OnceLock<Vec<MapRecommendationDef>> = std::sync::OnceLock::new();
+
+/// Load all map recommendation definitions from the embedded JSON (cached after first call).
 pub fn get_all_map_recommendations() -> Vec<MapRecommendationDef> {
-    serde_json::from_str(MAP_RECOMMENDATIONS_JSON).expect("Failed to parse map_recommendations.json")
+    MAP_RECOMMENDATIONS_DATA.get_or_init(|| {
+        serde_json::from_str(MAP_RECOMMENDATIONS_JSON).expect("Failed to parse map_recommendations.json")
+    }).clone()
 }
 
 /// Check the current fleet against all routes for a specific map area.

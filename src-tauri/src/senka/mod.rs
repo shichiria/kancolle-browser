@@ -470,6 +470,16 @@ impl SenkaTracker {
             return;
         }
         let now = now_jst();
+        // Month boundary check: skip recording if ranking month has changed
+        // (experience will be captured by update_experience on next port via delta)
+        let ranking_month = current_ranking_month(&now);
+        if ranking_month != self.data.month {
+            info!(
+                "Senka: battle exp +{} at {} skipped (month boundary crossed: {} -> {})",
+                exp, map_display, self.data.month, ranking_month
+            );
+            return;
+        }
         self.data.entries.push(SenkaLogEntry {
             timestamp: now.to_rfc3339(),
             entry_type: "exp".to_string(),
@@ -566,32 +576,40 @@ impl SenkaTracker {
         let now = now_jst();
         let is_late = is_quest_cutoff(&now);
 
+        if is_late {
+            warn!(
+                "Senka: quest bonus {} from quest {} ignored for current month (past 14:00 JST cutoff)",
+                bonus, quest_id
+            );
+            self.data.entries.push(SenkaLogEntry {
+                timestamp: now.to_rfc3339(),
+                entry_type: "quest_late".to_string(),
+                exp_gain: None,
+                bonus: Some(bonus),
+                detail: Some(format!(
+                    "任務{} 戦果+{} (14:00以降のため翌月扱い)",
+                    quest_id, bonus
+                )),
+            });
+            self.save();
+            return;
+        }
+
         self.data.quest_bonus += bonus;
         info!(
-            "Senka: quest bonus +{} from quest {}{}, total quest: {}, senka: {:.1}",
+            "Senka: quest bonus +{} from quest {}, total quest: {}, senka: {:.1}",
             bonus,
             quest_id,
-            if is_late { " (14:00以降・翌月扱い)" } else { "" },
             self.data.quest_bonus,
             self.total_senka()
         );
 
-        let detail = if is_late {
-            format!("任務{} 戦果+{} (14:00以降のため翌月扱い)", quest_id, bonus)
-        } else {
-            format!("任務{} 戦果+{}", quest_id, bonus)
-        };
-
         self.data.entries.push(SenkaLogEntry {
             timestamp: now.to_rfc3339(),
-            entry_type: if is_late {
-                "quest_late".to_string()
-            } else {
-                "quest".to_string()
-            },
+            entry_type: "quest".to_string(),
             exp_gain: None,
             bonus: Some(bonus),
-            detail: Some(detail),
+            detail: Some(format!("任務{} 戦果+{}", quest_id, bonus)),
         });
         self.save();
     }

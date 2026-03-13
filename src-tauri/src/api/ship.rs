@@ -243,8 +243,8 @@ pub(super) fn collect_ship_marks(
     let mut rotorcraft_count = 0; // 回転翼機 (item_type=25)
     let mut s51j_count = 0; // S-51J系 (item_type=26, 対潜哨戒機)
     let mut has_seaplane_bomber = false; // 水爆 (item_type=11)
-    let mut has_depth_charge_projector = false; // 爆雷投射機 (item_type=15)
-    let mut has_depth_charge = false; // 爆雷 (item_type=17)
+    let mut has_depth_charge_projector = false; // 爆雷投射機 (item_type=15, 爆雷と同カテゴリ)
+    let mut has_depth_charge = false; // 爆雷 (item_type=15)
 
     for &slot_id in ship.slot.iter().chain(std::iter::once(&ship.slot_ex)) {
         if slot_id <= 0 {
@@ -308,13 +308,11 @@ pub(super) fn collect_ship_marks(
         if it == 11 {
             has_seaplane_bomber = true;
         }
-        // Depth charge projector (item_type=15)
+        // 爆雷/爆雷投射機 (item_type=15: 同カテゴリ)
+        // Note: item_type 17 は機関部強化であり爆雷ではない
         if it == 15 {
-            has_depth_charge_projector = true;
-        }
-        // Depth charge (item_type=17)
-        if it == 17 {
             has_depth_charge = true;
+            has_depth_charge_projector = true;
         }
     }
 

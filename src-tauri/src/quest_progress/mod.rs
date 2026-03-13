@@ -183,7 +183,7 @@ fn last_reset_time(reset: &str, now: DateTime<FixedOffset>) -> Option<DateTime<F
                 }
                 _ => 3,
             };
-            let q_year = if q_month == 12 && m <= 2 {
+            let q_year = if q_month == 12 && m <= 3 {
                 boundary.year() - 1
             } else {
                 boundary.year()

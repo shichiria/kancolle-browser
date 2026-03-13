@@ -210,9 +210,13 @@ fn check_mi_convoy_escort2(ships: &[FleetShipData]) -> bool {
 
 const EXPEDITIONS_JSON: &str = include_str!("../../data/expeditions.json");
 
-/// Load all expedition definitions from the embedded JSON.
+static EXPEDITIONS_DATA: std::sync::OnceLock<Vec<ExpeditionDef>> = std::sync::OnceLock::new();
+
+/// Load all expedition definitions from the embedded JSON (cached after first call).
 pub fn get_all_expeditions() -> Vec<ExpeditionDef> {
-    serde_json::from_str(EXPEDITIONS_JSON).expect("Failed to parse expeditions.json")
+    EXPEDITIONS_DATA.get_or_init(|| {
+        serde_json::from_str(EXPEDITIONS_JSON).expect("Failed to parse expeditions.json")
+    }).clone()
 }
 
 // =============================================================================

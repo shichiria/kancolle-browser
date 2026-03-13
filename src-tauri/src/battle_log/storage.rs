@@ -1,3 +1,4 @@
+use chrono::{DateTime, Local};
 use log::{error, info, warn};
 use std::fs;
 use std::path::PathBuf;
@@ -112,7 +113,14 @@ impl BattleLogger {
 
         for (i, record) in self.completed.iter_mut().enumerate() {
             if record.end_time.is_none() && active_id.as_deref() != Some(&record.id) {
-                record.end_time = Some(record.start_time);
+                // Use the file's last modified time if available, otherwise use start_time
+                let end_time = self.save_dir.as_ref()
+                    .map(|dir| dir.join(format!("{}.json", record.id)))
+                    .and_then(|path| path.metadata().ok())
+                    .and_then(|meta| meta.modified().ok())
+                    .map(|sys_time| DateTime::<Local>::from(sys_time))
+                    .unwrap_or(record.start_time);
+                record.end_time = Some(end_time);
                 fixed_indices.push(i);
             }
         }

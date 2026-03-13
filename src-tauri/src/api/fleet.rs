@@ -70,8 +70,10 @@ pub(super) fn process_hensei_change(
         }
         state.profile.fleets[fidx][idx] = ship_id;
 
-        // Remove any -1 gaps
-        state.profile.fleets[fidx].retain(|&id| id > 0);
+        // Remove any -1 gaps from all affected fleets
+        for fi in 0..state.profile.fleets.len() {
+            state.profile.fleets[fi].retain(|&id| id > 0);
+        }
 
         info!("Fleet {} set index {} to ship {}", fleet_id, idx, ship_id);
     }

@@ -442,6 +442,7 @@ impl BattleLogger {
         fleets: &[Vec<i32>],
         player_ships: &HashMap<i32, ShipInfo>,
         player_slotitems: &HashMap<i32, PlayerSlotItem>,
+        combined_flag: i32,
     ) {
         // Parse map area and map no from request body
         let params = parse_form_body(request_body);
@@ -542,7 +543,7 @@ impl BattleLogger {
             nodes: Vec::new(),
             start_time: now,
             end_time: None,
-            is_combined: false,
+            is_combined: combined_flag > 0,
             gauge_num,
         };
 

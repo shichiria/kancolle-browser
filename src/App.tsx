@@ -65,6 +65,7 @@ function App() {
 
   // Weapon icon sprite sheet for damecon indicator
   const [weaponIconSheet, setWeaponIconSheet] = useState<string | null>(null);
+  const weaponIconLoadedRef = useRef(false);
 
   // Tick every second for countdown timers
   useEffect(() => {
@@ -146,18 +147,17 @@ function App() {
       checkCa();
     });
 
-    let weaponIconLoaded = false;
     const unlistenPort = listen<PortData>("port-data", (event) => {
       setPortData(event.payload);
       setPortDataVersion((v) => v + 1);
       // Load weapon icon sprite sheet once for damecon display
-      if (!weaponIconLoaded) {
-        weaponIconLoaded = true;
+      if (!weaponIconLoadedRef.current) {
+        weaponIconLoadedRef.current = true;
         invoke<string>("get_cached_resource", {
           path: "kcs2/img/common/common_icon_weapon.png",
         }).then((dataUri) => {
           if (dataUri) setWeaponIconSheet(dataUri);
-        }).catch(() => { weaponIconLoaded = false; });
+        }).catch(() => { weaponIconLoadedRef.current = false; });
       }
     });
 
@@ -170,9 +170,10 @@ function App() {
           updated[idx] = event.payload;
           return updated;
         }
+        // Only increment total when a genuinely new record is added
+        setBattleLogsTotal((prev) => prev + 1);
         return [event.payload, ...prev].slice(0, 200);
       });
-      setBattleLogsTotal((prev) => prev + 1);
     });
 
     const unlistenSortieUpdate = listen<SortieRecord>("sortie-update", (event) => {

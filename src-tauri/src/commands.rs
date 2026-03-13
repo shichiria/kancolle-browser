@@ -143,9 +143,9 @@ pub(crate) async fn check_expedition_cmd(
     let mut ships = Vec::new();
     for &ship_id in fleet_ship_ids {
         if let Some(info) = inner.profile.ships.get(&ship_id) {
-            // Count drums on this ship
+            // Count drums on this ship (regular slots + reinforcement expansion)
             let mut drum_count = 0i32;
-            for &slot_id in &info.slot {
+            for &slot_id in info.slot.iter().chain(std::iter::once(&info.slot_ex)) {
                 if slot_id <= 0 {
                     continue;
                 }

@@ -38,12 +38,14 @@ pub(super) fn process_battle(
                 player_ships.len(),
                 player_slotitems.len(),
             );
+            let combined_flag = state.profile.combined_flag;
             state.sortie.battle_logger.on_sortie_start(
                 json,
                 request_body,
                 &fleets,
                 &player_ships,
                 &player_slotitems,
+                combined_flag,
             );
             let _ = app.emit(
                 "sortie-start",
@@ -77,29 +79,38 @@ pub(super) fn process_battle(
                 .map(|s| s.taiha_alert_enabled.load(std::sync::atomic::Ordering::Relaxed))
                 .unwrap_or(true);
             if taiha_enabled {
-            if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
-                let fleet_id = sortie.fleet_id as usize;
-                let fleet_idx = fleet_id.saturating_sub(1);
-                if fleet_idx < state.profile.fleets.len() {
-                    let ship_ids = &state.profile.fleets[fleet_idx];
+                if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
+                    let fleet_id = sortie.fleet_id as usize;
+                    let fleet_idx = fleet_id.saturating_sub(1);
+                    // Check main fleet + escort fleet (fleet 2) if combined
+                    // Combined fleet always uses fleets 0 (main) and 1 (escort)
+                    let fleet_indices: Vec<usize> = if sortie.is_combined {
+                        vec![0, 1]
+                    } else {
+                        vec![fleet_idx]
+                    };
                     let mut taiha_names: Vec<String> = Vec::new();
-                    for (i, &ship_id) in ship_ids.iter().enumerate() {
-                        if let Some(ship) = state.profile.ships.get(&ship_id) {
-                            if ship.maxhp > 0 && ship.hp as f64 / ship.maxhp as f64 <= 0.25 && ship.hp > 0 {
-                                // Check if damage control is equipped
-                                let has_damecon = ship.slot.iter()
-                                    .chain(std::iter::once(&ship.slot_ex))
-                                    .any(|&slot_id| {
-                                        slot_id > 0 && state.profile.slotitems.get(&slot_id)
-                                            .and_then(|p| state.master.slotitems.get(&p.slotitem_id))
-                                            .map(|m| m.icon_type == 14)
-                                            .unwrap_or(false)
-                                    });
-                                if has_damecon {
-                                    info!("Ship {} ({}) is taiha but has damecon — skipping warning", ship.name, i);
-                                } else {
-                                    warn!("Ship {} ({}) is taiha (HP {}/{}) and advancing without damecon!", ship.name, i, ship.hp, ship.maxhp);
-                                    taiha_names.push(ship.name.clone());
+                    for &fi in &fleet_indices {
+                        if fi < state.profile.fleets.len() {
+                            let ship_ids = &state.profile.fleets[fi];
+                            for (i, &ship_id) in ship_ids.iter().enumerate() {
+                                if let Some(ship) = state.profile.ships.get(&ship_id) {
+                                    if ship.maxhp > 0 && ship.hp as f64 / ship.maxhp as f64 <= 0.25 && ship.hp > 0 {
+                                        let has_damecon = ship.slot.iter()
+                                            .chain(std::iter::once(&ship.slot_ex))
+                                            .any(|&slot_id| {
+                                                slot_id > 0 && state.profile.slotitems.get(&slot_id)
+                                                    .and_then(|p| state.master.slotitems.get(&p.slotitem_id))
+                                                    .map(|m| m.icon_type == 14)
+                                                    .unwrap_or(false)
+                                            });
+                                        if has_damecon {
+                                            info!("Ship {} ({}) is taiha but has damecon — skipping warning", ship.name, i);
+                                        } else {
+                                            warn!("Ship {} ({}) is taiha (HP {}/{}) and advancing without damecon!", ship.name, i, ship.hp, ship.maxhp);
+                                            taiha_names.push(ship.name.clone());
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -107,7 +118,6 @@ pub(super) fn process_battle(
                     if !taiha_names.is_empty() {
                         taiha_shown = true;
                         warn!("TAIHA ADVANCE WARNING: {} ships critically damaged: {:?}", taiha_names.len(), taiha_names);
-                        // Show overlay directly via eval (more reliable than event system in multi-webview)
                         if let Some(overlay) = app.get_webview("game-overlay") {
                             if let Some(win) = app.get_window("game") {
                                 if let Ok(size) = win.inner_size() {
@@ -120,7 +130,6 @@ pub(super) fn process_battle(
                         }
                     }
                 }
-            }
             } // taiha_enabled
 
             match serde_json::from_value::<
@@ -261,6 +270,7 @@ pub(super) fn process_battle(
             if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                 let fleet_id = sortie.fleet_id as usize;
                 let fleet_idx = fleet_id.saturating_sub(1);
+                let is_combined = sortie.is_combined;
                 // Get friendly HP after battle from the last node's battle detail
                 let hp_after: Option<Vec<crate::battle_log::HpState>> = sortie
                     .nodes
@@ -269,6 +279,14 @@ pub(super) fn process_battle(
                     .map(|b| b.friendly_hp.clone());
 
                 if let Some(hp_states) = &hp_after {
+                    // Determine main fleet ship count for splitting HP states in combined fleet
+                    let main_fleet_count = if fleet_idx < state.profile.fleets.len() {
+                        state.profile.fleets[fleet_idx].len()
+                    } else {
+                        0
+                    };
+
+                    // Update main fleet HP
                     if fleet_idx < state.profile.fleets.len() {
                         let ship_ids = state.profile.fleets[fleet_idx].clone();
                         for (i, &ship_id) in ship_ids.iter().enumerate() {
@@ -284,15 +302,48 @@ pub(super) fn process_battle(
                             ship_ids.len().min(hp_states.len()),
                         );
                     }
+
+                    // Update escort fleet HP for combined fleet sorties
+                    // HP states for combined fleet: indices 0..main_count = main, main_count.. = escort
+                    if is_combined && 1 < state.profile.fleets.len() {
+                        let escort_ship_ids = state.profile.fleets[1].clone();
+                        for (i, &ship_id) in escort_ship_ids.iter().enumerate() {
+                            let hp_idx = main_fleet_count + i;
+                            if let (Some(hp_state), Some(ship_info)) =
+                                (hp_states.get(hp_idx), state.profile.ships.get_mut(&ship_id))
+                            {
+                                ship_info.hp = hp_state.after.max(0);
+                            }
+                        }
+                        info!(
+                            "Updated escort fleet ship HP from battle result ({} ships)",
+                            escort_ship_ids.len(),
+                        );
+                    }
                 }
 
                 // Re-emit port-data with updated HP
                 if let Some(ref mut cached) = state.sortie.last_port_summary {
-                    // Update fleet ship HP in cached summary
+                    // Update main fleet ship HP in cached summary
                     if fleet_idx < cached.fleets.len() {
                         if let Some(hp_states) = &hp_after {
                             for (i, ship) in cached.fleets[fleet_idx].ships.iter_mut().enumerate() {
                                 if let Some(hp_state) = hp_states.get(i) {
+                                    ship.hp = hp_state.after.max(0);
+                                }
+                            }
+                        }
+                    }
+                    // Update escort fleet HP in cached summary for combined fleet
+                    if is_combined && 1 < cached.fleets.len() {
+                        if let Some(hp_states) = &hp_after {
+                            let main_count = if fleet_idx < cached.fleets.len() {
+                                cached.fleets[fleet_idx].ships.len()
+                            } else {
+                                0
+                            };
+                            for (i, ship) in cached.fleets[1].ships.iter_mut().enumerate() {
+                                if let Some(hp_state) = hp_states.get(main_count + i) {
                                     ship.hp = hp_state.after.max(0);
                                 }
                             }

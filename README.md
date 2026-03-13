@@ -94,17 +94,33 @@ npm run tauri build
 
 ```
 src/                    # React フロントエンド
-  App.tsx               # メインUI（母港・戦闘・改修・艦娘・装備・設定タブ）
-  App.css               # スタイル
+  App.tsx               # タブ切替・イベントリスナー
+  App.css               # ルートレイアウト
+  constants.ts          # ストレージキー定数
+  components/
+    homeport/           # 艦隊パネル・遠征/任務チェッカー
+    battle/             # 戦闘ログ・マップルート・ノード詳細
+    ships/              # 艦娘一覧（ソート・フィルタ）
+    equips/             # 装備一覧
+    improvement/        # 装備改修トラッカー
+    settings/           # 設定・Drive同期・キャッシュ
+    common/             # 共通UI（HpBar, DateRangePicker, ListTable等）
 
 src-tauri/src/          # Rust バックエンド
-  lib.rs                # Tauri コマンド定義
-  api/                  # ゲーム状態管理・APIパース
-  proxy/                # API傍受用MITMプロキシ（macOS）
-  battle_log/           # 戦闘データの記録・保存
+  lib.rs                # Tauri セットアップ・プロキシ起動
+  commands.rs           # Tauri コマンド（データ取得・キャッシュ・同期）
+  game_window.rs        # ゲームウィンドウ管理（開閉・ズーム・ミュート）
+  overlay.rs            # オーバーレイ（ミニマップ・陣形・大破警告・遠征通知）
+  cookie.rs             # Cookie 保存・読込
+  ca.rs                 # CA証明書インストール
+  migration.rs          # データディレクトリ移行
+  api/                  # API傍受・ゲーム状態管理
+  proxy/                # MITMプロキシ（macOS、hudsucker）
+  battle_log/           # 戦闘データの記録・解析・保存
   quest_progress/       # 任務進捗の追跡
   sortie_quest/         # 出撃・演習任務の条件チェッカー
   expedition/           # 遠征条件の判定
+  senka/                # 戦果計算・追跡
   improvement/          # 装備改修の追跡
   drive_sync/           # Google Drive 同期
 
@@ -113,7 +129,6 @@ src-tauri/data/         # 静的ゲームデータ
   sortie_quests.json    # 任務条件（314以上）
   equipment_upgrades.json  # 装備改修カレンダー（366以上）
   map_recommendations.json # 通常海域の推奨編成
-  edges.json            # マップ辺トポロジ
 ```
 
 ### API 傍受方式
