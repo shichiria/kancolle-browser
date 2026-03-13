@@ -1,0 +1,33 @@
+Codemap Update Report
+══════════════════════════════
+Date: 2026-03-13 (update #2 — post-refactoring)
+Previous: 2026-03-13 (initial generation)
+
+Updated Files:
+  docs/CODEMAPS/architecture.md  — Major update (frontend module map rewritten)
+  docs/CODEMAPS/frontend.md      — Complete rewrite (monolith → modular)
+
+Unchanged Files:
+  docs/CODEMAPS/backend.md       — No backend changes
+  docs/CODEMAPS/data.md          — No storage changes
+  docs/CODEMAPS/dependencies.md  — No dependency changes
+
+Architecture Changes:
+  ✓ App.tsx split: 3540L → 453L (87% reduction)
+  ✓ App.css split: 2500L → 231L (91% reduction)
+  ✓ New: src/types/ (10 files, 385L) — extracted type definitions
+  ✓ New: src/utils/ (4 files, 187L) — extracted utility functions
+  ✓ New: src/components/ (7 subdirectories, 37 files)
+      common/ (382L), homeport/ (1961L), battle/ (1270L)
+      ships/ (326L), equips/ (124L), improvement/ (386L), settings/ (466L)
+
+Code Fixes (this session):
+  ✓ Fixed refreshBattleLogs stale closure (useRef pattern)
+  ✓ Removed unused nodeIndex prop from BattleNodeDetail
+  ✓ Removed unused SupplyBar component
+
+Remaining Warnings:
+  ⚠ lib.rs is 2539 lines — oversized, many Tauri commands mixed with logic
+  ⚠ api/mod.rs is 2271 lines — large match block for API routing
+  ⚠ No frontend tests
+  ✓ Backend has test file (api/tests.rs, 84 lines — minimal)

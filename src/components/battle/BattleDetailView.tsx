@@ -105,13 +105,13 @@ export function BattleDetailView({
           <div className="battle-splitter-handle" />
         </div>
         <div className="battle-split-bottom">
-          {record.nodes.filter((n) => n.battle != null).map((node, i) => (
+          {record.nodes.filter((n) => n.battle != null).map((node) => (
             <div
               key={node.cell_no}
               ref={(el) => { nodeRefs.current.set(node.cell_no, el); }}
               className={highlightCellNo === node.cell_no ? "node-highlight" : ""}
             >
-              <BattleNodeDetail node={node} ships={record.ships} nodeIndex={i} mapDisplay={record.map_display} />
+              <BattleNodeDetail node={node} ships={record.ships} mapDisplay={record.map_display} />
             </div>
           ))}
         </div>

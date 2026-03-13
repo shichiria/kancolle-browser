@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { API_QUEST_PREFIX } from "../../constants";
 import type { SortieQuestDef, QuestProgressSummary } from "../../types";
 
 export function QuestProgressDisplay({
@@ -18,7 +19,7 @@ export function QuestProgressDisplay({
     for (const [id, def] of questById) {
       if (def.quest_id === questId) return id;
     }
-    if (questId.startsWith("api_")) {
+    if (questId.startsWith(API_QUEST_PREFIX)) {
       const n = parseInt(questId.slice(4), 10);
       return isNaN(n) ? null : n;
     }

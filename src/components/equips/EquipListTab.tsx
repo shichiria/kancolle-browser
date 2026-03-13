@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatImprovements } from "../../utils/format";
+import { STORAGE_KEYS } from "../../constants";
+import "../common/ListTable.css";
 import "../ships/ShipListTab.css";
 import type { EquipListResponse } from "../../types";
 
 export function EquipListTab({ portDataVersion }: { portDataVersion: number }) {
   const [data, setData] = useState<EquipListResponse | null>(null);
   const [typeFilters, setTypeFilters] = useState<Set<number>>(() => {
-    const saved = localStorage.getItem("equip-type-filters");
+    const saved = localStorage.getItem(STORAGE_KEYS.EQUIP_TYPE_FILTERS);
     return saved ? new Set(JSON.parse(saved) as number[]) : new Set();
   });
 
@@ -34,14 +36,14 @@ export function EquipListTab({ portDataVersion }: { portDataVersion: number }) {
       const next = new Set(prev);
       if (next.has(typeId)) next.delete(typeId);
       else next.add(typeId);
-      localStorage.setItem("equip-type-filters", JSON.stringify([...next]));
+      localStorage.setItem(STORAGE_KEYS.EQUIP_TYPE_FILTERS, JSON.stringify([...next]));
       return next;
     });
   };
 
   const clearTypeFilters = () => {
     setTypeFilters(new Set());
-    localStorage.removeItem("equip-type-filters");
+    localStorage.removeItem(STORAGE_KEYS.EQUIP_TYPE_FILTERS);
   };
 
   const displayItems = useMemo(() => {

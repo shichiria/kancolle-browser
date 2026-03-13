@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
+import { STORAGE_KEYS } from "./constants";
 import type {
   FleetData, PortData, ApiLogEntry,
   SenkaSummary, DriveStatus,
@@ -48,7 +49,7 @@ function App() {
   });
   const [activeTab, setActiveTab] = useState<TabId>("homeport");
   const [uiZoom, setUiZoom] = useState<number>(() => {
-    const saved = localStorage.getItem("ui-zoom");
+    const saved = localStorage.getItem(STORAGE_KEYS.UI_ZOOM);
     return saved ? Number(saved) : 135;
   });
   // Google Drive sync state
@@ -56,10 +57,10 @@ function App() {
   const [driveLoading, setDriveLoading] = useState(false);
 
   const [showApiLog, setShowApiLog] = useState<boolean>(() => {
-    return localStorage.getItem("show-api-log") === "true";
+    return localStorage.getItem(STORAGE_KEYS.SHOW_API_LOG) === "true";
   });
   const [rawApiEnabled, setRawApiEnabled] = useState<boolean>(() => {
-    return localStorage.getItem("raw-api-enabled") === "true";
+    return localStorage.getItem(STORAGE_KEYS.RAW_API_ENABLED) === "true";
   });
 
   // Weapon icon sprite sheet for damecon indicator
@@ -127,6 +128,12 @@ function App() {
       console.error("Failed to load battle logs:", e);
     }
   }, [battleDateFrom, battleDateTo]);
+
+  // Keep a ref to the latest refreshBattleLogs so event listeners never go stale
+  const refreshBattleLogsRef = useRef(refreshBattleLogs);
+  useEffect(() => {
+    refreshBattleLogsRef.current = refreshBattleLogs;
+  }, [refreshBattleLogs]);
 
   // Re-fetch when view mode or date selection changes
   useEffect(() => {
@@ -224,7 +231,7 @@ function App() {
         for (const p of progress) map.set(p.quest_id, p);
         setQuestProgress(map);
       }).catch(console.error);
-      refreshBattleLogs();
+      refreshBattleLogsRef.current();
       // Trigger improvement tab and fleet panels to re-fetch from backend
       setPortDataVersion((v) => v + 1);
     });
@@ -261,7 +268,7 @@ function App() {
     invoke<DriveStatus>("get_drive_status").then(setDriveStatus).catch(console.error);
 
     // Restore raw API enabled state from localStorage to backend
-    const savedRawApi = localStorage.getItem("raw-api-enabled") === "true";
+    const savedRawApi = localStorage.getItem(STORAGE_KEYS.RAW_API_ENABLED) === "true";
     if (savedRawApi) {
       invoke("set_raw_api_enabled", { enabled: true }).catch(console.error);
     }
@@ -431,12 +438,15 @@ function App() {
         )}
         {activeTab === "options" && (
           <SettingsTab
-            uiZoom={uiZoom} setUiZoom={setUiZoom}
-            driveStatus={driveStatus} setDriveStatus={setDriveStatus}
-            driveLoading={driveLoading} setDriveLoading={setDriveLoading}
-            showApiLog={showApiLog} setShowApiLog={setShowApiLog}
-            rawApiEnabled={rawApiEnabled} setRawApiEnabled={setRawApiEnabled}
-            setBattleLogs={setBattleLogs} setBattleLogsTotal={setBattleLogsTotal}
+            uiZoom={uiZoom} driveStatus={driveStatus}
+            driveLoading={driveLoading} showApiLog={showApiLog}
+            rawApiEnabled={rawApiEnabled}
+            onZoomChange={setUiZoom}
+            onDriveStatusChange={setDriveStatus}
+            onDriveLoadingChange={setDriveLoading}
+            onShowApiLogChange={setShowApiLog}
+            onRawApiChange={setRawApiEnabled}
+            onClearBattleLogs={() => { setBattleLogs([]); setBattleLogsTotal(0); }}
           />
         )}
       </div>

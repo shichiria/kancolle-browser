@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { STORAGE_KEYS } from "../../constants";
 import type { ImprovementListResponse } from "../../types";
 import "./ImprovementTab.css";
 
@@ -8,7 +9,7 @@ const DAY_NAMES = ["日", "月", "火", "水", "木", "金", "土"];
 export function ImprovementTab({ portDataVersion }: { portDataVersion: number }) {
   const [data, setData] = useState<ImprovementListResponse | null>(null);
   const [typeFilters, setTypeFilters] = useState<Set<number>>(() => {
-    const saved = localStorage.getItem("improvement-type-filters");
+    const saved = localStorage.getItem(STORAGE_KEYS.IMPROVEMENT_TYPE_FILTERS);
     return saved ? new Set(JSON.parse(saved) as number[]) : new Set();
   });
 
@@ -57,7 +58,7 @@ export function ImprovementTab({ portDataVersion }: { portDataVersion: number })
       if (next.has(typeId)) next.delete(typeId);
       else next.add(typeId);
       localStorage.setItem(
-        "improvement-type-filters",
+        STORAGE_KEYS.IMPROVEMENT_TYPE_FILTERS,
         JSON.stringify([...next])
       );
       return next;
@@ -66,7 +67,7 @@ export function ImprovementTab({ portDataVersion }: { portDataVersion: number })
 
   const clearFilters = () => {
     setTypeFilters(new Set());
-    localStorage.removeItem("improvement-type-filters");
+    localStorage.removeItem(STORAGE_KEYS.IMPROVEMENT_TYPE_FILTERS);
   };
 
   if (!data || data.items.length === 0) {

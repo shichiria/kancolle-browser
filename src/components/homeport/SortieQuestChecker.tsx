@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { STORAGE_KEYS, API_QUEST_PREFIX } from "../../constants";
 import "./SortieQuestChecker.css";
 import type {
   SortieQuestDef, ActiveQuestDetail, SortieQuestCheckResult,
@@ -33,7 +34,7 @@ export function SortieQuestChecker({
   activeQuests: ActiveQuestDetail[];
   questProgress: Map<number, QuestProgressSummary>;
 }) {
-  const storageKey = `sortie-quest-fleet-${fleetIndex}`;
+  const storageKey = STORAGE_KEYS.sortieQuestFleet(fleetIndex);
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     return localStorage.getItem(storageKey);
   });
@@ -54,7 +55,7 @@ export function SortieQuestChecker({
       if (!QUEST_CATEGORIES.has(aq.category)) continue;
       const def = questById.get(aq.id);
       items.push({
-        key: def ? def.quest_id : `api_${aq.id}`,
+        key: def ? def.quest_id : `${API_QUEST_PREFIX}${aq.id}`,
         label: def ? `${def.quest_id} ${def.name}` : aq.title,
         category: aq.category,
         hasData: !!def,
@@ -67,67 +68,12 @@ export function SortieQuestChecker({
   const pendingStartedRef = useRef<number | null>(null);
   const doCheckVersionRef = useRef(0);
 
-  useEffect(() => {
-    const unlisten = listen<number>("quest-started", (event) => {
-      pendingStartedRef.current = event.payload;
-    });
-    return () => { unlisten.then((f) => f()); };
-  }, []);
-
-  // Clear selection when any quest is stopped in game
-  useEffect(() => {
-    const unlisten = listen<number>("quest-stopped", () => {
-      setSelectedId(null);
-      setCheckResult(null);
-      localStorage.removeItem(storageKey);
-    });
-    return () => { unlisten.then((f) => f()); };
-  }, [storageKey]);
-
-  // Auto-select just-started quest, or clear selection when quest removed
-  useEffect(() => {
-    // Check if a quest was just started and is now in the dropdown
-    if (pendingStartedRef.current != null) {
-      const startedApiNo = pendingStartedRef.current;
-      const match = dropdownQuests.find((q) => {
-        // Match by api_no: check JSON def id or api_ prefix key
-        const def = questById.get(startedApiNo);
-        if (def && q.key === def.quest_id) return true;
-        if (q.key === `api_${startedApiNo}`) return true;
-        return false;
-      });
-      if (match && (match.category >= 2 && match.category <= 3 || match.category >= 8)) {
-        pendingStartedRef.current = null;
-        doCheck(match.key);
-        return;
-      }
-      // If not found yet, keep pending for next update
-    }
-
-    // Clear selection if selected quest no longer active
-    if (selectedId != null) {
-      const stillActive = dropdownQuests.some((q) => q.key === selectedId);
-      if (!stillActive) {
-        setSelectedId(null);
-        setCheckResult(null);
-        localStorage.removeItem(storageKey);
-      }
-    }
-  }, [activeQuests, dropdownQuests]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-check on mount and when port data / fleet composition updates
-  useEffect(() => {
-    if (selectedId != null && dropdownQuests.length > 0) {
-      doCheck(selectedId);
-    }
-  }, [sortieQuests.length, portDataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const doCheck = async (questId: string) => {
+  const doCheck = useCallback(async (questId: string) => {
     const version = ++doCheckVersionRef.current;
     setSelectedId(questId);
     localStorage.setItem(storageKey, questId);
     // For quests without JSON data (exercise, composition, etc.), show basic info
-    if (questId.startsWith("api_")) {
+    if (questId.startsWith(API_QUEST_PREFIX)) {
       const dq = dropdownQuests.find((q) => q.key === questId);
       if (doCheckVersionRef.current === version) {
         setCheckResult({
@@ -165,7 +111,57 @@ export function SortieQuestChecker({
         setChecking(false);
       }
     }
-  };
+  }, [storageKey, fleetIndex, dropdownQuests]);
+
+  useEffect(() => {
+    const unlisten = listen<number>("quest-started", (event) => {
+      pendingStartedRef.current = event.payload;
+    });
+    return () => { unlisten.then((f) => f()); };
+  }, []);
+
+  // Clear selection when any quest is stopped in game
+  useEffect(() => {
+    const unlisten = listen<number>("quest-stopped", () => {
+      setSelectedId(null);
+      setCheckResult(null);
+      localStorage.removeItem(storageKey);
+    });
+    return () => { unlisten.then((f) => f()); };
+  }, [storageKey]);
+
+  // Auto-select just-started quest, or clear selection when quest removed
+  useEffect(() => {
+    if (pendingStartedRef.current != null) {
+      const startedApiNo = pendingStartedRef.current;
+      const match = dropdownQuests.find((q) => {
+        const def = questById.get(startedApiNo);
+        if (def && q.key === def.quest_id) return true;
+        if (q.key === `${API_QUEST_PREFIX}${startedApiNo}`) return true;
+        return false;
+      });
+      if (match && (match.category >= 2 && match.category <= 3 || match.category >= 8)) {
+        pendingStartedRef.current = null;
+        doCheck(match.key);
+        return;
+      }
+    }
+    if (selectedId != null) {
+      const stillActive = dropdownQuests.some((q) => q.key === selectedId);
+      if (!stillActive) {
+        setSelectedId(null);
+        setCheckResult(null);
+        localStorage.removeItem(storageKey);
+      }
+    }
+  }, [activeQuests, dropdownQuests, doCheck, selectedId, questById, storageKey]);
+
+  // Auto-check on mount and when port data / fleet composition updates
+  useEffect(() => {
+    if (selectedId != null && dropdownQuests.length > 0) {
+      doCheck(selectedId);
+    }
+  }, [sortieQuests.length, portDataVersion, selectedId, dropdownQuests.length, doCheck]);
 
   // Group dropdown quests by category
   const grouped = dropdownQuests.reduce<Record<number, DropdownQuest[]>>((acc, q) => {
@@ -184,7 +180,7 @@ export function SortieQuestChecker({
     for (const [id, def] of questById) {
       if (def.quest_id === selectedId) return id;
     }
-    if (selectedId.startsWith("api_")) {
+    if (selectedId.startsWith(API_QUEST_PREFIX)) {
       const n = parseInt(selectedId.slice(4), 10);
       return isNaN(n) ? null : n;
     }

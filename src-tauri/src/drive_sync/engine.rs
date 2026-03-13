@@ -10,7 +10,7 @@ use super::auth::DriveAuthenticator;
 use super::files::{self, Hub};
 use super::{
     load_manifest, save_manifest, SyncCommand, SyncFileEntry, SyncManifest, SyncStatus,
-    SyncTarget, SYNC_TARGETS,
+    SYNC_TARGETS,
 };
 
 /// Polling interval for remote changes (5 minutes).

@@ -14,7 +14,6 @@ export function BattleNodeDetail({
 }: {
   node: BattleNode;
   ships: SortieShip[];
-  nodeIndex: number;
   mapDisplay: string;
 }) {
   const b = node.battle;

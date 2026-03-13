@@ -1,5 +1,11 @@
 pub mod dto;
 pub mod models;
+mod battle;
+mod fleet;
+pub(crate) mod formation;
+pub(crate) mod minimap;
+mod ship;
+
 use dto::request::{HenseiChangeReq, QuestReq, RemodelSlotReq};
 
 #[cfg(test)]
@@ -7,7 +13,21 @@ mod tests;
 use log::{error, info, warn};
 use tauri::{AppHandle, Emitter, Manager};
 
-use models::{GameState, ShipInfo};
+use models::GameState;
+
+// Re-export public functions used by other crates
+pub use formation::hide_formation_hint;
+pub use minimap::send_minimap_data;
+
+// Material ID constants
+const MATERIAL_FUEL: i32 = 1;
+const MATERIAL_AMMO: i32 = 2;
+const MATERIAL_STEEL: i32 = 3;
+const MATERIAL_BAUXITE: i32 = 4;
+const MATERIAL_INSTANT_REPAIR: i32 = 5;
+const MATERIAL_INSTANT_BUILD: i32 = 6;
+const MATERIAL_DEV_MATERIAL: i32 = 7;
+const MATERIAL_IMPROVEMENT: i32 = 8;
 
 /// Send sync notification for changed files.
 fn notify_sync(state: &models::GameStateInner, paths: Vec<&str>) {
@@ -18,185 +38,6 @@ fn notify_sync(state: &models::GameStateInner, paths: Vec<&str>) {
     }
 }
 
-/// Get Japanese name for a formation ID
-fn formation_name(id: i32) -> &'static str {
-    match id {
-        1 => "単縦陣",
-        2 => "複縦陣",
-        3 => "輪形陣",
-        4 => "梯形陣",
-        5 => "単横陣",
-        6 => "警戒陣",
-        11 => "第一警戒航行序列(対潜警戒)",
-        12 => "第二警戒航行序列(前方警戒)",
-        13 => "第三警戒航行序列(輪形陣)",
-        14 => "第四警戒航行序列(戦闘隊形)",
-        _ => "不明",
-    }
-}
-
-/// Formation button label rect in game canvas (1200x720) coordinates: (x, y, w, h)
-/// Positions derived from sprite atlas (sally_jin.json: label=150x48) and kcauto reference data.
-/// Grid layout: 3 columns (x=668,866,1064) × 2 rows (y=278,517), same for all ship counts.
-fn get_formation_button_rect(formation: i32, _ship_count: usize) -> Option<(f64, f64, f64, f64)> {
-    // Label sprite is 150x48 in sally_jin atlas; yellow border is slightly wider
-    const BW: f64 = 154.0;
-    const BH: f64 = 48.0;
-
-    // Button center positions in game canvas coordinates
-    // Column X: derived from kcauto search regions + fine-tuned (left+7, right-3 → cx-5)
-    // Row Y: derived from kcauto search regions (row1: 278, row2: 517)
-    let (cx, cy) = match formation {
-        1 => (663.0, 278.0),   // 単縦陣 col1 row1
-        2 => (858.0, 278.0),   // 複縦陣 col2 row1
-        3 => (1056.0, 278.0),  // 輪形陣 col3 row1
-        4 => (766.0, 517.0),   // 梯形陣 col1 row2
-        5 => (960.0, 517.0),   // 単横陣 col2 row2
-        6 => (1048.0, 517.0),  // 警戒陣 col3 row2
-        // Combined fleet formations (from kcauto CF regions, same cx-5 adjustment)
-        11 => (743.0, 263.0),  // 第一警戒航行序列
-        12 => (993.0, 263.0),  // 第二警戒航行序列
-        13 => (743.0, 468.0),  // 第三警戒航行序列
-        14 => (993.0, 468.0),  // 第四警戒航行序列
-        _ => return None,
-    };
-
-    Some((cx - BW / 2.0, cy - BH / 2.0, BW, BH))
-}
-
-/// Show formation highlight using the click-through formation-hint window
-fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: usize) {
-    // Check if formation hint is enabled
-    if let Some(state) = app.try_state::<crate::AppState>() {
-        if !state.formation_hint_enabled.load(std::sync::atomic::Ordering::Relaxed) {
-            return;
-        }
-    }
-
-    let game_win = match app.get_window("game") {
-        Some(w) => w,
-        None => return,
-    };
-    let hint_win = match app.get_window("formation-hint") {
-        Some(w) => w,
-        None => return,
-    };
-
-    let (bx, by, bw, bh) = match get_formation_button_rect(formation, ship_count) {
-        Some(r) => r,
-        None => return,
-    };
-
-    let inner_pos = match game_win.inner_position() {
-        Ok(p) => p,
-        Err(_) => return,
-    };
-    let scale = game_win.scale_factor().unwrap_or(1.0);
-
-    // Get current game zoom level
-    let zoom = app.try_state::<crate::AppState>()
-        .map(|s| *s.game_zoom.lock().unwrap())
-        .unwrap_or(1.0);
-
-    // Control bar is 28 CSS pixels, scaled by zoom and DPI
-    // Game coordinates are also scaled by zoom
-    let mut dx = (bx * zoom * scale) as i32;
-    let mut dy = ((28.0 + by) * zoom * scale) as i32;
-
-    // macOS: adjust for platform-specific coordinate offset
-    #[cfg(target_os = "macos")]
-    {
-        dx += (6.0 * scale) as i32;
-        dy += (30.0 * scale) as i32;
-    }
-    let phys_w = (bw * zoom * scale) as u32;
-    let phys_h = (bh * zoom * scale) as u32;
-
-    // Save offset in AppState for window-move tracking
-    if let Some(app_state) = app.try_state::<crate::AppState>() {
-        let mut rect = app_state.formation_hint_rect.lock().unwrap();
-        rect.dx = dx;
-        rect.dy = dy;
-        rect.w = phys_w;
-        rect.h = phys_h;
-        rect.visible = true;
-    }
-
-    let screen_x = inner_pos.x + dx;
-    let screen_y = inner_pos.y + dy;
-
-    // Also check outer_position and game webview position for debugging
-    let outer_pos = game_win.outer_position().ok();
-    let win_size = game_win.inner_size().ok();
-    log::info!(
-        "FormationHint: formation={}, ship_count={}, scale={}, inner_pos=({},{}), outer_pos={:?}, win_size={:?}, dx={}, dy={}, screen=({},{}), rect={}x{}",
-        formation, ship_count, scale, inner_pos.x, inner_pos.y, outer_pos, win_size, dx, dy, screen_x, screen_y, phys_w, phys_h
-    );
-
-    let _ = hint_win.set_size(tauri::PhysicalSize::new(phys_w, phys_h));
-    if let Some(wv) = app.get_webview("formation-hint-content") {
-        let _ = wv.set_size(tauri::PhysicalSize::new(phys_w, phys_h));
-    }
-    let _ = hint_win.set_position(tauri::PhysicalPosition::new(screen_x, screen_y));
-    let _ = hint_win.show();
-}
-
-/// Hide formation hint window
-pub fn hide_formation_hint(app: &AppHandle) {
-    if let Some(app_state) = app.try_state::<crate::AppState>() {
-        app_state.formation_hint_rect.lock().unwrap().visible = false;
-    }
-    if let Some(hint_win) = app.get_window("formation-hint") {
-        let _ = hint_win.hide();
-    }
-}
-
-/// Send minimap data to overlay webview
-fn update_minimap_overlay(app: &AppHandle, sortie: &crate::battle_log::SortieRecord) {
-    let minimap_on = app
-        .try_state::<crate::AppState>()
-        .map(|s| s.minimap_enabled.load(std::sync::atomic::Ordering::Relaxed))
-        .unwrap_or(false);
-    if !minimap_on {
-        return;
-    }
-    send_minimap_data(app, sortie);
-}
-
-/// Send minimap data to overlay and resize it (called from toggle_minimap too)
-pub fn send_minimap_data(app: &AppHandle, sortie: &crate::battle_log::SortieRecord) {
-    if let Some(overlay) = app.get_webview("game-overlay") {
-        let nodes_json: Vec<serde_json::Value> = sortie
-            .nodes
-            .iter()
-            .map(|n| {
-                serde_json::json!({
-                    "cell_no": n.cell_no,
-                    "event_kind": n.event_kind,
-                    "event_id": n.event_id,
-                    "has_battle": n.battle.is_some(),
-                })
-            })
-            .collect();
-        let map_display = &sortie.map_display;
-        let js = format!(
-            "window.updateMinimap({}, {})",
-            serde_json::to_string(map_display).unwrap_or_else(|_| "\"\"".into()),
-            serde_json::to_string(&nodes_json).unwrap_or_else(|_| "[]".into()),
-        );
-        let _ = crate::show_minimap_overlay(app);
-        let _ = overlay.eval(&js);
-    }
-}
-
-/// Hide minimap on overlay
-fn hide_minimap_overlay(app: &AppHandle) {
-    if let Some(overlay) = app.get_webview("game-overlay") {
-        let _ = overlay.eval("window.hideMinimap()");
-        let _ = overlay.set_size(tauri::LogicalSize::new(1.0, 1.0));
-    }
-}
-
 /// Helper to get a material value by api_id from the material array
 fn get_material(materials: &[models::Material], id: i32) -> i32 {
     materials
@@ -204,27 +45,6 @@ fn get_material(materials: &[models::Material], id: i32) -> i32 {
         .find(|m| m.api_id == id)
         .map(|m| m.api_value)
         .unwrap_or(0)
-}
-
-/// Extract stat value from api_karyoku / api_taiku / etc.
-/// These are arrays where index 0 is the equipped total value.
-fn extract_stat_value(val: &serde_json::Value) -> i32 {
-    if let Some(arr) = val.as_array() {
-        arr.first().and_then(|v| v.as_i64()).unwrap_or(0) as i32
-    } else {
-        val.as_i64().unwrap_or(0) as i32
-    }
-}
-
-/// Extract slot IDs from api_slot value (array of equipment instance IDs, -1 = empty)
-fn extract_slot_ids(val: &serde_json::Value) -> Vec<i32> {
-    if let Some(arr) = val.as_array() {
-        arr.iter()
-            .map(|v| v.as_i64().unwrap_or(-1) as i32)
-            .collect()
-    } else {
-        Vec::new()
-    }
 }
 
 /// Pre-parsed API data to pass into the single async task
@@ -489,7 +309,7 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
             info!("Processing api_req_ranking/mxltvkpyuklh (ranking data)");
             ParsedApi::Ranking(json_str.to_string())
         }
-        ep if is_battle_endpoint(ep) => match serde_json::from_str::<serde_json::Value>(json_str) {
+        ep if battle::is_battle_endpoint(ep) => match serde_json::from_str::<serde_json::Value>(json_str) {
             Ok(v) => ParsedApi::Battle(v),
             Err(e) => {
                 let preview: String = json_str.chars().take(200).collect();
@@ -577,20 +397,20 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
                 process_questlist(&mut state, &json, &app);
             }
             ParsedApi::Battle(json) => {
-                process_battle(&mut state, &endpoint, &request_body, &json, &app);
+                battle::process_battle(&mut state, &endpoint, &request_body, &json, &app);
             }
             ParsedApi::ExerciseResult(json) => {
-                process_exercise_result(&mut state, &json, &app);
+                battle::process_exercise_result(&mut state, &json, &app);
             }
             ParsedApi::HenseiChange {
                 fleet_id,
                 ship_idx,
                 ship_id,
             } => {
-                process_hensei_change(&mut state, fleet_id, ship_idx, ship_id, &app);
+                fleet::process_hensei_change(&mut state, fleet_id, ship_idx, ship_id, &app);
             }
             ParsedApi::HenseiPresetSelect(json) => {
-                process_hensei_preset_select(&mut state, &json, &app);
+                fleet::process_hensei_preset_select(&mut state, &json, &app);
             }
             ParsedApi::RemodelSlot {
                 slot_id,
@@ -682,10 +502,10 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
                 }
             }
             ParsedApi::Ship3(api_data) => {
-                process_ship3(&mut state, &api_data, &app);
+                ship::process_ship3(&mut state, &api_data, &app);
             }
             ParsedApi::SlotDeprive(api_data) => {
-                process_slot_deprive(&mut state, &api_data, &app);
+                ship::process_slot_deprive(&mut state, &api_data, &app);
             }
             ParsedApi::Ranking(raw_json) => {
                 // Get admiral name from cached port data
@@ -768,13 +588,6 @@ fn extract_senka_from_clearitemget(json_str: &str) -> i64 {
     total_bonus
 }
 
-fn is_battle_endpoint(ep: &str) -> bool {
-    ep.starts_with("/kcsapi/api_req_map/")
-        || ep.starts_with("/kcsapi/api_req_sortie/")
-        || ep.starts_with("/kcsapi/api_req_battle_midnight/")
-        || ep.starts_with("/kcsapi/api_req_combined_battle/")
-}
-
 /// Process api_start2 master data
 fn process_start2(
     state: &mut models::GameStateInner,
@@ -783,12 +596,12 @@ fn process_start2(
 ) {
     // Populate master ships (name + stype)
     state.master.ships.clear();
-    for ship in &api_data.api_mst_ship {
+    for s in &api_data.api_mst_ship {
         state.master.ships.insert(
-            ship.api_id,
+            s.api_id,
             models::MasterShipInfo {
-                name: ship.api_name.clone(),
-                stype: ship.api_stype,
+                name: s.api_name.clone(),
+                stype: s.api_stype,
             },
         );
     }
@@ -879,7 +692,7 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
             let summary = crate::battle_log::SortieRecordSummary::from(&record);
             let _ = app.emit("sortie-complete", &summary);
         }
-        hide_minimap_overlay(app);
+        minimap::hide_minimap_overlay(app);
     }
 
     // Check quest progress resets on returning to port
@@ -891,64 +704,27 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
 
     // Update player ships from port data
     state.profile.ships.clear();
-    for ship in &api_data.api_ship {
-        let master = state.master.ships.get(&ship.api_ship_id);
-        let name = master
-            .map(|m| m.name.clone())
-            .unwrap_or_else(|| format!("Unknown({})", ship.api_ship_id));
-        let stype = master.map(|m| m.stype).unwrap_or(0);
-
-        let firepower = extract_stat_value(&ship.api_karyoku);
-        let torpedo = extract_stat_value(&ship.api_raisou);
-        let aa = extract_stat_value(&ship.api_taiku);
-        let armor = extract_stat_value(&ship.api_soukou);
-        let asw = extract_stat_value(&ship.api_taisen);
-        let evasion = extract_stat_value(&ship.api_kaihi);
-        let los = extract_stat_value(&ship.api_sakuteki);
-        let luck = extract_stat_value(&ship.api_lucky);
-        let slot = extract_slot_ids(&ship.api_slot);
-
+    for s in &api_data.api_ship {
+        let master = state.master.ships.get(&s.api_ship_id);
         state.profile.ships.insert(
-            ship.api_id,
-            ShipInfo {
-                ship_id: ship.api_ship_id,
-                name,
-                stype,
-                lv: ship.api_lv,
-                hp: ship.api_nowhp,
-                maxhp: ship.api_maxhp,
-                cond: ship.api_cond,
-                fuel: ship.api_fuel,
-                bull: ship.api_bull,
-                firepower,
-                torpedo,
-                aa,
-                armor,
-                asw,
-                evasion,
-                los,
-                luck,
-                locked: ship.api_locked == 1,
-                slot,
-                slot_ex: ship.api_slot_ex,
-                soku: ship.api_soku,
-            },
+            s.api_id,
+            ship::build_ship_info(s, master),
         );
     }
 
     // Update fleet compositions
     state.profile.fleets.clear();
-    for fleet in &api_data.api_deck_port {
-        let ship_ids: Vec<i32> = fleet
+    for f in &api_data.api_deck_port {
+        let ship_ids: Vec<i32> = f
             .api_ship
             .iter()
             .filter(|&&id| id > 0)
             .copied()
             .collect();
-        while state.profile.fleets.len() < fleet.api_id as usize {
+        while state.profile.fleets.len() < f.api_id as usize {
             state.profile.fleets.push(Vec::new());
         }
-        state.profile.fleets[fleet.api_id as usize - 1] = ship_ids;
+        state.profile.fleets[f.api_id as usize - 1] = ship_ids;
     }
 
     // Update combined fleet flag
@@ -964,14 +740,14 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
     let fleets: Vec<models::FleetSummary> = api_data
         .api_deck_port
         .iter()
-        .map(|fleet| {
-            let mut ships: Vec<models::ShipSummary> = fleet
+        .map(|f| {
+            let mut ships: Vec<models::ShipSummary> = f
                 .api_ship
                 .iter()
                 .filter(|&&id| id > 0)
                 .filter_map(|&id| {
                     state.profile.ships.get(&id).map(|info| {
-                        let marks = collect_ship_marks(
+                        let marks = ship::collect_ship_marks(
                             info,
                             &state.profile.slotitems,
                             &state.master.slotitems,
@@ -995,19 +771,19 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
                 })
                 .collect();
 
-            resolve_command_facility(
+            ship::resolve_command_facility(
                 &mut ships,
-                fleet.api_id,
+                f.api_id,
                 state.profile.combined_flag,
                 &state.profile,
                 &state.master.slotitems,
             );
 
-            let expedition = parse_expedition(&fleet.api_mission, &state.master.missions);
+            let expedition = fleet::parse_expedition(&f.api_mission, &state.master.missions);
 
             models::FleetSummary {
-                id: fleet.api_id,
-                name: fleet.api_name.clone(),
+                id: f.api_id,
+                name: f.api_name.clone(),
                 ships,
                 expedition,
             }
@@ -1045,14 +821,14 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
         admiral_rank: api_data.api_basic.api_rank,
         ship_count: api_data.api_ship.len(),
         ship_capacity: api_data.api_basic.api_max_chara,
-        fuel: get_material(&api_data.api_material, 1),
-        ammo: get_material(&api_data.api_material, 2),
-        steel: get_material(&api_data.api_material, 3),
-        bauxite: get_material(&api_data.api_material, 4),
-        instant_repair: get_material(&api_data.api_material, 5),
-        instant_build: get_material(&api_data.api_material, 6),
-        dev_material: get_material(&api_data.api_material, 7),
-        improvement_material: get_material(&api_data.api_material, 8),
+        fuel: get_material(&api_data.api_material, MATERIAL_FUEL),
+        ammo: get_material(&api_data.api_material, MATERIAL_AMMO),
+        steel: get_material(&api_data.api_material, MATERIAL_STEEL),
+        bauxite: get_material(&api_data.api_material, MATERIAL_BAUXITE),
+        instant_repair: get_material(&api_data.api_material, MATERIAL_INSTANT_REPAIR),
+        instant_build: get_material(&api_data.api_material, MATERIAL_INSTANT_BUILD),
+        dev_material: get_material(&api_data.api_material, MATERIAL_DEV_MATERIAL),
+        improvement_material: get_material(&api_data.api_material, MATERIAL_IMPROVEMENT),
         fleets,
         ndock,
     };
@@ -1104,7 +880,7 @@ fn process_questlist(
 
             match api_state {
                 2 | 3 => {
-                    // Accepted or completed → add to active set
+                    // Accepted or completed -> add to active set
                     state.history.active_quests.insert(api_no);
                     let title = item
                         .get("api_title")
@@ -1125,7 +901,7 @@ fn process_questlist(
                     );
                 }
                 1 => {
-                    // Not accepted → remove from active set
+                    // Not accepted -> remove from active set
                     state.history.active_quests.remove(&api_no);
                     state.history.active_quest_details.remove(&api_no);
                 }
@@ -1138,1134 +914,4 @@ fn process_questlist(
         info!("Active quests updated: {} quests", details.len());
         let _ = app.emit("quest-list-updated", &details);
     }
-}
-
-/// Process battle-related API endpoints
-fn process_battle(
-    state: &mut models::GameStateInner,
-    endpoint: &str,
-    request_body: &str,
-    json: &serde_json::Value,
-    app: &AppHandle,
-) {
-    info!(
-        "Battle API: {} (req_body len={})",
-        endpoint,
-        request_body.len(),
-    );
-
-    match endpoint {
-        "/kcsapi/api_req_map/start" => {
-            let fleets = state.profile.fleets.clone();
-            let player_ships = state.profile.ships.clone();
-            let player_slotitems = state.profile.slotitems.clone();
-            info!(
-                "Sortie start: {} ships in fleet, {} slotitems available",
-                player_ships.len(),
-                player_slotitems.len(),
-            );
-            state.sortie.battle_logger.on_sortie_start(
-                json,
-                request_body,
-                &fleets,
-                &player_ships,
-                &player_slotitems,
-            );
-            let _ = app.emit(
-                "sortie-start",
-                serde_json::json!({
-                    "in_sortie": true,
-                }),
-            );
-            // Emit sortie-update with the initial sortie record
-            if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
-                let summary = crate::battle_log::SortieRecordSummary::from(sortie);
-                let _ = app.emit("sortie-update", &summary);
-
-                // Update minimap overlay
-                update_minimap_overlay(app, sortie);
-
-                // Show formation hint for first cell if previously visited
-                if let Some(node) = sortie.nodes.last() {
-                    let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
-                    if let Some(&formation) = state.formation_memory.get(&key) {
-                        let ship_count = sortie.ships.len();
-                        info!("Formation hint: {} -> {} (ships={})", key, formation_name(formation), ship_count);
-                        show_formation_hint(app, formation, ship_count);
-                    }
-                }
-            }
-        }
-        "/kcsapi/api_req_map/next" => {
-            // Check for taiha (大破) ships advancing — warn the player
-            let mut taiha_shown = false;
-            let taiha_enabled = app.try_state::<crate::AppState>()
-                .map(|s| s.taiha_alert_enabled.load(std::sync::atomic::Ordering::Relaxed))
-                .unwrap_or(true);
-            if taiha_enabled {
-            if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
-                let fleet_id = sortie.fleet_id as usize;
-                let fleet_idx = fleet_id.saturating_sub(1);
-                if fleet_idx < state.profile.fleets.len() {
-                    let ship_ids = &state.profile.fleets[fleet_idx];
-                    let mut taiha_names: Vec<String> = Vec::new();
-                    for (i, &ship_id) in ship_ids.iter().enumerate() {
-                        if let Some(ship) = state.profile.ships.get(&ship_id) {
-                            if ship.maxhp > 0 && ship.hp as f64 / ship.maxhp as f64 <= 0.25 && ship.hp > 0 {
-                                // Check if damage control is equipped
-                                let has_damecon = ship.slot.iter()
-                                    .chain(std::iter::once(&ship.slot_ex))
-                                    .any(|&slot_id| {
-                                        slot_id > 0 && state.profile.slotitems.get(&slot_id)
-                                            .and_then(|p| state.master.slotitems.get(&p.slotitem_id))
-                                            .map(|m| m.icon_type == 14)
-                                            .unwrap_or(false)
-                                    });
-                                if has_damecon {
-                                    info!("Ship {} ({}) is taiha but has damecon — skipping warning", ship.name, i);
-                                } else {
-                                    warn!("Ship {} ({}) is taiha (HP {}/{}) and advancing without damecon!", ship.name, i, ship.hp, ship.maxhp);
-                                    taiha_names.push(ship.name.clone());
-                                }
-                            }
-                        }
-                    }
-                    if !taiha_names.is_empty() {
-                        taiha_shown = true;
-                        warn!("TAIHA ADVANCE WARNING: {} ships critically damaged: {:?}", taiha_names.len(), taiha_names);
-                        // Show overlay directly via eval (more reliable than event system in multi-webview)
-                        if let Some(overlay) = app.get_webview("game-overlay") {
-                            if let Some(win) = app.get_window("game") {
-                                if let Ok(size) = win.inner_size() {
-                                    let _ = overlay.set_position(tauri::LogicalPosition::new(0.0, 0.0));
-                                    let _ = overlay.set_size(size);
-                                }
-                            }
-                            let ships_json = serde_json::to_string(&taiha_names).unwrap_or_else(|_| "[]".to_string());
-                            let _ = overlay.eval(&format!("window.showTaihaWarning({})", ships_json));
-                        }
-                    }
-                }
-            }
-            } // taiha_enabled
-
-            match serde_json::from_value::<
-                models::ApiResponse<crate::api::dto::battle::ApiMapNextResponse>,
-            >(json.clone())
-            {
-                Ok(resp) => {
-                    if let Some(data) = resp.api_data {
-                        state.sortie.battle_logger.on_map_next(&data, json);
-
-                        // Show formation hint for new cell (skip if taiha warning is active)
-                        if !taiha_shown {
-                            if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
-                                if let Some(node) = sortie.nodes.last() {
-                                    let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
-                                    if let Some(&formation) = state.formation_memory.get(&key) {
-                                        let ship_count = sortie.ships.len();
-                                        info!("Formation hint: {} -> {} (ships={})", key, formation_name(formation), ship_count);
-                                        show_formation_hint(app, formation, ship_count);
-                                    }
-                                }
-                            }
-                        }
-
-                        // Emit sortie-update for minimap real-time tracking
-                        if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
-                            let summary = crate::battle_log::SortieRecordSummary::from(sortie);
-                            let _ = app.emit("sortie-update", &summary);
-                            update_minimap_overlay(app, sortie);
-                        }
-
-                        // 1-6 goal node detection: event_id 9 = goal reached
-                        // 1-6 has no boss battle so EO bonus comes from reaching the goal
-                        if data.api_event_id == Some(9) {
-                            if let Some(sortie) =
-                                state.sortie.battle_logger.active_sortie_ref()
-                            {
-                                if sortie.map_area == 1 && sortie.map_no == 6 {
-                                    let bonus =
-                                        crate::senka::eo_bonus_for_map(1, 6);
-                                    if bonus > 0 {
-                                        info!("1-6 goal reached, EO bonus: {}", bonus);
-                                        state.senka.add_eo_bonus(bonus, "1-6");
-                                        let summary = state.senka.summary();
-                                        let _ = app.emit("senka-updated", &summary);
-                                        notify_sync(
-                                            &state,
-                                            vec![crate::senka::SenkaTracker::sync_path()],
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(e) => error!("Failed to parse map/next response: {}", e),
-            }
-        }
-        // Day battles
-        "/kcsapi/api_req_sortie/battle"
-        | "/kcsapi/api_req_sortie/airbattle"
-        | "/kcsapi/api_req_sortie/ld_airbattle"
-        | "/kcsapi/api_req_sortie/ld_shooting"
-        | "/kcsapi/api_req_sortie/night_to_day"
-        | "/kcsapi/api_req_combined_battle/battle"
-        | "/kcsapi/api_req_combined_battle/battle_water"
-        | "/kcsapi/api_req_combined_battle/each_battle"
-        | "/kcsapi/api_req_combined_battle/each_battle_water"
-        | "/kcsapi/api_req_combined_battle/ec_battle"
-        | "/kcsapi/api_req_combined_battle/ld_airbattle"
-        | "/kcsapi/api_req_combined_battle/ld_shooting" => {
-            match serde_json::from_value::<
-                models::ApiResponse<crate::api::dto::battle::ApiBattleResponse>,
-            >(json.clone())
-            {
-                Ok(resp) => {
-                    if let Some(data) = resp.api_data {
-                        state.sortie.battle_logger.on_battle(&data, json);
-
-                        // Save formation to memory and hide hint
-                        if let Some(arr) = &data.api_formation {
-                            let friendly_formation = arr.first().copied().unwrap_or(0);
-                            if friendly_formation > 0 {
-                                if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
-                                    if let Some(node) = sortie.nodes.last() {
-                                        let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
-                                        info!("Formation saved: {} = {} ({})", key, friendly_formation, formation_name(friendly_formation));
-                                        state.formation_memory.insert(key, friendly_formation);
-                                        models::save_formation_memory(&state.formation_memory_path, &state.formation_memory);
-                                        notify_sync(&state, vec!["formation_memory.json"]);
-                                    }
-                                }
-                            }
-                        }
-                        hide_formation_hint(app);
-                    }
-                }
-                Err(e) => error!("Failed to parse battle response: {}", e),
-            }
-        }
-        // Night battles
-        "/kcsapi/api_req_battle_midnight/battle"
-        | "/kcsapi/api_req_battle_midnight/sp_midnight"
-        | "/kcsapi/api_req_combined_battle/midnight_battle"
-        | "/kcsapi/api_req_combined_battle/sp_midnight"
-        | "/kcsapi/api_req_combined_battle/ec_midnight_battle"
-        | "/kcsapi/api_req_combined_battle/ec_night_to_day" => {
-            match serde_json::from_value::<
-                models::ApiResponse<crate::api::dto::battle::ApiBattleResponse>,
-            >(json.clone())
-            {
-                Ok(resp) => {
-                    if let Some(data) = resp.api_data {
-                        state.sortie.battle_logger.on_midnight_battle(&data, json);
-                    }
-                }
-                Err(e) => error!("Failed to parse midnight battle response: {}", e),
-            }
-        }
-        // Battle results
-        "/kcsapi/api_req_sortie/battleresult" | "/kcsapi/api_req_combined_battle/battleresult" => {
-            let master_ships = state.master.ships.clone();
-
-            match serde_json::from_value::<
-                models::ApiResponse<crate::api::dto::battle::ApiBattleResultResponse>,
-            >(json.clone())
-            {
-                Ok(resp) => {
-                    if let Some(data) = resp.api_data {
-                        state
-                            .sortie.battle_logger
-                            .on_battle_result(&data, json, &master_ships);
-                    }
-                }
-                Err(e) => error!("Failed to parse battleresult response: {}", e),
-            }
-
-            // Update player ships HP from battle result and re-emit port-data
-            if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
-                let fleet_id = sortie.fleet_id as usize;
-                let fleet_idx = fleet_id.saturating_sub(1);
-                // Get friendly HP after battle from the last node's battle detail
-                let hp_after: Option<Vec<crate::battle_log::HpState>> = sortie
-                    .nodes
-                    .last()
-                    .and_then(|n| n.battle.as_ref())
-                    .map(|b| b.friendly_hp.clone());
-
-                if let Some(hp_states) = &hp_after {
-                    if fleet_idx < state.profile.fleets.len() {
-                        let ship_ids = state.profile.fleets[fleet_idx].clone();
-                        for (i, &ship_id) in ship_ids.iter().enumerate() {
-                            if let (Some(hp_state), Some(ship_info)) =
-                                (hp_states.get(i), state.profile.ships.get_mut(&ship_id))
-                            {
-                                ship_info.hp = hp_state.after.max(0);
-                            }
-                        }
-                        info!(
-                            "Updated fleet {} ship HP from battle result ({} ships)",
-                            fleet_id,
-                            ship_ids.len().min(hp_states.len()),
-                        );
-                    }
-                }
-
-                // Re-emit port-data with updated HP
-                if let Some(ref mut cached) = state.sortie.last_port_summary {
-                    // Update fleet ship HP in cached summary
-                    if fleet_idx < cached.fleets.len() {
-                        if let Some(hp_states) = &hp_after {
-                            for (i, ship) in cached.fleets[fleet_idx].ships.iter_mut().enumerate() {
-                                if let Some(hp_state) = hp_states.get(i) {
-                                    ship.hp = hp_state.after.max(0);
-                                }
-                            }
-                        }
-                    }
-                    let _ = app.emit("port-data", &*cached);
-                    info!("Re-emitted port-data with updated battle HP");
-                }
-
-                // Quest progress: extract map area, rank, boss from active sortie
-                let gauge_suffix = match sortie.gauge_num {
-                    Some(1) => "(1st)",
-                    Some(2) => "(2nd)",
-                    Some(3) => "(3rd)",
-                    _ => "",
-                };
-                let map_area_str = format!("{}-{}{}", sortie.map_area, sortie.map_no, gauge_suffix);
-                let last_node = sortie.nodes.last();
-                let is_boss = last_node.map(|n| n.event_id == 5).unwrap_or(false);
-                let rank = last_node
-                    .and_then(|n| n.battle.as_ref())
-                    .map(|b| b.rank.clone())
-                    .unwrap_or_default();
-
-                if !rank.is_empty() {
-                    // Extract sunk enemy ship stypes for sinking quests
-                    let sunk_enemy_stypes: Vec<i32> = last_node
-                        .and_then(|n| n.battle.as_ref())
-                        .map(|b| {
-                            b.enemy_ships
-                                .iter()
-                                .zip(b.enemy_hp.iter())
-                                .filter(|(_, hp)| hp.after <= 0)
-                                .filter_map(|(ship, _)| {
-                                    master_ships.get(&ship.ship_id).map(|m| m.stype)
-                                })
-                                .collect()
-                        })
-                        .unwrap_or_default();
-
-                    let changed = crate::quest_progress::on_battle_result(
-                        &mut state.history.quest_progress,
-                        &map_area_str,
-                        &rank,
-                        is_boss,
-                        &sunk_enemy_stypes,
-                        &state.history.active_quests,
-                        &state.history.sortie_quest_defs,
-                        &state.quest_progress_path,
-                    );
-                    if changed {
-                        notify_sync(state, vec!["quest_progress.json"]);
-                        let path = state.quest_progress_path.clone();
-                        let defs = state.history.sortie_quest_defs.clone();
-                        let aq = state.history.active_quests.clone();
-                        let progress = crate::quest_progress::get_active_progress(
-                            &mut state.history.quest_progress,
-                            &aq,
-                            &defs,
-                            &path,
-                        );
-                        let _ = app.emit("quest-progress-updated", &progress);
-                    }
-                }
-            }
-
-            // Record per-battle HQ exp (api_get_exp) and check for EO bonus
-            if let Some(api_data) = json.get("api_data") {
-                let mut senka_changed = false;
-
-                // Record HQ exp from this battle
-                let hq_exp = api_data
-                    .get("api_get_exp")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(0);
-                if hq_exp > 0 {
-                    let map_display = state
-                        .sortie
-                        .battle_logger
-                        .active_sortie_ref()
-                        .map(|s| format!("{}-{}", s.map_area, s.map_no))
-                        .unwrap_or_default();
-                    state.senka.add_battle_exp(hq_exp, &map_display);
-                    senka_changed = true;
-                }
-
-                // Check for EO ranking bonus (api_get_exmap_rate)
-                // Note: API returns this as a string (e.g. "75"), not a number
-                if let Some(exmap_rate) = api_data.get("api_get_exmap_rate") {
-                    let rate = exmap_rate
-                        .as_i64()
-                        .or_else(|| exmap_rate.as_str().and_then(|s| s.parse().ok()))
-                        .unwrap_or(0);
-                    if rate > 0 {
-                        let map_display = state
-                            .sortie
-                            .battle_logger
-                            .active_sortie_ref()
-                            .map(|s| format!("{}-{}", s.map_area, s.map_no))
-                            .unwrap_or_default();
-                        state.senka.add_eo_bonus(rate, &map_display);
-                        senka_changed = true;
-                    }
-                }
-
-                if senka_changed {
-                    let summary = state.senka.summary();
-                    let _ = app.emit("senka-updated", &summary);
-                    notify_sync(
-                        state,
-                        vec![crate::senka::SenkaTracker::sync_path()],
-                    );
-                }
-            }
-
-            // Emit sortie-update event for real-time frontend updates
-            if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
-                let summary = crate::battle_log::SortieRecordSummary::from(sortie);
-                let _ = app.emit("sortie-update", &summary);
-                update_minimap_overlay(app, sortie);
-            }
-        }
-        _ => {
-            info!("Unhandled battle endpoint: {}", endpoint);
-        }
-    }
-}
-
-/// Process exercise battle result (api_req_practice/battle_result)
-fn process_exercise_result(
-    state: &mut models::GameStateInner,
-    json: &serde_json::Value,
-    app: &AppHandle,
-) {
-    let api_data = match json.get("api_data") {
-        Some(d) => d,
-        None => return,
-    };
-
-    let rank = api_data
-        .get("api_win_rank")
-        .and_then(|v| v.as_str())
-        .unwrap_or("-")
-        .to_string();
-
-    info!("Exercise result: rank={}", rank);
-
-    // Record HQ exp from exercise
-    let hq_exp = api_data
-        .get("api_get_exp")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
-    if hq_exp > 0 {
-        state.senka.add_battle_exp(hq_exp, "演習");
-        let summary = state.senka.summary();
-        let _ = app.emit("senka-updated", &summary);
-        notify_sync(state, vec![crate::senka::SenkaTracker::sync_path()]);
-    }
-
-    let changed = crate::quest_progress::on_exercise_result(
-        &mut state.history.quest_progress,
-        &rank,
-        &state.history.active_quests,
-        &state.history.sortie_quest_defs,
-        &state.quest_progress_path,
-    );
-    if changed {
-        notify_sync(state, vec!["quest_progress.json"]);
-        let path = state.quest_progress_path.clone();
-        let defs = state.history.sortie_quest_defs.clone();
-        let aq = state.history.active_quests.clone();
-        let progress = crate::quest_progress::get_active_progress(
-            &mut state.history.quest_progress,
-            &aq,
-            &defs,
-            &path,
-        );
-        let _ = app.emit("quest-progress-updated", &progress);
-    }
-}
-
-/// Process api_req_hensei/change - fleet composition change
-/// request body has: api_id (fleet 1-4), api_ship_idx (position 0-5), api_ship_id (ship instance ID, -1=remove, -2=remove all except flagship)
-fn process_hensei_change(
-    state: &mut models::GameStateInner,
-    fleet_id: usize,
-    ship_idx: i32,
-    ship_id: i32,
-    app: &AppHandle,
-) {
-    if fleet_id == 0 || fleet_id > state.profile.fleets.len() {
-        warn!("hensei/change: invalid fleet_id {}", fleet_id);
-        return;
-    }
-    let fidx = fleet_id - 1;
-
-    if ship_id == -2 {
-        // Remove all except flagship
-        let flagship = if !state.profile.fleets[fidx].is_empty() {
-            state.profile.fleets[fidx][0]
-        } else {
-            return;
-        };
-        state.profile.fleets[fidx] = vec![flagship];
-        info!(
-            "Fleet {} cleared (flagship {} retained)",
-            fleet_id, flagship
-        );
-    } else if ship_id == -1 {
-        // Remove ship at index
-        let idx = ship_idx as usize;
-        if idx < state.profile.fleets[fidx].len() {
-            state.profile.fleets[fidx].remove(idx);
-            info!("Fleet {} removed ship at index {}", fleet_id, idx);
-        }
-    } else {
-        // Add/swap ship
-        let idx = ship_idx as usize;
-
-        // Find the ship being replaced at this position (if any)
-        let replaced_id = if idx < state.profile.fleets[fidx].len() {
-            state.profile.fleets[fidx][idx]
-        } else {
-            -1
-        };
-
-        // Check if this ship is already in another fleet (or same fleet different position) and swap
-        for fi in 0..state.profile.fleets.len() {
-            for si in 0..state.profile.fleets[fi].len() {
-                if state.profile.fleets[fi][si] == ship_id && !(fi == fidx && si == idx) {
-                    // Found the ship in another position — swap or remove
-                    if replaced_id > 0 {
-                        state.profile.fleets[fi][si] = replaced_id;
-                    } else {
-                        state.profile.fleets[fi].remove(si);
-                    }
-                    break;
-                }
-            }
-        }
-
-        // Place the ship at the target position
-        while state.profile.fleets[fidx].len() <= idx {
-            state.profile.fleets[fidx].push(-1);
-        }
-        state.profile.fleets[fidx][idx] = ship_id;
-
-        // Remove any -1 gaps
-        state.profile.fleets[fidx].retain(|&id| id > 0);
-
-        info!("Fleet {} set index {} to ship {}", fleet_id, idx, ship_id);
-    }
-
-    emit_fleet_update(state, app);
-}
-
-/// Process api_req_hensei/preset_select - load preset fleet
-fn process_hensei_preset_select(
-    state: &mut models::GameStateInner,
-    data: &crate::api::dto::battle::ApiHenseiPresetSelectResponse,
-    app: &AppHandle,
-) {
-    let fleet_id = data
-        .api_fleet
-        .as_ref()
-        .and_then(|f| f.get("api_id"))
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0) as usize;
-    if fleet_id == 0 || fleet_id > state.profile.fleets.len() {
-        warn!("preset_select: invalid fleet_id {}", fleet_id);
-        return;
-    }
-    let fidx = fleet_id - 1;
-
-    if let Some(api_ship) = data
-        .api_fleet
-        .as_ref()
-        .and_then(|f| f.get("api_ship"))
-        .and_then(|v| v.as_array())
-    {
-        let ship_ids: Vec<i32> = api_ship
-            .iter()
-            .filter_map(|v| v.as_i64().map(|id| id as i32))
-            .filter(|&id| id > 0)
-            .collect();
-
-        // Remove these ships from other fleets (preset load can pull ships)
-        for fi in 0..state.profile.fleets.len() {
-            if fi == fidx {
-                continue;
-            }
-            state.profile.fleets[fi].retain(|id| !ship_ids.contains(id));
-        }
-
-        state.profile.fleets[fidx] = ship_ids;
-        info!(
-            "Fleet {} loaded from preset: {} ships",
-            fleet_id,
-            state.profile.fleets[fidx].len()
-        );
-    }
-
-    emit_fleet_update(state, app);
-}
-
-/// Process api_get_member/ship3 - update ship slot data after equipment changes
-fn process_ship3(
-    state: &mut models::GameStateInner,
-    api_data: &serde_json::Value,
-    app: &AppHandle,
-) {
-    // Update ships from api_ship_data
-    if let Some(ships) = api_data.get("api_ship_data") {
-        if let Ok(ship_list) = serde_json::from_value::<Vec<models::PlayerShip>>(ships.clone()) {
-            for ship in &ship_list {
-                let master = state.master.ships.get(&ship.api_ship_id);
-                let name = master
-                    .map(|m| m.name.clone())
-                    .unwrap_or_else(|| format!("Unknown({})", ship.api_ship_id));
-                let stype = master.map(|m| m.stype).unwrap_or(0);
-                let firepower = extract_stat_value(&ship.api_karyoku);
-                let torpedo = extract_stat_value(&ship.api_raisou);
-                let aa = extract_stat_value(&ship.api_taiku);
-                let armor = extract_stat_value(&ship.api_soukou);
-                let asw = extract_stat_value(&ship.api_taisen);
-                let evasion = extract_stat_value(&ship.api_kaihi);
-                let los = extract_stat_value(&ship.api_sakuteki);
-                let luck = extract_stat_value(&ship.api_lucky);
-                let slot = extract_slot_ids(&ship.api_slot);
-
-                state.profile.ships.insert(
-                    ship.api_id,
-                    ShipInfo {
-                        ship_id: ship.api_ship_id,
-                        name,
-                        stype,
-                        lv: ship.api_lv,
-                        hp: ship.api_nowhp,
-                        maxhp: ship.api_maxhp,
-                        cond: ship.api_cond,
-                        fuel: ship.api_fuel,
-                        bull: ship.api_bull,
-                        firepower,
-                        torpedo,
-                        aa,
-                        armor,
-                        asw,
-                        evasion,
-                        los,
-                        luck,
-                        locked: ship.api_locked == 1,
-                        slot,
-                        slot_ex: ship.api_slot_ex,
-                        soku: ship.api_soku,
-                    },
-                );
-            }
-            info!("ship3: updated {} ships", ship_list.len());
-        }
-    }
-
-    // Update fleet compositions from api_deck_data
-    if let Some(decks) = api_data.get("api_deck_data") {
-        if let Ok(deck_list) = serde_json::from_value::<Vec<models::Fleet>>(decks.clone()) {
-            for fleet in &deck_list {
-                let ship_ids: Vec<i32> = fleet
-                    .api_ship
-                    .iter()
-                    .filter(|&&id| id > 0)
-                    .copied()
-                    .collect();
-                let fidx = fleet.api_id as usize;
-                while state.profile.fleets.len() < fidx {
-                    state.profile.fleets.push(Vec::new());
-                }
-                if fidx > 0 {
-                    state.profile.fleets[fidx - 1] = ship_ids;
-                }
-            }
-        }
-    }
-
-    emit_fleet_update(state, app);
-}
-
-/// Process api_req_kaisou/slot_deprive - equipment transfer between ships
-/// Response contains api_ship_data with api_set_ship and api_unset_ship
-fn process_slot_deprive(
-    state: &mut models::GameStateInner,
-    api_data: &serde_json::Value,
-    app: &AppHandle,
-) {
-    let ship_data = match api_data.get("api_ship_data") {
-        Some(sd) => sd,
-        None => {
-            warn!("slot_deprive: no api_ship_data found");
-            return;
-        }
-    };
-
-    let mut updated = 0;
-    for key in &["api_set_ship", "api_unset_ship"] {
-        if let Some(ship_val) = ship_data.get(*key) {
-            match serde_json::from_value::<models::PlayerShip>(ship_val.clone()) {
-                Ok(ship) => {
-                    let master = state.master.ships.get(&ship.api_ship_id);
-                    let name = master
-                        .map(|m| m.name.clone())
-                        .unwrap_or_else(|| format!("Unknown({})", ship.api_ship_id));
-                    let stype = master.map(|m| m.stype).unwrap_or(0);
-                    let slot = extract_slot_ids(&ship.api_slot);
-
-                    state.profile.ships.insert(
-                        ship.api_id,
-                        ShipInfo {
-                            ship_id: ship.api_ship_id,
-                            name,
-                            stype,
-                            lv: ship.api_lv,
-                            hp: ship.api_nowhp,
-                            maxhp: ship.api_maxhp,
-                            cond: ship.api_cond,
-                            fuel: ship.api_fuel,
-                            bull: ship.api_bull,
-                            firepower: extract_stat_value(&ship.api_karyoku),
-                            torpedo: extract_stat_value(&ship.api_raisou),
-                            aa: extract_stat_value(&ship.api_taiku),
-                            armor: extract_stat_value(&ship.api_soukou),
-                            asw: extract_stat_value(&ship.api_taisen),
-                            evasion: extract_stat_value(&ship.api_kaihi),
-                            los: extract_stat_value(&ship.api_sakuteki),
-                            luck: extract_stat_value(&ship.api_lucky),
-                            locked: ship.api_locked == 1,
-                            slot,
-                            slot_ex: ship.api_slot_ex,
-                            soku: ship.api_soku,
-                        },
-                    );
-                    updated += 1;
-                }
-                Err(e) => {
-                    error!("slot_deprive: failed to parse {}: {}", key, e);
-                }
-            }
-        }
-    }
-    info!("slot_deprive: updated {} ships", updated);
-
-    emit_fleet_update(state, app);
-}
-
-/// Check if the flagship has a command facility whose activation conditions are met,
-/// and set `command_facility_name` on the flagship's ShipSummary if so.
-///
-/// Activation conditions:
-/// - 艦隊司令部施設 (107): combined fleet, fleet 1 flagship
-/// - 精鋭水雷戦隊 司令部 (413): not combined, flagship is CL(3)/DD(2), all escorts are DD(2)/CLT(4)
-/// - 遊撃部隊 艦隊司令部 (272): fleet 3, 7 ships
-fn resolve_command_facility(
-    ships: &mut [models::ShipSummary],
-    fleet_id: i32,
-    combined_flag: i32,
-    profile: &models::UserProfile,
-    master_slotitems: &std::collections::HashMap<i32, models::MasterSlotItemInfo>,
-) {
-    if ships.is_empty() {
-        return;
-    }
-    let flagship_instance_id = ships[0].id;
-    let Some(flagship_info) = profile.ships.get(&flagship_instance_id) else {
-        return;
-    };
-
-    // Scan flagship equipment for command facility
-    for &slot_id in flagship_info
-        .slot
-        .iter()
-        .chain(std::iter::once(&flagship_info.slot_ex))
-    {
-        if slot_id <= 0 {
-            continue;
-        }
-        let Some(player_item) = profile.slotitems.get(&slot_id) else {
-            continue;
-        };
-        let sid = player_item.slotitem_id;
-        let activated = match sid {
-            // 艦隊司令部施設: 連合艦隊の第1艦隊旗艦
-            107 => combined_flag > 0 && fleet_id == 1,
-            // 精鋭水雷戦隊 司令部: 非連合、旗艦CL/DD、随伴全員DD/CLT
-            413 => {
-                if combined_flag > 0 {
-                    false
-                } else {
-                    let fs_ok = flagship_info.stype == 2 || flagship_info.stype == 3;
-                    let escorts_ok = ships[1..].iter().all(|s| {
-                        profile
-                            .ships
-                            .get(&s.id)
-                            .map(|info| info.stype == 2 || info.stype == 4)
-                            .unwrap_or(false)
-                    });
-                    fs_ok && escorts_ok
-                }
-            }
-            // 遊撃部隊 艦隊司令部: 第3艦隊の7隻編成
-            272 => fleet_id == 3 && ships.len() == 7,
-            _ => continue,
-        };
-        if activated {
-            if let Some(master) = master_slotitems.get(&sid) {
-                ships[0].command_facility_name = Some(master.name.clone());
-            }
-            return;
-        }
-    }
-}
-
-/// Collected marks/indicators for a ship (damecon, special equips, opening ASW)
-struct ShipMarks {
-    damecon_name: Option<String>,
-    special_equips: Vec<models::SpecialEquip>,
-    can_opening_asw: bool,
-}
-
-/// Collect all ship marks in a single equipment loop: damecon, special equips, and opening ASW
-fn collect_ship_marks(
-    ship: &models::ShipInfo,
-    player_slotitems: &std::collections::HashMap<i32, models::PlayerSlotItem>,
-    master_slotitems: &std::collections::HashMap<i32, models::MasterSlotItemInfo>,
-) -> ShipMarks {
-    let mut damecon_name: Option<String> = None;
-    let mut special_equips: Vec<models::SpecialEquip> = Vec::new();
-    // Opening ASW detection data
-    let mut has_sonar = false;
-    let mut has_large_sonar = false;
-    let mut has_asw7_aircraft = false; // 対潜7以上の艦攻/回転翼/哨戒機
-    let mut has_asw1_bomber = false; // 対潜1以上の艦攻/艦爆
-    let mut has_asw1_aircraft = false; // 対潜1以上の艦攻/艦爆/回転翼/哨戒機
-    let mut equip_asw_total: i32 = 0;
-    let mut rotorcraft_count = 0; // 回転翼機 (item_type=25)
-    let mut s51j_count = 0; // S-51J系 (item_type=26, 対潜哨戒機)
-    let mut has_seaplane_bomber = false; // 水爆 (item_type=11)
-    let mut has_depth_charge_projector = false; // 爆雷投射機 (item_type=15)
-    let mut has_depth_charge = false; // 爆雷 (item_type=17)
-
-    for &slot_id in ship.slot.iter().chain(std::iter::once(&ship.slot_ex)) {
-        if slot_id <= 0 {
-            continue;
-        }
-        let Some(player) = player_slotitems.get(&slot_id) else {
-            continue;
-        };
-        let Some(master) = master_slotitems.get(&player.slotitem_id) else {
-            continue;
-        };
-
-        // Damecon (icon_type=14) — take first only
-        if master.icon_type == 14 && damecon_name.is_none() {
-            damecon_name = Some(master.name.clone());
-        }
-
-        // Special equips: landing craft (20), drum canister (25)
-        if master.icon_type == 20 || master.icon_type == 25 {
-            special_equips.push(models::SpecialEquip {
-                name: master.name.clone(),
-                icon_type: master.icon_type,
-            });
-        }
-
-        // Sonar detection
-        if master.icon_type == 17 {
-            has_sonar = true; // small sonar
-        }
-        if master.icon_type == 18 {
-            has_sonar = true; // large sonar counts as sonar too
-            has_large_sonar = true;
-        }
-
-        // Equipment ASW total
-        equip_asw_total += master.asw;
-
-        // Aircraft type checks
-        let it = master.item_type;
-        // 艦攻(8), 回転翼(25), 対潜哨戒機(26): ASW>=7 check
-        if (it == 8 || it == 25 || it == 26) && master.asw >= 7 {
-            has_asw7_aircraft = true;
-        }
-        // 艦攻(8), 艦爆(7): ASW>=1 check
-        if (it == 8 || it == 7) && master.asw >= 1 {
-            has_asw1_bomber = true;
-        }
-        // 艦攻(8), 艦爆(7), 回転翼(25), 対潜哨戒機(26): ASW>=1 check
-        if (it == 8 || it == 7 || it == 25 || it == 26) && master.asw >= 1 {
-            has_asw1_aircraft = true;
-        }
-        // Rotorcraft count (item_type=25)
-        if it == 25 {
-            rotorcraft_count += 1;
-        }
-        // Patrol aircraft count (item_type=26) for S-51J series
-        if it == 26 {
-            s51j_count += 1;
-        }
-        // Seaplane bomber (item_type=11)
-        if it == 11 {
-            has_seaplane_bomber = true;
-        }
-        // Depth charge projector (item_type=15)
-        if it == 15 {
-            has_depth_charge_projector = true;
-        }
-        // Depth charge (item_type=17)
-        if it == 17 {
-            has_depth_charge = true;
-        }
-    }
-
-    if !special_equips.is_empty() {
-        info!(
-            "Ship {} has {} special equips: {:?}",
-            ship.name,
-            special_equips.len(),
-            special_equips
-                .iter()
-                .map(|e| format!("{}(icon={})", e.name, e.icon_type))
-                .collect::<Vec<_>>()
-        );
-    }
-
-    let can_opening_asw = check_opening_asw(
-        ship,
-        has_sonar,
-        has_large_sonar,
-        has_asw7_aircraft,
-        has_asw1_bomber,
-        has_asw1_aircraft,
-        equip_asw_total,
-        rotorcraft_count,
-        s51j_count,
-        has_seaplane_bomber,
-        has_depth_charge_projector,
-        has_depth_charge,
-    );
-
-    ShipMarks {
-        damecon_name,
-        special_equips,
-        can_opening_asw,
-    }
-}
-
-/// Determine if a ship can perform opening ASW
-fn check_opening_asw(
-    ship: &models::ShipInfo,
-    has_sonar: bool,
-    _has_large_sonar: bool,
-    has_asw7_aircraft: bool,
-    has_asw1_bomber: bool,
-    has_asw1_aircraft: bool,
-    equip_asw_total: i32,
-    rotorcraft_count: i32,
-    s51j_count: i32,
-    has_seaplane_bomber: bool,
-    has_depth_charge_projector: bool,
-    has_depth_charge: bool,
-) -> bool {
-    let asw = ship.asw; // equipped total ASW
-    let stype = ship.stype;
-    let sid = ship.ship_id;
-
-    // 1. Unconditional ships (always OASW regardless of equipment)
-    const UNCONDITIONAL: &[i32] = &[
-        141,  // 五十鈴改二
-        478,  // 龍田改二
-        624,  // 夕張改二丁
-        394,  // Jervis改
-        893,  // Jervis Mk.II
-        681,  // Janus改
-        875,  // Janus Mk.II
-        562,  // Fletcher
-        596,  // Fletcher改 Mod.2
-        628,  // Fletcher Mk.II
-        629,  // Fletcher Mk.II (extra)
-        563,  // Johnston
-        597,  // Johnston改
-        692,  // Johnston Mk.II
-        700,  // Samuel B.Roberts Mk.II
-        911,  // Heywood L.Edwards改
-        916,  // Richard P.Leary改
-    ];
-    if UNCONDITIONAL.contains(&sid) {
-        return true;
-    }
-
-    // 2. Escort carriers (大鷹型改/改二, 加賀改二護, Gambier Bay Mk.II)
-    //    Need ASW>=1 aircraft (艦攻/艦爆/回転翼/哨戒機)
-    const ESCORT_CVE: &[i32] = &[
-        529, // 大鷹改
-        536, // 大鷹改二
-        380, // 神鷹改
-        521, // 神鷹改二
-        381, // 雲鷹改
-        539, // 雲鷹改二
-        546, // 加賀改二護
-        396, // 春日丸 → not escort carrier
-        557, // Gambier Bay Mk.II
-    ];
-    if ESCORT_CVE.contains(&sid) {
-        return has_asw1_aircraft;
-    }
-
-    // 3. 海防艦 (stype=1): ASW>=60+sonar OR ASW>=75+equip_asw>=4
-    if stype == 1 {
-        return (asw >= 60 && has_sonar) || (asw >= 75 && equip_asw_total >= 4);
-    }
-
-    // 4. 護衛空母/軽空母 (stype=7)
-    //    鈴谷航改二(503), 熊野航改二(504)は除外
-    if stype == 7 && sid != 503 && sid != 504 {
-        // Pattern A: ASW>=50 + sonar + ASW>=7 aircraft
-        if asw >= 50 && has_sonar && has_asw7_aircraft {
-            return true;
-        }
-        // Pattern B: ASW>=65 + ASW>=7 aircraft
-        if asw >= 65 && has_asw7_aircraft {
-            return true;
-        }
-        // Pattern C: ASW>=100 + sonar + ASW>=1 bomber (艦攻/艦爆)
-        if asw >= 100 && has_sonar && has_asw1_bomber {
-            return true;
-        }
-        return false;
-    }
-
-    // 5. 日向改二 (ship_id=554): S-51J系1+ OR 回転翼(Ka号/O号)2+
-    if sid == 554 {
-        return s51j_count >= 1 || rotorcraft_count >= 2;
-    }
-
-    // 6. 航空戦艦 (stype=10): ASW>=100 + sonar + (水爆/回転翼/哨戒機/爆雷投射機/爆雷)
-    if stype == 10 {
-        let has_asw_equip = has_seaplane_bomber
-            || rotorcraft_count > 0
-            || s51j_count > 0
-            || has_depth_charge_projector
-            || has_depth_charge;
-        return asw >= 100 && has_sonar && has_asw_equip;
-    }
-
-    // 7. General ships: DD(2), CL(3), CLT(4), CT(21), AO(22): ASW>=100 + sonar
-    if stype == 2 || stype == 3 || stype == 4 || stype == 21 || stype == 22 {
-        return asw >= 100 && has_sonar;
-    }
-
-    false
-}
-
-/// Build and emit fleet summaries to the frontend
-fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle) {
-    let fleets: Vec<models::FleetSummary> = state
-        .profile.fleets
-        .iter()
-        .enumerate()
-        .map(|(i, ship_ids)| {
-            let mut ships: Vec<models::ShipSummary> = ship_ids
-                .iter()
-                .filter_map(|&id| {
-                    state.profile.ships.get(&id).map(|info| {
-                        let marks = collect_ship_marks(
-                            info,
-                            &state.profile.slotitems,
-                            &state.master.slotitems,
-                        );
-                        models::ShipSummary {
-                            id,
-                            name: info.name.clone(),
-                            lv: info.lv,
-                            hp: info.hp,
-                            maxhp: info.maxhp,
-                            cond: info.cond,
-                            fuel: info.fuel,
-                            bull: info.bull,
-                            damecon_name: marks.damecon_name,
-                            command_facility_name: None,
-                            special_equips: marks.special_equips,
-                            can_opening_asw: marks.can_opening_asw,
-                            soku: info.soku,
-                        }
-                    })
-                })
-                .collect();
-
-            let fleet_id = (i + 1) as i32;
-            resolve_command_facility(
-                &mut ships,
-                fleet_id,
-                state.profile.combined_flag,
-                &state.profile,
-                &state.master.slotitems,
-            );
-
-            models::FleetSummary {
-                id: fleet_id,
-                name: format!("第{}艦隊", i + 1),
-                ships,
-                expedition: None, // Expedition info not available from hensei APIs
-            }
-        })
-        .collect();
-
-    match app.emit("fleet-updated", &fleets) {
-        Ok(_) => info!("fleet-updated event emitted: {} fleets", fleets.len()),
-        Err(e) => error!("Failed to emit fleet-updated: {}", e),
-    }
-}
-
-/// Parse expedition info from a fleet's api_mission array.
-fn parse_expedition(
-    mission: &[serde_json::Value],
-    master_missions: &std::collections::HashMap<i32, models::MissionInfo>,
-) -> Option<models::ExpeditionInfo> {
-    if mission.len() < 4 {
-        return None;
-    }
-
-    let mission_type = mission[0].as_i64().unwrap_or(0);
-    if mission_type == 0 {
-        return None;
-    }
-
-    let mission_id = mission[1].as_i64().unwrap_or(0) as i32;
-    // api_mission format: [type, mission_id, return_time, ?]
-    let return_time = mission[2].as_i64().unwrap_or(0);
-
-    let mission_name = master_missions
-        .get(&mission_id)
-        .map(|m| m.name.clone())
-        .unwrap_or_else(|| {
-            warn!("Unknown mission ID: {}", mission_id);
-            format!("Mission {}", mission_id)
-        });
-
-    Some(models::ExpeditionInfo {
-        mission_id,
-        mission_name,
-        return_time,
-    })
 }

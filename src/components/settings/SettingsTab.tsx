@@ -1,36 +1,36 @@
-import type { Dispatch, SetStateAction } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { STORAGE_KEYS } from "../../constants";
 import { ClearButton } from "../common";
 import "./SettingsTab.css";
-import type { DriveStatus, SortieRecord } from "../../types";
+import type { DriveStatus } from "../../types";
+
+export interface SettingsTabProps {
+  uiZoom: number;
+  driveStatus: DriveStatus;
+  driveLoading: boolean;
+  showApiLog: boolean;
+  rawApiEnabled: boolean;
+  onZoomChange: (v: number) => void;
+  onDriveStatusChange: (status: DriveStatus) => void;
+  onDriveLoadingChange: (v: boolean) => void;
+  onShowApiLogChange: (v: boolean) => void;
+  onRawApiChange: (v: boolean) => void;
+  onClearBattleLogs: () => void;
+}
 
 export function SettingsTab({
   uiZoom,
-  setUiZoom,
   driveStatus,
-  setDriveStatus,
   driveLoading,
-  setDriveLoading,
   showApiLog,
-  setShowApiLog,
   rawApiEnabled,
-  setRawApiEnabled,
-  setBattleLogs,
-  setBattleLogsTotal,
-}: {
-  uiZoom: number;
-  setUiZoom: (v: number) => void;
-  driveStatus: DriveStatus;
-  setDriveStatus: Dispatch<SetStateAction<DriveStatus>>;
-  driveLoading: boolean;
-  setDriveLoading: (v: boolean) => void;
-  showApiLog: boolean;
-  setShowApiLog: (v: boolean) => void;
-  rawApiEnabled: boolean;
-  setRawApiEnabled: (v: boolean) => void;
-  setBattleLogs: Dispatch<SetStateAction<SortieRecord[]>>;
-  setBattleLogsTotal: Dispatch<SetStateAction<number>>;
-}) {
+  onZoomChange,
+  onDriveStatusChange,
+  onDriveLoadingChange,
+  onShowApiLogChange,
+  onRawApiChange,
+  onClearBattleLogs,
+}: SettingsTabProps) {
   return (
     <div className="options-tab">
       <div className="options-section">
@@ -45,8 +45,8 @@ export function SettingsTab({
             value={uiZoom}
             onChange={(e) => {
               const v = Number(e.target.value);
-              setUiZoom(v);
-              localStorage.setItem("ui-zoom", String(v));
+              onZoomChange(v);
+              localStorage.setItem(STORAGE_KEYS.UI_ZOOM, String(v));
             }}
             className="options-slider"
           />
@@ -54,8 +54,8 @@ export function SettingsTab({
           <button
             className="options-reset-btn"
             onClick={() => {
-              setUiZoom(135);
-              localStorage.setItem("ui-zoom", "135");
+              onZoomChange(135);
+              localStorage.setItem(STORAGE_KEYS.UI_ZOOM, "135");
             }}
           >
             リセット
@@ -77,19 +77,16 @@ export function SettingsTab({
               className="drive-sync-btn"
               disabled={driveLoading}
               onClick={async () => {
-                setDriveLoading(true);
+                onDriveLoadingChange(true);
                 try {
                   await invoke("drive_login");
                   const status = await invoke<DriveStatus>("get_drive_status");
-                  setDriveStatus(status);
+                  onDriveStatusChange(status);
                 } catch (e) {
                   console.error("Drive login failed:", e);
-                  setDriveStatus((prev) => ({
-                    ...prev,
-                    error: String(e),
-                  }));
+                  onDriveStatusChange({ ...driveStatus, error: String(e) });
                 } finally {
-                  setDriveLoading(false);
+                  onDriveLoadingChange(false);
                 }
               }}
             >
@@ -107,13 +104,13 @@ export function SettingsTab({
                 className="drive-sync-btn drive-sync-btn-sm"
                 disabled={driveLoading || driveStatus.syncing}
                 onClick={async () => {
-                  setDriveLoading(true);
+                  onDriveLoadingChange(true);
                   try {
                     await invoke("drive_force_sync");
                   } catch (e) {
                     console.error("Force sync failed:", e);
                   } finally {
-                    setDriveLoading(false);
+                    onDriveLoadingChange(false);
                   }
                 }}
               >
@@ -122,14 +119,14 @@ export function SettingsTab({
               <button
                 className="drive-sync-btn drive-sync-btn-sm"
                 onClick={async () => {
-                  setDriveLoading(true);
+                  onDriveLoadingChange(true);
                   try {
                     await invoke("drive_logout");
-                    setDriveStatus({ authenticated: false, syncing: false });
+                    onDriveStatusChange({ authenticated: false, syncing: false });
                   } catch (e) {
                     console.error("Drive logout failed:", e);
                   } finally {
-                    setDriveLoading(false);
+                    onDriveLoadingChange(false);
                   }
                 }}
                 disabled={driveLoading}
@@ -156,8 +153,8 @@ export function SettingsTab({
               type="checkbox"
               checked={showApiLog}
               onChange={(e) => {
-                setShowApiLog(e.target.checked);
-                localStorage.setItem("show-api-log", String(e.target.checked));
+                onShowApiLogChange(e.target.checked);
+                localStorage.setItem(STORAGE_KEYS.SHOW_API_LOG, String(e.target.checked));
               }}
             />
             <span className="options-toggle-text">母港にAPIログを表示</span>
@@ -171,8 +168,8 @@ export function SettingsTab({
               checked={rawApiEnabled}
               onChange={async (e) => {
                 const enabled = e.target.checked;
-                setRawApiEnabled(enabled);
-                localStorage.setItem("raw-api-enabled", String(enabled));
+                onRawApiChange(enabled);
+                localStorage.setItem(STORAGE_KEYS.RAW_API_ENABLED, String(enabled));
                 await invoke("set_raw_api_enabled", { enabled });
               }}
             />
@@ -193,7 +190,7 @@ export function SettingsTab({
             label="戦闘ログ"
             desc="出撃・戦闘の記録"
             command="clear_battle_logs"
-            onSuccess={() => { setBattleLogs([]); setBattleLogsTotal(0); }}
+            onSuccess={onClearBattleLogs}
           />
           <ClearButton
             label="生APIダンプ"

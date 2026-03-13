@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { condColor } from "../../utils/color";
+import { STORAGE_KEYS } from "../../constants";
+import "../common/ListTable.css";
 import "./ShipListTab.css";
-import type { ShipListResponse, ShipSortKey } from "../../types";
+import type { ShipListItem, ShipListResponse, ShipSortKey } from "../../types";
 
 export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
   const [data, setData] = useState<ShipListResponse | null>(null);
   const [stypeFilters, setStypeFilters] = useState<Set<number>>(() => {
-    const saved = localStorage.getItem("ship-stype-filters");
+    const saved = localStorage.getItem(STORAGE_KEYS.SHIP_STYPE_FILTERS);
     return saved ? new Set(JSON.parse(saved) as number[]) : new Set();
   });
   const [sortKey, setSortKey] = useState<ShipSortKey>("lv");
@@ -48,14 +50,14 @@ export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
       const next = new Set(prev);
       if (next.has(stypeId)) next.delete(stypeId);
       else next.add(stypeId);
-      localStorage.setItem("ship-stype-filters", JSON.stringify([...next]));
+      localStorage.setItem(STORAGE_KEYS.SHIP_STYPE_FILTERS, JSON.stringify([...next]));
       return next;
     });
   };
 
   const clearStypeFilters = () => {
     setStypeFilters(new Set());
-    localStorage.removeItem("ship-stype-filters");
+    localStorage.removeItem(STORAGE_KEYS.SHIP_STYPE_FILTERS);
   };
 
   const displayShips = useMemo(() => {
@@ -64,6 +66,18 @@ export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
     if (stypeFilters.size > 0) {
       ships = ships.filter((s) => stypeFilters.has(s.stype));
     }
+    const numericKeys: Record<string, (s: ShipListItem) => number> = {
+      lv: (s) => s.lv,
+      firepower: (s) => s.firepower,
+      torpedo: (s) => s.torpedo,
+      aa: (s) => s.aa,
+      armor: (s) => s.armor,
+      asw: (s) => s.asw,
+      evasion: (s) => s.evasion,
+      los: (s) => s.los,
+      luck: (s) => s.luck,
+      cond: (s) => s.cond,
+    };
     return [...ships].sort((a, b) => {
       let cmp = 0;
       if (sortKey === "name") {
@@ -73,7 +87,8 @@ export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
       } else if (sortKey === "locked") {
         cmp = (a.locked ? 1 : 0) - (b.locked ? 1 : 0);
       } else {
-        cmp = (a[sortKey] as number) - (b[sortKey] as number);
+        const getter = numericKeys[sortKey];
+        cmp = getter(a) - getter(b);
       }
       return sortAsc ? cmp : -cmp;
     });

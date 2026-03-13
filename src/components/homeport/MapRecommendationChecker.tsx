@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { STORAGE_KEYS } from "../../constants";
 import type { MapRecommendationDef, MapRecommendationCheckResult } from "../../types";
 import "./MapRecommendationChecker.css";
 
@@ -10,7 +11,7 @@ export function MapRecommendationChecker({
   mapRecommendations: MapRecommendationDef[];
   portDataVersion: number;
 }) {
-  const storageKey = "map-rec-area";
+  const storageKey = STORAGE_KEYS.MAP_REC_AREA;
   const [selectedArea, setSelectedArea] = useState<string | null>(() => {
     return localStorage.getItem(storageKey);
   });
@@ -46,12 +47,16 @@ export function MapRecommendationChecker({
     }
   }, []);
 
+  // Keep a ref so the effect below always calls the latest doCheck
+  const doCheckRef = useRef(doCheck);
+  doCheckRef.current = doCheck;
+
   // Auto-check on mount and when port data updates
   useEffect(() => {
     if (selectedArea != null && mapRecommendations.length > 0) {
-      doCheck(selectedArea);
+      doCheckRef.current(selectedArea);
     }
-  }, [mapRecommendations.length, portDataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapRecommendations.length, portDataVersion, selectedArea]);
 
   return (
     <div className="map-rec-checker">

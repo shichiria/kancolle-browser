@@ -14,28 +14,56 @@ export function getNodeLabel(mapDisplay: string, edgeId: number): string | null 
   return edge[1]; // [source, destination] - we want destination
 }
 
+// Predeck JSON types for kc-web aircalc
+interface PredeckItem {
+  id: number;
+  rf: number;
+  mas?: number;
+}
+
+interface PredeckShip {
+  id: number;
+  lv: number;
+  luck: number;
+  items: Record<string, PredeckItem>;
+}
+
+interface PredeckEnemyShip {
+  id: number;
+  items: { id: number }[];
+}
+
+interface PredeckCell {
+  c: number;
+  pf: number;
+  ef: number;
+  f1: { s: PredeckEnemyShip[] };
+}
+
+interface Predeck {
+  version: number;
+  hqlv: number;
+  f1?: Record<string, PredeckShip>;
+  s?: { a: number; i: number; c: PredeckCell[] };
+}
+
 /** Build a predeck JSON for kc-web aircalc */
 export function buildPredeckUrl(record: SortieRecord): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const predeck: any = { version: 4, hqlv: 120 };
+  const predeck: Predeck = { version: 4, hqlv: 120 };
 
   // Fleet 1 (the sortie fleet)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fleet: any = {};
+  const fleet: Record<string, PredeckShip> = {};
   record.ships.forEach((ship, idx) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const s: any = { id: ship.ship_id, lv: ship.lv, luck: -1, items: {} };
+    const s: PredeckShip = { id: ship.ship_id, lv: ship.lv, luck: -1, items: {} };
     if (ship.slots) {
       ship.slots.forEach((slot, si) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const item: any = { id: slot.id, rf: slot.rf ?? 0 };
+        const item: PredeckItem = { id: slot.id, rf: slot.rf ?? 0 };
         if (slot.mas != null) item.mas = slot.mas;
         s.items[`i${si + 1}`] = item;
       });
     }
     if (ship.slot_ex) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const exItem: any = { id: ship.slot_ex.id, rf: ship.slot_ex.rf ?? 0 };
+      const exItem: PredeckItem = { id: ship.slot_ex.id, rf: ship.slot_ex.rf ?? 0 };
       if (ship.slot_ex.mas != null) exItem.mas = ship.slot_ex.mas;
       s.items.ix = exItem;
     }
@@ -44,15 +72,12 @@ export function buildPredeckUrl(record: SortieRecord): string {
   predeck.f1 = fleet;
 
   // Sortie data (enemy compositions per cell)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cells: any[] = [];
+  const cells: PredeckCell[] = [];
   for (const node of record.nodes) {
     const b = node.battle;
     if (!b) continue;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const enemyShips: any[] = b.enemy_ships.map((e) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const items: any[] = (e.slots ?? []).map((eid) => ({ id: eid }));
+    const enemyShips: PredeckEnemyShip[] = b.enemy_ships.map((e) => {
+      const items = (e.slots ?? []).map((eid) => ({ id: eid }));
       return { id: e.ship_id, items };
     });
     cells.push({

@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatDuration, formatRemaining } from "../../utils/format";
+import { STORAGE_KEYS } from "../../constants";
 import "./ExpeditionChecker.css";
 import type { ExpeditionDef, FleetExpedition, ExpeditionCheckResult } from "../../types";
 
@@ -17,20 +18,13 @@ export function ExpeditionChecker({
   currentExpedition?: FleetExpedition | null;
   now: number;
 }) {
-  const storageKey = `expedition-fleet-${fleetIndex}`;
+  const storageKey = STORAGE_KEYS.expeditionFleet(fleetIndex);
   const [selectedId, setSelectedId] = useState<number | null>(() => {
     const saved = localStorage.getItem(storageKey);
     return saved ? Number(saved) : null;
   });
   const [checkResult, setCheckResult] = useState<ExpeditionCheckResult | null>(null);
   const [checking, setChecking] = useState(false);
-
-  // Auto-check on mount and when port data updates
-  useEffect(() => {
-    if (selectedId != null && expeditions.length > 0) {
-      doCheck(selectedId);
-    }
-  }, [expeditions.length, portDataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doCheck = async (expId: number) => {
     setSelectedId(expId);
@@ -49,6 +43,17 @@ export function ExpeditionChecker({
       setChecking(false);
     }
   };
+
+  // Keep a ref so the effect below always calls the latest doCheck
+  const doCheckRef = useRef(doCheck);
+  doCheckRef.current = doCheck;
+
+  // Auto-check on mount and when port data updates
+  useEffect(() => {
+    if (selectedId != null && expeditions.length > 0) {
+      doCheckRef.current(selectedId);
+    }
+  }, [expeditions.length, portDataVersion, selectedId]);
 
   const resultLabel = (r: string) => {
     if (r === "GreatSuccess") return { text: "大成功", cls: "result-great" };

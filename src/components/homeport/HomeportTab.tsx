@@ -8,6 +8,24 @@ import type {
   SortieQuestDef, ActiveQuestDetail, QuestProgressSummary,
 } from "../../types";
 
+export interface HomeportTabProps {
+  portData: PortData | null;
+  senkaData: SenkaSummary | null;
+  senkaCheckpoint: boolean;
+  now: number;
+  expeditions: ExpeditionDef[];
+  sortieQuests: SortieQuestDef[];
+  mapRecommendations: MapRecommendationDef[];
+  activeQuests: ActiveQuestDetail[];
+  questProgress: Map<number, QuestProgressSummary>;
+  portDataVersion: number;
+  weaponIconSheet: string | null;
+  caInstalled: boolean | null;
+  gameOpen: boolean;
+  showApiLog: boolean;
+  apiLog: ApiLogEntry[];
+}
+
 export function HomeportTab({
   portData,
   senkaData,
@@ -24,23 +42,7 @@ export function HomeportTab({
   gameOpen,
   showApiLog,
   apiLog,
-}: {
-  portData: PortData | null;
-  senkaData: SenkaSummary | null;
-  senkaCheckpoint: boolean;
-  now: number;
-  expeditions: ExpeditionDef[];
-  sortieQuests: SortieQuestDef[];
-  mapRecommendations: MapRecommendationDef[];
-  activeQuests: ActiveQuestDetail[];
-  questProgress: Map<number, QuestProgressSummary>;
-  portDataVersion: number;
-  weaponIconSheet: string | null;
-  caInstalled: boolean | null;
-  gameOpen: boolean;
-  showApiLog: boolean;
-  apiLog: ApiLogEntry[];
-}) {
+}: HomeportTabProps) {
   const [logCollapsed, setLogCollapsed] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 

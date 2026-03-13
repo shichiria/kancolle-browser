@@ -5,7 +5,6 @@ pub mod files;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// Defines a target for syncing between local sync/ directory and Google Drive.
 pub struct SyncTarget {
