@@ -1,31 +1,31 @@
-<!-- Generated: 2026-03-13 | Files scanned: 54 | Token estimate: ~950 -->
+<!-- Generated: 2026-03-13 | Files scanned: 57 | Token estimate: ~950 -->
 # Frontend (React/TS)
 
 ## Structure
-Modular SPA: App.tsx (453L) orchestrates tab components.
-Types (385L), utils (187L), and 7 component modules.
+Modular SPA: App.tsx (457L) orchestrates tab components.
+Types (395L), utils (213L), constants (15L), and 7 component modules.
 No routing library, no external state management.
 
 ## Component Hierarchy
 ```
-App (453L) — state, event listeners, tab switching
-├── HomeportTab (213L)
+App (457L) — state, event listeners, tab switching
+├── HomeportTab (215L)
 │   ├── FleetPanel (142L) — per-fleet ship/equip display
 │   │   ├── HpBar (common)
-│   │   ├── ExpeditionChecker (106L)
-│   │   ├── MapRecommendationChecker (110L)
-│   │   └── SortieQuestChecker (370L)
-│   └── QuestProgressDisplay (98L)
+│   │   ├── ExpeditionChecker (111L)
+│   │   ├── MapRecommendationChecker (115L)
+│   │   └── SortieQuestChecker (366L)
+│   └── QuestProgressDisplay (99L)
 ├── BattleTab (127L)
 │   ├── DateRangePicker (138L, common)
 │   └── BattleDetailView (121L)
 │       ├── MapRouteView (260L)
 │       └── BattleNodeDetail (152L)
 │           └── BattleHpBar (49L, common)
-├── ShipListTab (165L)
-├── EquipListTab (123L)
-├── ImprovementTab (165L)
-└── SettingsTab (232L)
+├── ShipListTab (180L)
+├── EquipListTab (125L)
+├── ImprovementTab (166L)
+└── SettingsTab (229L)
     └── ClearButton (47L, common)
 ```
 
@@ -35,7 +35,7 @@ Key state variables:
 - battleLogs: SortieRecord[] + battleDateFrom/To filters
 - driveStatus: DriveStatus (loggedIn, syncing, lastSync, error)
 - activeTab: TabId
-- gameWindowOpen: boolean
+- gameOpen: boolean
 - fleetData: FleetData[]
 - questProgress: Map<number, QuestProgressSummary>
 - senkaSummary: SenkaSummary
@@ -64,11 +64,13 @@ equipment.ts — EquipListItem, EquipListResponse
 improvement.ts — ImprovementItem, ImprovementListResponse
 senka.ts — SenkaSummary
 
-## Utils (src/utils/, 3 modules)
+## Utils (src/utils/, 4 modules)
 format.ts — getRankName, formatRemaining, fmtDate, toDateStr, daysInMonth
 color.ts — hpColor, condColor, condBgClass
 map.ts — getNodeLabel, buildPredeckUrl, CELL_COLORS
+index.ts — barrel re-export
 
 ## CSS Organization
-Each component has a paired CSS file (1:1). Total ~2,200 lines.
+Each component has a paired CSS file (1:1). Total ~2,350 lines.
 App.css (231L) — root layout only. Component styles colocated.
+ListTable.css (151L) — shared table styles (common/).
