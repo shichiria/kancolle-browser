@@ -69,44 +69,136 @@ pub(super) fn build_ship_info(ship: &models::PlayerShip, master: Option<&models:
     }
 }
 
-/// Process api_get_member/ship3 - update ship slot data after equipment changes
-pub(super) fn process_ship3(
+/// Process api_req_hokyu/charge - update ship fuel/bull after resupply
+pub(super) fn process_charge(
     state: &mut models::GameStateInner,
-    api_data: &serde_json::Value,
+    api_data: &crate::api::dto::member::ApiChargeResponse,
     app: &AppHandle,
 ) {
-    // Update ships from api_ship_data
-    if let Some(ships) = api_data.get("api_ship_data") {
-        if let Ok(ship_list) = serde_json::from_value::<Vec<models::PlayerShip>>(ships.clone()) {
-            for ship in &ship_list {
-                let master = state.master.ships.get(&ship.api_ship_id);
-                state.profile.ships.insert(
-                    ship.api_id,
-                    build_ship_info(ship, master),
-                );
-            }
-            info!("ship3: updated {} ships", ship_list.len());
+    let mut updated = 0usize;
+    for charged in &api_data.api_ship {
+        if let Some(ship) = state.profile.ships.get(&charged.api_id) {
+            let updated_ship = models::ShipInfo {
+                fuel: charged.api_fuel,
+                bull: charged.api_bull,
+                ..ship.clone()
+            };
+            state.profile.ships.insert(charged.api_id, updated_ship);
+            updated += 1;
+        } else {
+            warn!(
+                "charge: ship {} not found in profile, skipping",
+                charged.api_id
+            );
+        }
+    }
+    info!("charge: updated fuel/bull for {} ships", updated);
+
+    emit_fleet_update(state, app);
+}
+
+/// Process api_req_kaisou/powerup - update ship after modernization
+pub(super) fn process_powerup(
+    state: &mut models::GameStateInner,
+    api_data: &crate::api::dto::member::ApiPowerupResponse,
+    app: &AppHandle,
+) {
+    let ship = &api_data.api_ship;
+    let master = state.master.ships.get(&ship.api_ship_id);
+    state.profile.ships.insert(ship.api_id, build_ship_info(ship, master));
+    info!(
+        "powerup: updated ship {} (flag={})",
+        ship.api_id, api_data.api_powerup_flag
+    );
+
+    // Update fleets from response
+    for fleet in &api_data.api_deck {
+        let ship_ids: Vec<i32> = fleet.api_ship.iter().filter(|&&id| id > 0).copied().collect();
+        let fidx = fleet.api_id as usize;
+        while state.profile.fleets.len() < fidx {
+            state.profile.fleets.push(Vec::new());
+        }
+        if fidx > 0 {
+            state.profile.fleets[fidx - 1] = ship_ids;
         }
     }
 
+    emit_fleet_update(state, app);
+}
+
+/// Process api_req_kaisou/slot_exchange_index - swap equipment between slots
+pub(super) fn process_slot_exchange(
+    state: &mut models::GameStateInner,
+    api_data: &crate::api::dto::member::ApiSlotExchangeResponse,
+    app: &AppHandle,
+) {
+    let ship = &api_data.api_ship_data;
+    let master = state.master.ships.get(&ship.api_ship_id);
+    state.profile.ships.insert(ship.api_id, build_ship_info(ship, master));
+    info!("slot_exchange: updated ship {}", ship.api_id);
+
+    emit_fleet_update(state, app);
+}
+
+/// Process api_req_kousyou/getship - add newly constructed ship
+pub(super) fn process_getship(
+    state: &mut models::GameStateInner,
+    api_data: &crate::api::dto::member::ApiGetShipResponse,
+    app: &AppHandle,
+) {
+    let ship = &api_data.api_ship;
+    let master = state.master.ships.get(&ship.api_ship_id);
+    state.profile.ships.insert(ship.api_id, build_ship_info(ship, master));
+    info!("getship: added ship {} (master_id={})", ship.api_id, ship.api_ship_id);
+
+    // Add starting equipment
+    for item in &api_data.api_slotitem {
+        state.profile.slotitems.insert(
+            item.api_id,
+            models::PlayerSlotItem {
+                item_id: item.api_id,
+                slotitem_id: item.api_slotitem_id,
+                level: item.api_level,
+                alv: item.api_alv,
+                locked: item.api_locked == 1,
+            },
+        );
+    }
+    info!("getship: added {} equipment items", api_data.api_slotitem.len());
+
+    emit_fleet_update(state, app);
+}
+
+/// Process api_get_member/ship3 - update ship slot data after equipment changes
+pub(super) fn process_ship3(
+    state: &mut models::GameStateInner,
+    api_data: &crate::api::dto::member::ApiShip3Response,
+    app: &AppHandle,
+) {
+    // Update ships from api_ship_data
+    for ship in &api_data.api_ship_data {
+        let master = state.master.ships.get(&ship.api_ship_id);
+        state.profile.ships.insert(
+            ship.api_id,
+            build_ship_info(ship, master),
+        );
+    }
+    info!("ship3: updated {} ships", api_data.api_ship_data.len());
+
     // Update fleet compositions from api_deck_data
-    if let Some(decks) = api_data.get("api_deck_data") {
-        if let Ok(deck_list) = serde_json::from_value::<Vec<models::Fleet>>(decks.clone()) {
-            for fleet in &deck_list {
-                let ship_ids: Vec<i32> = fleet
-                    .api_ship
-                    .iter()
-                    .filter(|&&id| id > 0)
-                    .copied()
-                    .collect();
-                let fidx = fleet.api_id as usize;
-                while state.profile.fleets.len() < fidx {
-                    state.profile.fleets.push(Vec::new());
-                }
-                if fidx > 0 {
-                    state.profile.fleets[fidx - 1] = ship_ids;
-                }
-            }
+    for fleet in &api_data.api_deck_data {
+        let ship_ids: Vec<i32> = fleet
+            .api_ship
+            .iter()
+            .filter(|&&id| id > 0)
+            .copied()
+            .collect();
+        let fidx = fleet.api_id as usize;
+        while state.profile.fleets.len() < fidx {
+            state.profile.fleets.push(Vec::new());
+        }
+        if fidx > 0 {
+            state.profile.fleets[fidx - 1] = ship_ids;
         }
     }
 
@@ -117,36 +209,20 @@ pub(super) fn process_ship3(
 /// Response contains api_ship_data with api_set_ship and api_unset_ship
 pub(super) fn process_slot_deprive(
     state: &mut models::GameStateInner,
-    api_data: &serde_json::Value,
+    api_data: &crate::api::dto::member::ApiSlotDepriveResponse,
     app: &AppHandle,
 ) {
-    let ship_data = match api_data.get("api_ship_data") {
-        Some(sd) => sd,
-        None => {
-            warn!("slot_deprive: no api_ship_data found");
-            return;
-        }
-    };
+    // Update receiving ship
+    let set_ship = &api_data.api_ship_data.api_set_ship;
+    let master = state.master.ships.get(&set_ship.api_ship_id);
+    state.profile.ships.insert(set_ship.api_id, build_ship_info(set_ship, master));
 
-    let mut updated = 0;
-    for key in &["api_set_ship", "api_unset_ship"] {
-        if let Some(ship_val) = ship_data.get(*key) {
-            match serde_json::from_value::<models::PlayerShip>(ship_val.clone()) {
-                Ok(ship) => {
-                    let master = state.master.ships.get(&ship.api_ship_id);
-                    state.profile.ships.insert(
-                        ship.api_id,
-                        build_ship_info(&ship, master),
-                    );
-                    updated += 1;
-                }
-                Err(e) => {
-                    error!("slot_deprive: failed to parse {}: {}", key, e);
-                }
-            }
-        }
-    }
-    info!("slot_deprive: updated {} ships", updated);
+    // Update giving ship
+    let unset_ship = &api_data.api_ship_data.api_unset_ship;
+    let master = state.master.ships.get(&unset_ship.api_ship_id);
+    state.profile.ships.insert(unset_ship.api_id, build_ship_info(unset_ship, master));
+
+    info!("slot_deprive: updated 2 ships");
 
     emit_fleet_update(state, app);
 }

@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_req_kousyou/destroyitem2","request_body":"api_slotitem_ids=224742%2C224764%2C224775","response_body":{"api_data":{"api_get_material":[3,3,3,0]},"api_result":1,"api_result_msg":"成功"},"response_body_length":90,"timestamp":"2026-03-17T00:03:05.439016300+09:00"}

@@ -80,23 +80,3 @@ pub struct ApiEnemyInfo {
     pub api_deck_name: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct ApiQuestListResponse {
-    pub api_list: Option<Vec<serde_json::Value>>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ApiRemodelSlotResponse {
-    pub api_remodel_flag: Option<i32>,
-    pub api_after_slot: Option<ApiAfterSlot>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ApiAfterSlot {
-    pub api_slotitem_id: Option<i32>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ApiHenseiPresetSelectResponse {
-    pub api_fleet: Option<serde_json::Value>,
-}

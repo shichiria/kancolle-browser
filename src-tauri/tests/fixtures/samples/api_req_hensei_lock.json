@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_req_hensei/lock","request_body":"api_ship_id=159723","response_body":{"api_data":{"api_locked":0},"api_result":1,"api_result_msg":"成功"},"response_body_length":76,"timestamp":"2026-03-16T23:42:18.759160900+09:00"}

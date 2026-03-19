@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-13 | Files scanned: 32 | Token estimate: ~950 -->
+<!-- Generated: 2026-03-18 | Files scanned: 32 | Token estimate: ~950 -->
 # Backend (Rust/Tauri)
 
 ## Modules (lib.rs → 15 modules)

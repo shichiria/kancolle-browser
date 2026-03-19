@@ -39,6 +39,7 @@ pub(super) fn process_battle(
                 player_slotitems.len(),
             );
             let combined_flag = state.profile.combined_flag;
+            let mapinfo_gauges = state.mapinfo_gauges.clone();
             state.sortie.battle_logger.on_sortie_start(
                 json,
                 request_body,
@@ -46,6 +47,7 @@ pub(super) fn process_battle(
                 &player_ships,
                 &player_slotitems,
                 combined_flag,
+                &mapinfo_gauges,
             );
             let _ = app.emit(
                 "sortie-start",
@@ -474,29 +476,14 @@ pub(super) fn process_battle(
 /// Process exercise battle result (api_req_practice/battle_result)
 pub(super) fn process_exercise_result(
     state: &mut models::GameStateInner,
-    json: &serde_json::Value,
+    data: &crate::api::dto::member::ApiExerciseResultResponse,
     app: &AppHandle,
 ) {
-    let api_data = match json.get("api_data") {
-        Some(d) => d,
-        None => return,
-    };
-
-    let rank = api_data
-        .get("api_win_rank")
-        .and_then(|v| v.as_str())
-        .unwrap_or("-")
-        .to_string();
-
-    info!("Exercise result: rank={}", rank);
+    info!("Exercise result: rank={}", data.api_win_rank);
 
     // Record HQ exp from exercise
-    let hq_exp = api_data
-        .get("api_get_exp")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
-    if hq_exp > 0 {
-        state.senka.add_battle_exp(hq_exp, "演習");
+    if data.api_get_exp > 0 {
+        state.senka.add_battle_exp(data.api_get_exp, "演習");
         let summary = state.senka.summary();
         let _ = app.emit("senka-updated", &summary);
         notify_sync(state, vec![crate::senka::SenkaTracker::sync_path()]);
@@ -504,7 +491,7 @@ pub(super) fn process_exercise_result(
 
     let changed = crate::quest_progress::on_exercise_result(
         &mut state.history.quest_progress,
-        &rank,
+        &data.api_win_rank,
         &state.history.active_quests,
         &state.history.sortie_quest_defs,
         &state.quest_progress_path,

@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_req_kousyou/createship_speedchange","request_body":"api_kdock_id=1&api_highspeed=1","response_body":{"api_result":1,"api_result_msg":"成功"},"response_body_length":48,"timestamp":"2026-03-15T23:39:02.896310+09:00"}

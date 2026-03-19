@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_req_kaisou/preset_slot_register","request_body":"api_preset_id=1&api_ship_id=133049","response_body":{"api_result":1,"api_result_msg":"成功"},"response_body_length":48,"timestamp":"2026-03-15T22:45:55.838396700+09:00"}

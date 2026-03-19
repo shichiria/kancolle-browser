@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_req_kaisou/slotset","request_body":"api_id=131&api_item_id=150208&api_slot_idx=3","response_body":{"api_result":1,"api_result_msg":"成功"},"response_body_length":48,"timestamp":"2026-03-16T22:48:29.406763300+09:00"}

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-13 | Files scanned: 57+32 | Token estimate: ~950 -->
+<!-- Generated: 2026-03-18 | Files scanned: 57+32 | Token estimate: ~950 -->
 # Architecture
 
 ## Overview
@@ -34,8 +34,8 @@ src-tauri/src/
 ├── api/
 │   ├── mod.rs         (917L)   API interceptor — process_api(), port/quest/senka/remodel
 │   ├── models.rs      (636L)   GameState, data structures (Ship, Fleet, Port...)
-│   ├── battle.rs      (474L)   Battle/sortie/practice API handlers
-│   ├── ship.rs        (458L)   Ship slot/equip update handlers
+│   ├── battle.rs      (525L)   Battle/sortie/practice API handlers
+│   ├── ship.rs        (456L)   Ship slot/equip update handlers
 │   ├── fleet.rs       (221L)   Fleet composition change handlers
 │   ├── formation.rs   (132L)   Formation hint overlay logic
 │   ├── minimap.rs      (47L)   Minimap data sender
@@ -50,9 +50,9 @@ src-tauri/src/
 │   ├── parser.rs      (601L)   Battle data parsing (damage, formation, drops)
 │   └── storage.rs     (167L)   Battle log file I/O
 ├── expedition/mod.rs  (501L)   Expedition definitions & great-success check
-├── sortie_quest/mod.rs(715L)   Sortie quest definitions, map recommendations
+├── sortie_quest/mod.rs(723L)   Sortie quest definitions, map recommendations
 ├── quest_progress/mod.rs(841L) Quest progress tracking, reset logic
-├── senka/mod.rs       (846L)   Ranking/senka calculation & tracking
+├── senka/mod.rs       (864L)   Ranking/senka calculation & tracking
 ├── improvement/mod.rs (338L)   Equipment improvement list
 └── drive_sync/                  Google Drive sync
     ├── mod.rs         (112L)   SyncManifest, load/save
@@ -62,7 +62,7 @@ src-tauri/src/
 
 src/
 ├── main.tsx              (9L)  React entry
-├── App.tsx             (457L)  Root component — tab orchestration, event listeners
+├── App.tsx             (458L)  Root component — tab orchestration, event listeners
 ├── App.css             (231L)  Root layout styles (toolbar, tabs)
 ├── constants.ts         (15L)  Storage key constants
 ├── types/              (395L)  TypeScript type definitions (10 files)

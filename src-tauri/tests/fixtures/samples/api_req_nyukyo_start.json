@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_req_nyukyo/start","request_body":"api_highspeed=0&api_ndock_id=1&api_ship_id=155354","response_body":{"api_result":1,"api_result_msg":"成功"},"response_body_length":48,"timestamp":"2026-03-16T23:55:54.090878800+09:00"}

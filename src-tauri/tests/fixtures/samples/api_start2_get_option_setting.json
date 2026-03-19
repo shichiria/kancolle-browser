@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_start2/get_option_setting","request_body":"","response_body":{"api_data":{"api_skin_id":102,"api_volume_setting":{"api_be_left":0,"api_bgm":4,"api_duty":0,"api_se":9,"api_voice":9}},"api_result":1,"api_result_msg":"成功"},"response_body_length":168,"timestamp":"2026-03-16T22:22:11.870460500+09:00"}

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-13 | Files scanned: 57 | Token estimate: ~950 -->
+<!-- Generated: 2026-03-18 | Files scanned: 57 | Token estimate: ~950 -->
 # Frontend (React/TS)
 
 ## Structure
@@ -8,7 +8,7 @@ No routing library, no external state management.
 
 ## Component Hierarchy
 ```
-App (457L) — state, event listeners, tab switching
+App (458L) — state, event listeners, tab switching
 ├── HomeportTab (215L)
 │   ├── FleetPanel (142L) — per-fleet ship/equip display
 │   │   ├── HpBar (common)

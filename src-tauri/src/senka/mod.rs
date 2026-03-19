@@ -28,45 +28,20 @@ fn check_rate(key: i64, user_key: i64, rate: f64) -> bool {
     points >= 0.0 && (points - points.floor()).abs() < 1e-6
 }
 
-/// Decrypt ranking entries from the raw API response.
+/// Decrypt ranking entries from the typed API response.
 /// Returns (decoded entries, user's own senka if found).
-pub fn decrypt_ranking(json_str: &str, admiral_name: &str) -> (Vec<RankingEntry>, Option<i64>) {
-    // Parse the ranking API response
-    let parsed: Result<serde_json::Value, _> = serde_json::from_str(json_str);
-    let root = match parsed {
-        Ok(v) => v,
-        Err(e) => {
-            warn!("Senka: failed to parse ranking JSON: {}", e);
-            return (vec![], None);
-        }
-    };
-
-    // Navigate to api_data.api_list
-    let api_list = root
-        .get("api_data")
-        .and_then(|d| d.get("api_list"))
-        .and_then(|l| l.as_array());
-
-    let entries = match api_list {
-        Some(arr) => arr,
-        None => {
-            warn!("Senka: ranking response has no api_data.api_list");
-            return (vec![], None);
-        }
-    };
+pub fn decrypt_ranking(
+    ranking_data: &crate::api::dto::ranking::ApiRankingResponse,
+    admiral_name: &str,
+) -> (Vec<RankingEntry>, Option<i64>) {
+    let entries = &ranking_data.api_list;
 
     // Phase 1: Narrow down possible user keys using all entries
     let mut possible_user_keys: Vec<i64> = Vec::new();
 
     for entry in entries {
-        let position = entry
-            .get("api_mxltvkpyuklh")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let rate = entry
-            .get("api_wuhnhojjxmke")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
+        let position = entry.api_mxltvkpyuklh.unwrap_or(0);
+        let rate = entry.api_wuhnhojjxmke.unwrap_or(0.0);
 
         if position <= 0 || rate <= 0.0 {
             continue;
@@ -104,28 +79,11 @@ pub fn decrypt_ranking(json_str: &str, admiral_name: &str) -> (Vec<RankingEntry>
     let mut own_senka = None;
 
     for entry in entries {
-        let position = entry
-            .get("api_mxltvkpyuklh")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32;
-        let name = entry
-            .get("api_mtjmdcwtvhdr")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        let rate = entry
-            .get("api_wuhnhojjxmke")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
-        let medal_enc = entry
-            .get("api_itslcqtmrxtf")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let comment = entry
-            .get("api_itbrdpdbkynm")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
+        let position = entry.api_mxltvkpyuklh.unwrap_or(0) as i32;
+        let name = entry.api_mtjmdcwtvhdr.as_deref().unwrap_or("").to_string();
+        let rate = entry.api_wuhnhojjxmke.unwrap_or(0.0);
+        let medal_enc = entry.api_itslcqtmrxtf.unwrap_or(0);
+        let comment = entry.api_itbrdpdbkynm.as_deref().unwrap_or("").to_string();
 
         if position <= 0 {
             continue;

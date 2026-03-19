@@ -443,6 +443,7 @@ impl BattleLogger {
         player_ships: &HashMap<i32, ShipInfo>,
         player_slotitems: &HashMap<i32, PlayerSlotItem>,
         combined_flag: i32,
+        mapinfo_gauges: &HashMap<i32, i32>,
     ) {
         // Parse map area and map no from request body
         let params = parse_form_body(request_body);
@@ -524,11 +525,16 @@ impl BattleLogger {
             .unwrap_or(0) as i32;
 
         // Extract gauge number for multi-gauge maps (e.g., 7-2, 7-3, 7-5)
+        // First try api_eventmap (event maps), then fall back to cached mapinfo (regular maps)
         let gauge_num = api_data
             .and_then(|d| d.get("api_eventmap"))
             .and_then(|em| em.get("api_gauge_num"))
             .and_then(|v| v.as_i64())
-            .map(|v| v as i32);
+            .map(|v| v as i32)
+            .or_else(|| {
+                let map_id = map_area * 10 + map_no;
+                mapinfo_gauges.get(&map_id).copied()
+            });
 
         let now = Local::now();
         let id = now.format("%Y%m%d_%H%M%S").to_string();

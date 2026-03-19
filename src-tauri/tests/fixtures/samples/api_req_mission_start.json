@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_req_mission/start","request_body":"api_mission_id=37&api_deck_id=4&api_mission=80&api_serial_cid=177370548869389328597","response_body":{"api_data":{"api_complatetime":1773715393979,"api_complatetime_str":"2026-03-17 11:43:13"},"api_result":1,"api_result_msg":"成功"},"response_body_length":139,"timestamp":"2026-03-17T08:58:12.463784+09:00"}

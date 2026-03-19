@@ -170,6 +170,8 @@ pub struct GameStateInner {
     pub senka: SenkaTracker,
     /// Sync notifier — sends SyncCommand to the background sync engine
     pub sync_notifier: Option<tokio::sync::mpsc::Sender<crate::drive_sync::SyncCommand>>,
+    /// Cached gauge numbers from mapinfo: map_id (area*10+no) -> gauge_num
+    pub mapinfo_gauges: HashMap<i32, i32>,
     /// Formation memory: "{map_area}-{map_no}-{cell_no}" -> formation_id
     pub formation_memory: HashMap<String, i32>,
     /// Path to formation memory file
@@ -351,7 +353,7 @@ pub struct AdmiralBasic {
 
 /// Player ship instance - only fields we actually use are strongly typed.
 /// All other fields are ignored via `deny_unknown_fields` being absent (serde default).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct PlayerShip {
     pub api_id: i32,
     #[serde(default)]
@@ -401,7 +403,7 @@ pub struct PlayerShip {
     _extra: serde_json::Value,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Fleet {
     pub api_id: i32,
     #[serde(default)]
@@ -440,7 +442,7 @@ pub struct Material {
 // api_get_member/slot_item - Player equipment data
 // =============================================================================
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct PlayerSlotItemApi {
     pub api_id: i32,
     #[serde(default)]

@@ -1,0 +1,7 @@
+{
+  "description": "7-2 gauge 1 - mapinfo only (no sortie data in logs, already cleared)",
+  "gauge_num": 1,
+  "boss": "G",
+  "required_defeat_count": 3,
+  "_note": "Sortie data not available. Use mapinfo.json for gauge_num verification."
+}

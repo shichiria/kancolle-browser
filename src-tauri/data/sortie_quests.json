@@ -35668,5 +35668,580 @@
       }
     ],
     "recommended": []
+  },
+  {
+    "id": 10001,
+    "quest_id": "2603B4",
+    "name": "【WD限定任務】軽空母、出撃！2026",
+    "area": "1-3/2-1/2-2/3-1",
+    "rank": "A",
+    "boss_only": true,
+    "count": 1,
+    "reset": "limited",
+    "conditions": [
+      {
+        "type": "OrConditions",
+        "desc": "Langley旗艦 or 軽空母2隻以上",
+        "alternatives": [
+          [
+            {
+              "type": "ContainsShipName",
+              "names": [
+                "Langley"
+              ],
+              "count": 1
+            }
+          ],
+          [
+            {
+              "type": "ShipTypeCount",
+              "ship_type": "軽空母",
+              "stypes": [
+                7
+              ],
+              "value": 2
+            }
+          ]
+        ]
+      }
+    ],
+    "recommended": [
+      {
+        "area": "1-3",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      },
+      {
+        "area": "2-1",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      },
+      {
+        "area": "2-2",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "海防",
+            "stypes": [
+              1
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "水母",
+            "stypes": [
+              16
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "3-1",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      }
+    ],
+    "note": "※Langleyの場合は旗艦配置が必要。api_no要確認"
+  },
+  {
+    "id": 10002,
+    "quest_id": "2603B5",
+    "name": "【期間限定任務】春の旗艦は……私だからっ！",
+    "area": "1-3/1-4/1-5/2-3",
+    "rank": "A",
+    "boss_only": true,
+    "count": 2,
+    "reset": "limited",
+    "conditions": [
+      {
+        "type": "ContainsShipNameAny",
+        "names": [
+          "榛名",
+          "春日丸",
+          "大鷹",
+          "春雨",
+          "春風",
+          "弥生",
+          "陽炎",
+          "天津風",
+          "朧",
+          "曙",
+          "Scirocco"
+        ],
+        "count": 1
+      }
+    ],
+    "recommended": [
+      {
+        "area": "1-3",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": [
+              "榛名",
+              "春日丸",
+              "大鷹",
+              "春雨",
+              "春風",
+              "弥生",
+              "陽炎",
+              "天津風",
+              "朧",
+              "曙",
+              "Scirocco"
+            ],
+            "count": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 3
+          }
+        ]
+      },
+      {
+        "area": "1-4",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": [
+              "榛名",
+              "春日丸",
+              "大鷹",
+              "春雨",
+              "春風",
+              "弥生",
+              "陽炎",
+              "天津風",
+              "朧",
+              "曙",
+              "Scirocco"
+            ],
+            "count": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 3
+          }
+        ]
+      },
+      {
+        "area": "1-5",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": [
+              "榛名",
+              "春日丸",
+              "大鷹",
+              "春雨",
+              "春風",
+              "弥生",
+              "陽炎",
+              "天津風",
+              "朧",
+              "曙",
+              "Scirocco"
+            ],
+            "count": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐/海防",
+            "stypes": [
+              1,
+              2
+            ],
+            "value": 3
+          }
+        ]
+      },
+      {
+        "area": "2-3",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": [
+              "榛名",
+              "春日丸",
+              "大鷹",
+              "春雨",
+              "春風",
+              "弥生",
+              "陽炎",
+              "天津風",
+              "朧",
+              "曙",
+              "Scirocco"
+            ],
+            "count": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "水母",
+            "stypes": [
+              16
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      }
+    ],
+    "note": "※指定艦から1隻以上を含む。春日丸は大鷹でも可。api_no要確認"
+  },
+  {
+    "id": 10003,
+    "quest_id": "2603B6",
+    "name": "三十二駆「玉波改二」、出撃いたします。",
+    "area": "2-3/2-5/4-5/5-5/6-3",
+    "rank": "S",
+    "boss_only": true,
+    "count": 1,
+    "reset": "once",
+    "conditions": [
+      {
+        "type": "ContainsShipName",
+        "names": [
+          "玉波改二",
+          "藤波"
+        ],
+        "count": 2
+      }
+    ],
+    "recommended": [
+      {
+        "area": "2-3",
+        "fleet": [
+          {
+            "type": "ContainsShipName",
+            "names": [
+              "玉波改二",
+              "藤波"
+            ],
+            "count": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "水母",
+            "stypes": [
+              16
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "2-5",
+        "fleet": [
+          {
+            "type": "ContainsShipName",
+            "names": [
+              "玉波改二",
+              "藤波"
+            ],
+            "count": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 3
+          }
+        ]
+      },
+      {
+        "area": "4-5",
+        "fleet": [
+          {
+            "type": "ContainsShipName",
+            "names": [
+              "玉波改二",
+              "藤波"
+            ],
+            "count": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "高速戦艦",
+            "stypes": [
+              8
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "正規空母",
+            "stypes": [
+              11,
+              18
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 3
+          }
+        ]
+      },
+      {
+        "area": "5-5",
+        "fleet": [
+          {
+            "type": "ContainsShipName",
+            "names": [
+              "玉波改二",
+              "藤波"
+            ],
+            "count": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "高速戦艦",
+            "stypes": [
+              8
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "正規空母",
+            "stypes": [
+              11,
+              18
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 3
+          }
+        ]
+      },
+      {
+        "area": "6-3",
+        "fleet": [
+          {
+            "type": "ContainsShipName",
+            "names": [
+              "玉波改二",
+              "藤波"
+            ],
+            "count": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 4
+          }
+        ]
+      }
+    ],
+    "note": "※玉波改二を旗艦に配置。api_no要確認"
   }
 ]

@@ -84,48 +84,37 @@ pub(super) fn process_hensei_change(
 /// Process api_req_hensei/preset_select - load preset fleet
 pub(super) fn process_hensei_preset_select(
     state: &mut models::GameStateInner,
-    data: &crate::api::dto::battle::ApiHenseiPresetSelectResponse,
+    data: &crate::api::dto::member::ApiHenseiPresetSelectResponse,
     app: &AppHandle,
 ) {
-    let fleet_id = data
-        .api_fleet
-        .as_ref()
-        .and_then(|f| f.get("api_id"))
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0) as usize;
+    let fleet_id = data.api_id as usize;
     if fleet_id == 0 || fleet_id > state.profile.fleets.len() {
         warn!("preset_select: invalid fleet_id {}", fleet_id);
         return;
     }
     let fidx = fleet_id - 1;
 
-    if let Some(api_ship) = data
-        .api_fleet
-        .as_ref()
-        .and_then(|f| f.get("api_ship"))
-        .and_then(|v| v.as_array())
-    {
-        let ship_ids: Vec<i32> = api_ship
-            .iter()
-            .filter_map(|v| v.as_i64().map(|id| id as i32))
-            .filter(|&id| id > 0)
-            .collect();
+    let ship_ids: Vec<i32> = data
+        .api_ship
+        .iter()
+        .filter(|&&id| id > 0)
+        .copied()
+        .collect();
 
-        // Remove these ships from other fleets (preset load can pull ships)
-        for fi in 0..state.profile.fleets.len() {
-            if fi == fidx {
-                continue;
-            }
-            state.profile.fleets[fi].retain(|id| !ship_ids.contains(id));
+    // Remove these ships from other fleets (preset load can pull ships)
+    for fi in 0..state.profile.fleets.len() {
+        if fi == fidx {
+            continue;
         }
-
-        state.profile.fleets[fidx] = ship_ids;
-        info!(
-            "Fleet {} loaded from preset: {} ships",
-            fleet_id,
-            state.profile.fleets[fidx].len()
-        );
+        state.profile.fleets[fi].retain(|id| !ship_ids.contains(id));
     }
+
+    state.profile.fleets[fidx] = ship_ids;
+    info!(
+        "Fleet {} loaded from preset: {} ships",
+        fleet_id,
+        state.profile.fleets[fidx].len()
+    );
 
     emit_fleet_update(state, app);
 }

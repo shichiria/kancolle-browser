@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_req_kaisou/can_preset_slot_select","request_body":"","response_body":{"api_data":{"api_flag":1},"api_result":1,"api_result_msg":"成功"},"response_body_length":74,"timestamp":"2026-03-17T00:00:39.590507700+09:00"}

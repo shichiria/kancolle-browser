@@ -1,0 +1,1 @@
+{"endpoint":"/kcsapi/api_req_quest/clearitemget","request_body":"api_quest_id=677","response_body":{"api_data":{"api_bounus":[{"api_count":5,"api_item":{"api_id":6,"api_name":""},"api_type":1}],"api_bounus_count":1,"api_material":[0,500,0,150]},"api_result":1,"api_result_msg":"成功"},"response_body_length":193,"timestamp":"2026-03-17T00:03:13.545644200+09:00"}

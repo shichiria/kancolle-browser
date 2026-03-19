@@ -52,15 +52,15 @@ enum ParsedApi {
     Start2(Box<models::ApiStart2>),
     Port(Box<models::ApiPort>),
     SlotItem(Vec<models::PlayerSlotItemApi>),
-    QuestList(crate::api::dto::battle::ApiQuestListResponse),
+    QuestList(dto::member::ApiQuestListResponse),
     Battle(serde_json::Value),
-    ExerciseResult(serde_json::Value),
+    ExerciseResult(dto::member::ApiExerciseResultResponse),
     HenseiChange {
         fleet_id: usize,
         ship_idx: i32,
         ship_id: i32,
     },
-    HenseiPresetSelect(crate::api::dto::battle::ApiHenseiPresetSelectResponse),
+    HenseiPresetSelect(dto::member::ApiHenseiPresetSelectResponse),
     RemodelSlot {
         slot_id: i32,
         success: bool,
@@ -76,9 +76,32 @@ enum ParsedApi {
         quest_id: i32,
         senka_bonus: i64,
     },
-    Ship3(serde_json::Value),
-    SlotDeprive(serde_json::Value),
-    Ranking(String), // raw JSON string for ranking decryption (needs admiral name from state)
+    Ship3(dto::member::ApiShip3Response),
+    SlotDeprive(dto::member::ApiSlotDepriveResponse),
+    Charge(dto::member::ApiChargeResponse),
+    Ranking(dto::ranking::ApiRankingResponse),
+    // Category B: Ship/Equipment updates
+    Powerup(dto::member::ApiPowerupResponse),
+    SlotExchange(dto::member::ApiSlotExchangeResponse),
+    GetShip(dto::member::ApiGetShipResponse),
+    // Category B: Removal operations
+    DestroyItem2 {
+        item_ids: Vec<i32>,
+    },
+    DestroyShip {
+        ship_id: i32,
+    },
+    CreateItem(dto::member::ApiCreateItemResponse),
+    // Category B: Resource/Info refreshes
+    MemberMaterial(Vec<models::Material>),
+    MemberNDock(Vec<models::RepairDock>),
+    MemberDeck(Vec<models::Fleet>),
+    // Category B: Mission
+    MissionResult(dto::member::ApiMissionResultResponse),
+    // Category B: mapinfo gauge cache
+    MapInfoGauges(std::collections::HashMap<i32, i32>),
+    // Category B: Log-only (null response or follow-up refresh)
+    LogOnly,
     Other,
 }
 
@@ -162,7 +185,7 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
         "/kcsapi/api_get_member/questlist" => {
             info!("Processing api_get_member/questlist");
             match serde_json::from_str::<
-                models::ApiResponse<crate::api::dto::battle::ApiQuestListResponse>,
+                models::ApiResponse<dto::member::ApiQuestListResponse>,
             >(json_str)
             {
                 Ok(data) => match data.api_data {
@@ -192,7 +215,7 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
         "/kcsapi/api_req_hensei/preset_select" => {
             info!("Processing api_req_hensei/preset_select (preset fleet load)");
             match serde_json::from_str::<
-                models::ApiResponse<crate::api::dto::battle::ApiHenseiPresetSelectResponse>,
+                models::ApiResponse<dto::member::ApiHenseiPresetSelectResponse>,
             >(json_str)
             {
                 Ok(data) => match data.api_data {
@@ -213,7 +236,7 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
 
             // Extract eq_id + success from response
             let (success, resp_eq_id) = match serde_json::from_str::<
-                models::ApiResponse<crate::api::dto::battle::ApiRemodelSlotResponse>,
+                models::ApiResponse<dto::member::ApiRemodelSlotResponse>,
             >(json_str)
             {
                 Ok(data) => {
@@ -271,8 +294,11 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
         }
         "/kcsapi/api_req_practice/battle_result" => {
             info!("Processing api_req_practice/battle_result (exercise result)");
-            match serde_json::from_str::<serde_json::Value>(json_str) {
-                Ok(v) => ParsedApi::ExerciseResult(v),
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiExerciseResultResponse>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::ExerciseResult(api_data),
+                    None => ParsedApi::Other,
+                },
                 Err(e) => {
                     error!("Failed to parse exercise battle_result: {}", e);
                     ParsedApi::Other
@@ -281,7 +307,7 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
         }
         "/kcsapi/api_get_member/ship3" => {
             info!("Processing api_get_member/ship3 (ship data after equipment change)");
-            match serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str) {
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiShip3Response>>(json_str) {
                 Ok(data) => match data.api_data {
                     Some(api_data) => ParsedApi::Ship3(api_data),
                     None => ParsedApi::Other,
@@ -294,7 +320,7 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
         }
         "/kcsapi/api_req_kaisou/slot_deprive" => {
             info!("Processing api_req_kaisou/slot_deprive (equipment transfer between ships)");
-            match serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str) {
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiSlotDepriveResponse>>(json_str) {
                 Ok(data) => match data.api_data {
                     Some(api_data) => ParsedApi::SlotDeprive(api_data),
                     None => ParsedApi::Other,
@@ -305,9 +331,217 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
                 }
             }
         }
+        "/kcsapi/api_req_hokyu/charge" => {
+            info!("Processing api_req_hokyu/charge (resupply)");
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiChargeResponse>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::Charge(api_data),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse hokyu/charge: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
         "/kcsapi/api_req_ranking/mxltvkpyuklh" => {
             info!("Processing api_req_ranking/mxltvkpyuklh (ranking data)");
-            ParsedApi::Ranking(json_str.to_string())
+            match serde_json::from_str::<models::ApiResponse<dto::ranking::ApiRankingResponse>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::Ranking(api_data),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse ranking: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        // --- Category B: Ship/Equipment updates ---
+        "/kcsapi/api_get_member/ship_deck" => {
+            info!("Processing api_get_member/ship_deck");
+            // Same structure as ship3
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiShip3Response>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::Ship3(api_data),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse ship_deck: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        "/kcsapi/api_req_kaisou/powerup" => {
+            info!("Processing api_req_kaisou/powerup (modernization)");
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiPowerupResponse>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::Powerup(api_data),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse powerup: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        "/kcsapi/api_req_kaisou/slot_exchange_index" => {
+            info!("Processing api_req_kaisou/slot_exchange_index (swap equipment slots)");
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiSlotExchangeResponse>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::SlotExchange(api_data),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse slot_exchange_index: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        "/kcsapi/api_req_kousyou/getship" => {
+            info!("Processing api_req_kousyou/getship (construction complete)");
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiGetShipResponse>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::GetShip(api_data),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse getship: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        // --- Category B: Removal operations ---
+        "/kcsapi/api_req_kousyou/destroyitem2" => {
+            info!("Processing api_req_kousyou/destroyitem2 (scrap equipment)");
+            let item_ids: Vec<i32> = serde_urlencoded::from_str::<dto::member::DestroyItem2Req>(request_body)
+                .map(|req| req.api_slotitem_ids.split(',').filter_map(|s| s.parse().ok()).collect())
+                .unwrap_or_default();
+            ParsedApi::DestroyItem2 { item_ids }
+        }
+        "/kcsapi/api_req_kousyou/destroyship" => {
+            info!("Processing api_req_kousyou/destroyship (scrap ship)");
+            let ship_id = serde_urlencoded::from_str::<dto::member::DestroyShipReq>(request_body)
+                .map(|req| req.api_ship_id.split(',').next().and_then(|s| s.parse().ok()).unwrap_or(0))
+                .unwrap_or(0);
+            ParsedApi::DestroyShip { ship_id }
+        }
+        "/kcsapi/api_req_kousyou/createitem" => {
+            info!("Processing api_req_kousyou/createitem (develop equipment)");
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiCreateItemResponse>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::CreateItem(api_data),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse createitem: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        // --- Category B: Resource/Info refreshes ---
+        "/kcsapi/api_get_member/material" => {
+            info!("Processing api_get_member/material");
+            match serde_json::from_str::<models::ApiResponse<Vec<models::Material>>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(materials) => ParsedApi::MemberMaterial(materials),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse material: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        "/kcsapi/api_get_member/ndock" => {
+            info!("Processing api_get_member/ndock");
+            match serde_json::from_str::<models::ApiResponse<Vec<models::RepairDock>>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(ndock) => ParsedApi::MemberNDock(ndock),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse ndock: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        "/kcsapi/api_get_member/deck" => {
+            info!("Processing api_get_member/deck");
+            match serde_json::from_str::<models::ApiResponse<Vec<models::Fleet>>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(decks) => ParsedApi::MemberDeck(decks),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse deck: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        // --- Category B: Mission ---
+        "/kcsapi/api_req_mission/result" => {
+            info!("Processing api_req_mission/result (expedition result)");
+            match serde_json::from_str::<models::ApiResponse<dto::member::ApiMissionResultResponse>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::MissionResult(api_data),
+                    None => ParsedApi::Other,
+                },
+                Err(e) => {
+                    error!("Failed to parse mission/result: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        // --- Category B: Log-only (null response / follow-up refresh) ---
+        "/kcsapi/api_get_member/mapinfo" => {
+            info!("Processing api_get_member/mapinfo (gauge cache)");
+            match serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str) {
+                Ok(data) => {
+                    let mut gauges = std::collections::HashMap::new();
+                    if let Some(api_data) = &data.api_data {
+                        if let Some(map_info) = api_data.get("api_map_info").and_then(|v| v.as_array()) {
+                            for m in map_info {
+                                let map_id = m.get("api_id").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                                if let Some(gauge) = m.get("api_gauge_num").and_then(|v| v.as_i64()) {
+                                    if gauge > 0 {
+                                        gauges.insert(map_id, gauge as i32);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if gauges.is_empty() {
+                        ParsedApi::LogOnly
+                    } else {
+                        ParsedApi::MapInfoGauges(gauges)
+                    }
+                }
+                Err(_) => ParsedApi::LogOnly,
+            }
+        }
+        "/kcsapi/api_req_kaisou/slotset"
+        | "/kcsapi/api_req_kaisou/slotset_ex"
+        | "/kcsapi/api_req_kaisou/unsetslot_all"
+        | "/kcsapi/api_req_kaisou/preset_slot_select"
+        | "/kcsapi/api_req_kaisou/remodeling"
+        | "/kcsapi/api_req_kousyou/createship"
+        | "/kcsapi/api_req_kousyou/createship_speedchange"
+        | "/kcsapi/api_req_mission/start" => {
+            info!("Processing {} (log only, state refreshed by follow-up API)", endpoint);
+            ParsedApi::LogOnly
+        }
+        // --- Category B: Practice battles ---
+        "/kcsapi/api_req_practice/battle"
+        | "/kcsapi/api_req_practice/midnight_battle" => {
+            info!("Processing {} (practice battle)", endpoint);
+            match serde_json::from_str::<serde_json::Value>(json_str) {
+                Ok(v) => ParsedApi::Battle(v),
+                Err(e) => {
+                    error!("Failed to parse practice battle: {}", e);
+                    ParsedApi::Other
+                }
+            }
         }
         ep if battle::is_battle_endpoint(ep) => match serde_json::from_str::<serde_json::Value>(json_str) {
             Ok(v) => ParsedApi::Battle(v),
@@ -399,8 +633,8 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
             ParsedApi::Battle(json) => {
                 battle::process_battle(&mut state, &endpoint, &request_body, &json, &app);
             }
-            ParsedApi::ExerciseResult(json) => {
-                battle::process_exercise_result(&mut state, &json, &app);
+            ParsedApi::ExerciseResult(api_data) => {
+                battle::process_exercise_result(&mut state, &api_data, &app);
             }
             ParsedApi::HenseiChange {
                 fleet_id,
@@ -501,13 +735,16 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
                     }
                 }
             }
+            ParsedApi::Charge(api_data) => {
+                ship::process_charge(&mut state, &api_data, &app);
+            }
             ParsedApi::Ship3(api_data) => {
                 ship::process_ship3(&mut state, &api_data, &app);
             }
             ParsedApi::SlotDeprive(api_data) => {
                 ship::process_slot_deprive(&mut state, &api_data, &app);
             }
-            ParsedApi::Ranking(raw_json) => {
+            ParsedApi::Ranking(ranking_data) => {
                 // Get admiral name from cached port data
                 let admiral_name = state
                     .sortie
@@ -520,7 +757,7 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
                     warn!("Ranking: admiral name not available, skipping decryption");
                 } else {
                     let (entries, own_senka) =
-                        crate::senka::decrypt_ranking(&raw_json, &admiral_name);
+                        crate::senka::decrypt_ranking(&ranking_data, &admiral_name);
 
                     if let Some(senka) = own_senka {
                         state.senka.confirm_ranking(senka);
@@ -539,6 +776,123 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
                     }
                 }
             }
+            // --- Category B handlers ---
+            ParsedApi::Powerup(api_data) => {
+                ship::process_powerup(&mut state, &api_data, &app);
+            }
+            ParsedApi::SlotExchange(api_data) => {
+                ship::process_slot_exchange(&mut state, &api_data, &app);
+            }
+            ParsedApi::GetShip(api_data) => {
+                ship::process_getship(&mut state, &api_data, &app);
+            }
+            ParsedApi::DestroyItem2 { item_ids } => {
+                for &id in &item_ids {
+                    state.profile.slotitems.remove(&id);
+                }
+                info!("destroyitem2: removed {} equipment items", item_ids.len());
+            }
+            ParsedApi::DestroyShip { ship_id } => {
+                if ship_id > 0 {
+                    state.profile.ships.remove(&ship_id);
+                    for fleet in &mut state.profile.fleets {
+                        fleet.retain(|&id| id != ship_id);
+                    }
+                    info!("destroyship: removed ship {}", ship_id);
+                }
+                fleet::emit_fleet_update(&state, &app);
+            }
+            ParsedApi::CreateItem(api_data) => {
+                if api_data.api_create_flag == 1 {
+                    // Add new items from api_get_items
+                    for item_val in &api_data.api_get_items {
+                        if let Some(slot) = item_val.get("api_slotitem") {
+                            if let Ok(item) = serde_json::from_value::<models::PlayerSlotItemApi>(slot.clone()) {
+                                state.profile.slotitems.insert(
+                                    item.api_id,
+                                    models::PlayerSlotItem {
+                                        item_id: item.api_id,
+                                        slotitem_id: item.api_slotitem_id,
+                                        level: item.api_level,
+                                        alv: item.api_alv,
+                                        locked: item.api_locked == 1,
+                                    },
+                                );
+                            }
+                        }
+                    }
+                    info!("createitem: success, added {} items", api_data.api_get_items.len());
+                } else {
+                    info!("createitem: development failed");
+                }
+            }
+            ParsedApi::MemberMaterial(materials) => {
+                // Update cached port summary if available
+                if let Some(ref mut cached) = state.sortie.last_port_summary {
+                    cached.fuel = get_material(&materials, MATERIAL_FUEL);
+                    cached.ammo = get_material(&materials, MATERIAL_AMMO);
+                    cached.steel = get_material(&materials, MATERIAL_STEEL);
+                    cached.bauxite = get_material(&materials, MATERIAL_BAUXITE);
+                    cached.instant_repair = get_material(&materials, MATERIAL_INSTANT_REPAIR);
+                    cached.instant_build = get_material(&materials, MATERIAL_INSTANT_BUILD);
+                    cached.dev_material = get_material(&materials, MATERIAL_DEV_MATERIAL);
+                    cached.improvement_material = get_material(&materials, MATERIAL_IMPROVEMENT);
+                    let _ = app.emit("port-data", &*cached);
+                }
+                info!("material: updated resource values");
+            }
+            ParsedApi::MemberNDock(ndock) => {
+                // Build dock summaries before borrowing cached summary mutably
+                let dock_summaries: Vec<models::DockSummary> = ndock
+                    .iter()
+                    .map(|dock| {
+                        let ship_name = if dock.api_ship_id > 0 {
+                            state.profile.ships.get(&dock.api_ship_id)
+                                .map(|info| info.name.clone())
+                                .unwrap_or_else(|| format!("Unknown({})", dock.api_ship_id))
+                        } else {
+                            String::new()
+                        };
+                        models::DockSummary {
+                            id: dock.api_id,
+                            state: dock.api_state,
+                            ship_id: dock.api_ship_id,
+                            ship_name,
+                            complete_time: dock.api_complete_time,
+                        }
+                    })
+                    .collect();
+                if let Some(ref mut cached) = state.sortie.last_port_summary {
+                    cached.ndock = dock_summaries;
+                    let _ = app.emit("port-data", &*cached);
+                }
+                info!("ndock: updated {} repair docks", ndock.len());
+            }
+            ParsedApi::MemberDeck(decks) => {
+                for fleet in &decks {
+                    let ship_ids: Vec<i32> = fleet.api_ship.iter().filter(|&&id| id > 0).copied().collect();
+                    let fidx = fleet.api_id as usize;
+                    while state.profile.fleets.len() < fidx {
+                        state.profile.fleets.push(Vec::new());
+                    }
+                    if fidx > 0 {
+                        state.profile.fleets[fidx - 1] = ship_ids;
+                    }
+                }
+                info!("deck: updated {} fleets", decks.len());
+                fleet::emit_fleet_update(&state, &app);
+            }
+            ParsedApi::MissionResult(api_data) => {
+                info!(
+                    "mission/result: clear_result={}, exp={}, materials={:?}",
+                    api_data.api_clear_result, api_data.api_get_exp, api_data.api_get_material
+                );
+            }
+            ParsedApi::MapInfoGauges(gauges) => {
+                state.mapinfo_gauges = gauges;
+                info!("mapinfo: cached {} gauge entries", state.mapinfo_gauges.len());
+            }
+            ParsedApi::LogOnly => {}
             ParsedApi::Other => {}
         }
     });
@@ -867,7 +1221,7 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
 /// api_state: 1=not accepted, 2=accepted/in progress, 3=completed
 fn process_questlist(
     state: &mut models::GameStateInner,
-    data: &crate::api::dto::battle::ApiQuestListResponse,
+    data: &dto::member::ApiQuestListResponse,
     app: &AppHandle,
 ) {
     if let Some(api_list) = data.api_list.as_ref() {
