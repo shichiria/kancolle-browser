@@ -46,30 +46,45 @@ fn get_formation_button_rect(formation: i32, _ship_count: usize) -> Option<(f64,
 
 /// Show formation highlight using the click-through formation-hint window
 pub(crate) fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: usize) {
+    log::info!("[FormationHint] show: formation={} ({}), ships={}", formation, formation_name(formation), ship_count);
+
     // Check if formation hint is enabled
     if let Some(state) = app.try_state::<crate::AppState>() {
         if !state.formation_hint_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+            log::info!("[FormationHint] disabled, skipping");
             return;
         }
     }
 
     let game_win = match app.get_window("game") {
         Some(w) => w,
-        None => return,
+        None => {
+            log::warn!("[FormationHint] game window not found");
+            return;
+        }
     };
     let hint_win = match app.get_window("formation-hint") {
         Some(w) => w,
-        None => return,
+        None => {
+            log::warn!("[FormationHint] formation-hint window not found");
+            return;
+        }
     };
 
     let (bx, by, bw, bh) = match get_formation_button_rect(formation, ship_count) {
         Some(r) => r,
-        None => return,
+        None => {
+            log::warn!("[FormationHint] no button rect for formation={}", formation);
+            return;
+        }
     };
 
     let inner_pos = match game_win.inner_position() {
         Ok(p) => p,
-        Err(_) => return,
+        Err(e) => {
+            log::warn!("[FormationHint] failed to get game window position: {}", e);
+            return;
+        }
     };
     let scale = game_win.scale_factor().unwrap_or(1.0);
 
@@ -113,20 +128,33 @@ pub(crate) fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: u
         formation, ship_count, scale, inner_pos.x, inner_pos.y, outer_pos, win_size, dx, dy, screen_x, screen_y, phys_w, phys_h
     );
 
-    let _ = hint_win.set_size(tauri::PhysicalSize::new(phys_w, phys_h));
-    if let Some(wv) = app.get_webview("formation-hint-content") {
-        let _ = wv.set_size(tauri::PhysicalSize::new(phys_w, phys_h));
+    if let Err(e) = hint_win.set_size(tauri::PhysicalSize::new(phys_w, phys_h)) {
+        log::warn!("[FormationHint] failed to set window size: {}", e);
     }
-    let _ = hint_win.set_position(tauri::PhysicalPosition::new(screen_x, screen_y));
-    let _ = hint_win.show();
+    if let Some(wv) = app.get_webview("formation-hint-content") {
+        if let Err(e) = wv.set_size(tauri::PhysicalSize::new(phys_w, phys_h)) {
+            log::warn!("[FormationHint] failed to set webview size: {}", e);
+        }
+    } else {
+        log::warn!("[FormationHint] formation-hint-content webview not found");
+    }
+    if let Err(e) = hint_win.set_position(tauri::PhysicalPosition::new(screen_x, screen_y)) {
+        log::warn!("[FormationHint] failed to set position: {}", e);
+    }
+    if let Err(e) = hint_win.show() {
+        log::warn!("[FormationHint] failed to show window: {}", e);
+    }
 }
 
 /// Hide formation hint window
 pub fn hide_formation_hint(app: &AppHandle) {
+    log::debug!("[FormationHint] hiding");
     if let Some(app_state) = app.try_state::<crate::AppState>() {
         app_state.formation_hint_rect.lock().unwrap().visible = false;
     }
     if let Some(hint_win) = app.get_window("formation-hint") {
-        let _ = hint_win.hide();
+        if let Err(e) = hint_win.hide() {
+            log::warn!("[FormationHint] failed to hide window: {}", e);
+        }
     }
 }

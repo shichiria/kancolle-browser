@@ -4,6 +4,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use super::models;
 use super::formation::{formation_name, show_formation_hint, hide_formation_hint};
 use super::minimap::update_minimap_overlay;
+use super::battle_info;
 use super::notify_sync;
 
 /// Check if an endpoint is a battle-related API
@@ -226,6 +227,28 @@ pub(super) fn process_battle(
                             }
                         }
                         hide_formation_hint(app);
+
+                        // Show battle info overlay directly from API response
+                        // (node.battle is not populated until on_battle_result)
+                        if let Some(arr) = &data.api_formation {
+                            if arr.len() >= 3 {
+                                let engagement_id = arr[2];
+                                let air_id = data.api_kouku.as_ref()
+                                    .and_then(|k| k.api_stage1.as_ref())
+                                    .and_then(|s| s.api_disp_seiku);
+                                let (air_text, air_color) = air_id
+                                    .map(|id| battle_info::air_superiority_label(id))
+                                    .unwrap_or(("", ""));
+                                info!("[Battle] showing overlay: engagement={}, air={:?}", engagement_id, air_id);
+                                let info_data = battle_info::BattleInfoData {
+                                    engagement: battle_info::engagement_name(engagement_id).to_string(),
+                                    engagement_color: battle_info::engagement_color(engagement_id).to_string(),
+                                    air_control: air_text.to_string(),
+                                    air_control_color: air_color.to_string(),
+                                };
+                                battle_info::show_battle_info_overlay(app, &info_data);
+                            }
+                        }
                     }
                 }
                 Err(e) => error!("Failed to parse battle response: {}", e),
@@ -245,6 +268,23 @@ pub(super) fn process_battle(
                 Ok(resp) => {
                     if let Some(data) = resp.api_data {
                         state.sortie.battle_logger.on_midnight_battle(&data, json);
+
+                        // Show battle info for night-start battles (sp_midnight, ec_night_to_day)
+                        if endpoint.contains("sp_midnight") || endpoint.contains("ec_night_to_day") {
+                            if let Some(arr) = &data.api_formation {
+                                if arr.len() >= 3 {
+                                    let engagement_id = arr[2];
+                                    info!("[Battle] night-start overlay: engagement={}", engagement_id);
+                                    let info_data = battle_info::BattleInfoData {
+                                        engagement: battle_info::engagement_name(engagement_id).to_string(),
+                                        engagement_color: battle_info::engagement_color(engagement_id).to_string(),
+                                        air_control: String::new(),
+                                        air_control_color: String::new(),
+                                    };
+                                    battle_info::show_battle_info_overlay(app, &info_data);
+                                }
+                            }
+                        }
                     }
                 }
                 Err(e) => error!("Failed to parse midnight battle response: {}", e),

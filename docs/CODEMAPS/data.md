@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-13 | Files scanned: 10 | Token estimate: ~800 -->
+<!-- Generated: 2026-03-22 | Files scanned: 10 | Token estimate: ~800 -->
 # Data Layer
 
 ## Static Data (bundled in build)

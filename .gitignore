@@ -38,6 +38,11 @@ nul
 
 # Claude Code hook marker
 .claude/gemini_approved
+.claude/sessions/
+.claude/worktrees/
+
+# Session backups
+SESSION-BACKUP-*.md
 
 # Playwright MCP
 .playwright-mcp/

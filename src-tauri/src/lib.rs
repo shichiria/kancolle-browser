@@ -40,6 +40,9 @@ pub struct AppState {
     pub formation_hint_enabled: AtomicBool,
     pub taiha_alert_enabled: AtomicBool,
     pub minimap_enabled: AtomicBool,
+    pub battle_info_enabled: AtomicBool,
+    /// Last battle info data for re-display on toggle re-enable
+    pub last_battle_info: Mutex<Option<crate::api::battle_info::BattleInfoData>>,
     pub expedition_notify_visible: AtomicBool,
     /// Formation hint window offset relative to game window inner position
     pub formation_hint_rect: Mutex<FormationHintRect>,
@@ -66,6 +69,8 @@ pub fn run() {
             formation_hint_enabled: AtomicBool::new(true),
             taiha_alert_enabled: AtomicBool::new(true),
             minimap_enabled: AtomicBool::new(true),
+            battle_info_enabled: AtomicBool::new(true),
+            last_battle_info: Mutex::new(None),
             expedition_notify_visible: AtomicBool::new(false),
             formation_hint_rect: Mutex::new(FormationHintRect::default()),
             game_zoom: Mutex::new(1.0),
@@ -116,6 +121,8 @@ pub fn run() {
             overlay::hide_expedition_notification,
             overlay::set_taiha_alert_enabled,
             overlay::get_taiha_alert_enabled,
+            overlay::set_battle_info_enabled,
+            overlay::get_battle_info_enabled,
             commands::get_quest_progress,
             commands::update_quest_progress,
             commands::clear_quest_progress,
@@ -175,6 +182,16 @@ pub fn run() {
                     let state = app.state::<AppState>();
                     state.minimap_enabled.store(false, Ordering::Relaxed);
                     info!("Restored minimap state: disabled");
+                }
+            }
+
+            // Restore battle info enabled state from disk (default: enabled)
+            let battle_info_file = data_dir.join("local").join("battle_info_enabled");
+            if let Ok(content) = std::fs::read_to_string(&battle_info_file) {
+                if content.trim() == "0" {
+                    let state = app.state::<AppState>();
+                    state.battle_info_enabled.store(false, Ordering::Relaxed);
+                    info!("Restored battle info state: disabled");
                 }
             }
 

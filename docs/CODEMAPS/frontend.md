@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-18 | Files scanned: 57 | Token estimate: ~950 -->
+<!-- Generated: 2026-03-22 | Files scanned: 59 | Token estimate: ~950 -->
 # Frontend (React/TS)
 
 ## Structure
@@ -64,9 +64,11 @@ equipment.ts — EquipListItem, EquipListResponse
 improvement.ts — ImprovementItem, ImprovementListResponse
 senka.ts — SenkaSummary
 
-## Utils (src/utils/, 4 modules)
+## Utils (src/utils/, 4 modules + 2 test files)
 format.ts — getRankName, formatRemaining, fmtDate, toDateStr, daysInMonth
+format.test.ts — unit tests for format utilities (108L)
 color.ts — hpColor, condColor, condBgClass
+color.test.ts — unit tests for color utilities (75L)
 map.ts — getNodeLabel, buildPredeckUrl, CELL_COLORS
 index.ts — barrel re-export
 

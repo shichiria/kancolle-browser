@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-18 | Files scanned: 32 | Token estimate: ~950 -->
+<!-- Generated: 2026-03-22 | Files scanned: 34 | Token estimate: ~950 -->
 # Backend (Rust/Tauri)
 
 ## Modules (lib.rs → 15 modules)
@@ -54,10 +54,11 @@ drive_login, drive_logout, get_drive_status, drive_force_sync
 set_raw_api_enabled, get_raw_api_enabled, clear_raw_api
 
 ## API Interceptor (api/mod.rs → process_api)
-Routing: endpoint string → match block, delegates to sub-modules
+Routing: endpoint string → ParsedApi enum, delegates to sub-modules.
+Two-tier: Category A (stateful — port, battle, fleet) + Category B (info-only — ranking, useitem).
 Key endpoints:
 - api_start2 → MasterData parse (ships, equip, missions)
-- api_port → PortData build, fleet/quest/senka emit
+- api_port → PortData build (typed DTOs: dto::member), fleet/quest/senka emit
 - api_req_map/start → sortie start
 - api_req_sortie/battle* → api::battle module
 - api_req_battle_midnight/* → api::battle module
@@ -66,7 +67,14 @@ Key endpoints:
 - api_req_quest/* → quest start/stop/list
 - api_req_kousyou/remodel_slot → improvement tracking
 - api_req_practice/* → api::battle (exercise tracking)
+- api_req_ranking/mxltvkpyuklh → ranking decryption (dto::ranking)
 - Ship slot/equip updates → api::ship module
+
+## DTOs (api/dto/)
+- battle.rs — Battle/quest/remodel response structs
+- member.rs — Typed port/slot_item/ndock API response parsing
+- ranking.rs — Ranking API entry structs for senka decryption
+- request.rs — Hensei/remodel/quest request body structs
 
 ## Events (backend → frontend)
 port-data, fleet-updated, quest-list-updated, quest-progress-updated
@@ -85,3 +93,7 @@ GameState: Arc<RwLock<GameStateInner>>
 ├── senka_tracker: SenkaTracker
 ├── quest_progress: QuestProgressState
 └── sortie: SortieState
+
+## Tests (api/tests.rs — 1,764L)
+Comprehensive API handler tests covering port parsing, fleet updates,
+battle processing, quest progress, senka tracking, and DTO deserialization.

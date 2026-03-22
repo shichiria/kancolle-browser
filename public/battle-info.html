@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #e0e0e0;
+}
+.battle-info-panel {
+  background: rgba(10, 25, 47, 0.90);
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 6px 14px;
+  display: inline-flex;
+  gap: 14px;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.battle-info-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.battle-info-label {
+  font-size: 9px;
+  color: #78909c;
+  letter-spacing: 0.5px;
+}
+.battle-info-value {
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 0 0 6px currentColor;
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+<div id="battle-info-root"></div>
+<script>
+(function() {
+  var root = document.getElementById('battle-info-root');
+
+  window.showBattleInfo = function(data) {
+    var html = '<div class="battle-info-panel">';
+    html += '<div class="battle-info-item">';
+    html += '<span class="battle-info-label">\u4EA4\u6226</span>';
+    html += '<span class="battle-info-value" style="color:' + (data.engagement_color || '#b0bec5') + ';">' + (data.engagement || '') + '</span>';
+    html += '</div>';
+    if (data.air_control) {
+      html += '<div class="battle-info-item">';
+      html += '<span class="battle-info-label">\u5236\u7A7A</span>';
+      html += '<span class="battle-info-value" style="color:' + (data.air_control_color || '#78909c') + ';">' + data.air_control + '</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+    root.innerHTML = html;
+  };
+
+  window.hideBattleInfo = function() {
+    root.innerHTML = '';
+  };
+})();
+</script>
+</body>
+</html>

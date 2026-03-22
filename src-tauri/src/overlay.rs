@@ -17,10 +17,10 @@ pub(crate) fn set_formation_hint_enabled(
 
     // Persist to disk
     if let Ok(dir) = app.path().app_local_data_dir() {
-        let _ = std::fs::write(
-            dir.join("local").join("formation_hint_enabled"),
-            if enabled { "1" } else { "0" },
-        );
+        let path = dir.join("local").join("formation_hint_enabled");
+        if let Err(e) = std::fs::write(&path, if enabled { "1" } else { "0" }) {
+            log::warn!("[Overlay] failed to persist formation_hint_enabled: {}", e);
+        }
     }
 
     // Hide hint window immediately when disabled
@@ -46,10 +46,10 @@ pub(crate) fn set_taiha_alert_enabled(
     state.taiha_alert_enabled.store(enabled, Ordering::Relaxed);
 
     if let Ok(dir) = app.path().app_local_data_dir() {
-        let _ = std::fs::write(
-            dir.join("local").join("taiha_alert_enabled"),
-            if enabled { "1" } else { "0" },
-        );
+        let path = dir.join("local").join("taiha_alert_enabled");
+        if let Err(e) = std::fs::write(&path, if enabled { "1" } else { "0" }) {
+            log::warn!("[Overlay] failed to persist taiha_alert_enabled: {}", e);
+        }
     }
 
     info!("Taiha alert set to {}", if enabled { "enabled" } else { "disabled" });
@@ -59,6 +59,46 @@ pub(crate) fn set_taiha_alert_enabled(
 #[tauri::command]
 pub(crate) fn get_taiha_alert_enabled(state: State<AppState>) -> bool {
     state.taiha_alert_enabled.load(Ordering::Relaxed)
+}
+
+#[tauri::command]
+pub(crate) fn set_battle_info_enabled(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    enabled: bool,
+) -> Result<(), String> {
+    state
+        .battle_info_enabled
+        .store(enabled, Ordering::Relaxed);
+
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let path = dir.join("local").join("battle_info_enabled");
+        if let Err(e) = std::fs::write(&path, if enabled { "1" } else { "0" }) {
+            log::warn!("[Overlay] failed to persist battle_info_enabled: {}", e);
+        }
+    }
+
+    if enabled {
+        // Re-show overlay with stored data if available
+        let stored = state.last_battle_info.lock().unwrap().clone();
+        if let Some(data) = stored {
+            info!("Battle info re-enabled, re-showing stored data");
+            crate::api::battle_info::show_battle_info_overlay(&app, &data);
+        }
+    } else {
+        // Hide but keep stored data (hide_battle_info_overlay clears it on port return)
+        if let Some(win) = app.get_window("battle-info") {
+            let _ = win.hide();
+        }
+    }
+
+    info!("Battle info overlay set to {}", if enabled { "enabled" } else { "disabled" });
+    Ok(())
+}
+
+#[tauri::command]
+pub(crate) fn get_battle_info_enabled(state: State<AppState>) -> bool {
+    state.battle_info_enabled.load(Ordering::Relaxed)
 }
 
 /// Show or hide the overlay webview.
@@ -105,8 +145,14 @@ const MINIMAP_ASPECT: f64 = 0.68; // h/w ratio
 
 /// Position overlay to minimap area (saved position or default bottom-right)
 pub fn show_minimap_overlay(app: &tauri::AppHandle) -> Result<(), String> {
-    let overlay = app.get_webview("game-overlay").ok_or("Overlay not found")?;
-    let win = app.get_window("game").ok_or("Game window not found")?;
+    let overlay = app.get_webview("game-overlay").ok_or_else(|| {
+        log::warn!("[Minimap] game-overlay webview not found in show_minimap_overlay");
+        "Overlay not found".to_string()
+    })?;
+    let win = app.get_window("game").ok_or_else(|| {
+        log::warn!("[Minimap] game window not found in show_minimap_overlay");
+        "Game window not found".to_string()
+    })?;
     let phys = win.inner_size().map_err(|e| e.to_string())?;
     let scale = win.scale_factor().unwrap_or(1.0);
     let logical = phys.to_logical::<f64>(scale);
@@ -263,12 +309,20 @@ pub(crate) fn show_expedition_notification(
         .map_err(|e| e.to_string())?;
 
     if let Some(wv) = app.get_webview("expedition-notify-content") {
-        let _ = wv.set_size(tauri::LogicalSize::new(EXPEDITION_NOTIFY_W, notify_h));
+        if let Err(e) = wv.set_size(tauri::LogicalSize::new(EXPEDITION_NOTIFY_W, notify_h)) {
+            log::warn!("[ExpeditionNotify] failed to set webview size: {}", e);
+        }
         let json = serde_json::to_string(&notifications).unwrap_or_default();
-        let _ = wv.eval(&format!("window.showNotifications({})", json));
+        if let Err(e) = wv.eval(&format!("window.showNotifications({})", json)) {
+            log::warn!("[ExpeditionNotify] failed to eval JS: {}", e);
+        }
+    } else {
+        log::warn!("[ExpeditionNotify] expedition-notify-content webview not found");
     }
 
-    let _ = notify_win.show();
+    if let Err(e) = notify_win.show() {
+        log::warn!("[ExpeditionNotify] failed to show window: {}", e);
+    }
     state
         .expedition_notify_visible
         .store(true, Ordering::Relaxed);
@@ -317,7 +371,9 @@ pub(crate) fn reposition_expedition_notification(app: &tauri::AppHandle) {
         - ((EXPEDITION_NOTIFY_W + EXPEDITION_NOTIFY_MARGIN) * scale) as i32;
     let y = phys_pos.y + (top_offset * scale) as i32;
 
-    let _ = notify_win.set_position(tauri::PhysicalPosition::new(x, y));
+    if let Err(e) = notify_win.set_position(tauri::PhysicalPosition::new(x, y)) {
+        log::warn!("[ExpeditionNotify] failed to reposition: {}", e);
+    }
 }
 
 /// Reposition the formation hint window to follow the game window
@@ -341,5 +397,7 @@ pub(crate) fn reposition_formation_hint(app: &tauri::AppHandle) {
     };
     let screen_x = inner_pos.x + rect.dx;
     let screen_y = inner_pos.y + rect.dy;
-    let _ = hint_win.set_position(tauri::PhysicalPosition::new(screen_x, screen_y));
+    if let Err(e) = hint_win.set_position(tauri::PhysicalPosition::new(screen_x, screen_y)) {
+        log::warn!("[FormationHint] failed to reposition: {}", e);
+    }
 }

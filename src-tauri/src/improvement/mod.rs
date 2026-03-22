@@ -185,22 +185,36 @@ fn get_primary_stat(eq_type: i32, info: &MasterSlotItemInfo) -> i32 {
 pub fn load_improved_history(path: &Path) -> HashSet<i32> {
     match std::fs::read_to_string(path) {
         Ok(content) => {
-            serde_json::from_str::<Vec<i32>>(&content)
+            let set: HashSet<i32> = serde_json::from_str::<Vec<i32>>(&content)
                 .unwrap_or_default()
                 .into_iter()
-                .collect()
+                .collect();
+            log::info!("[Improvement] loaded {} improved equipment IDs from {}", set.len(), path.display());
+            set
         }
-        Err(_) => HashSet::new(),
+        Err(e) => {
+            log::debug!("[Improvement] no improved history at {}: {}", path.display(), e);
+            HashSet::new()
+        }
     }
 }
 
 pub fn save_improved_history(path: &Path, history: &HashSet<i32>) {
     let ids: Vec<i32> = history.iter().copied().collect();
-    if let Ok(json) = serde_json::to_string(&ids) {
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
+    match serde_json::to_string(&ids) {
+        Ok(json) => {
+            if let Some(parent) = path.parent() {
+                if let Err(e) = std::fs::create_dir_all(parent) {
+                    log::warn!("[Improvement] failed to create dir {}: {}", parent.display(), e);
+                }
+            }
+            if let Err(e) = std::fs::write(path, json) {
+                log::warn!("[Improvement] failed to save improved history to {}: {}", path.display(), e);
+            }
         }
-        let _ = std::fs::write(path, json);
+        Err(e) => {
+            log::warn!("[Improvement] failed to serialize improved history: {}", e);
+        }
     }
 }
 

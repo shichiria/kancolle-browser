@@ -101,9 +101,13 @@ impl HttpHandler for KanColleHandler {
         res: Response<Body>,
     ) -> Response<Body> {
         // Retrieve and remove per-connection request data to prevent memory leaks
-        let (uri, req_body) = self.request_data.lock().unwrap()
-            .remove(&ctx.client_addr)
-            .unwrap_or_default();
+        let (uri, req_body) = match self.request_data.lock().unwrap().remove(&ctx.client_addr) {
+            Some(data) => data,
+            None => {
+                log::debug!("[Proxy] no request_data for client {}, using default", ctx.client_addr);
+                Default::default()
+            }
+        };
 
         // Cache non-API resources (images, JSON, JS, CSS, etc.) for offline use
         if !uri.contains("/kcsapi/") {

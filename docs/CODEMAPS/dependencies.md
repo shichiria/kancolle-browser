@@ -1,4 +1,4 @@
-<!-- Generated: 2026-03-13 | Files scanned: 3 | Token estimate: ~500 -->
+<!-- Generated: 2026-03-22 | Files scanned: 3 | Token estimate: ~500 -->
 # Dependencies
 
 ## Rust (Cargo.toml)

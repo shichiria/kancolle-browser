@@ -1,6 +1,7 @@
 pub mod dto;
 pub mod models;
 mod battle;
+pub(crate) mod battle_info;
 mod fleet;
 pub(crate) mod formation;
 pub(crate) mod minimap;
@@ -1047,6 +1048,7 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
             let _ = app.emit("sortie-complete", &summary);
         }
         minimap::hide_minimap_overlay(app);
+        battle_info::hide_battle_info_overlay(app);
     }
 
     // Check quest progress resets on returning to port

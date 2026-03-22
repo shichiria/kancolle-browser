@@ -130,6 +130,7 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
         .map_err(|e| e.to_string())?;
 
     // Create click-through formation hint window (separate window so it doesn't block game input)
+    info!("Creating formation-hint window");
     let hint_win = WindowBuilder::new(&app, "formation-hint")
         .decorations(false)
         .transparent(true)
@@ -156,7 +157,48 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
         )
         .map_err(|e| e.to_string())?;
 
+    // Create battle info window (click-through, transparent, top-left of game)
+    info!("Creating battle-info window");
+    let battle_info_win = WindowBuilder::new(&app, "battle-info")
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .visible(false)
+        .skip_taskbar(true)
+        .inner_size(280.0, 50.0)
+        .build()
+        .map_err(|e| {
+            log::error!("Failed to create battle-info window: {}", e);
+            e.to_string()
+        })?;
+
+    battle_info_win
+        .set_ignore_cursor_events(true)
+        .map_err(|e| {
+            log::error!("Failed to set battle-info ignore cursor: {}", e);
+            e.to_string()
+        })?;
+
+    let _battle_info_wv = battle_info_win
+        .add_child(
+            WebviewBuilder::new(
+                "battle-info-content",
+                WebviewUrl::App("battle-info.html".into()),
+            )
+            .transparent(true),
+            tauri::LogicalPosition::new(0.0, 0.0),
+            tauri::LogicalSize::new(280.0, 50.0),
+        )
+        .map_err(|e| {
+            log::error!("Failed to create battle-info-content webview: {}", e);
+            e.to_string()
+        })?;
+    info!("battle-info window created successfully");
+
+    info!("formation-hint window created successfully");
+
     // Create expedition notification window (click-through, transparent)
+    info!("Creating expedition-notify window");
     let notify_win = WindowBuilder::new(&app, "expedition-notify")
         .decorations(false)
         .transparent(true)
@@ -182,6 +224,8 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
             tauri::LogicalSize::new(250.0, 100.0),
         )
         .map_err(|e| e.to_string())?;
+
+    info!("expedition-notify window created successfully");
 
     // Sync game webview on resize, reposition formation hint on move/resize
     let resize_app = app.clone();
@@ -225,11 +269,21 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
 /// Close the game window
 #[tauri::command]
 pub(crate) async fn close_game_window(app: tauri::AppHandle) -> Result<(), String> {
+    info!("Closing game window and child windows");
     if let Some(hint_win) = app.get_window("formation-hint") {
-        let _ = hint_win.close();
+        if let Err(e) = hint_win.close() {
+            log::warn!("Failed to close formation-hint: {}", e);
+        }
+    }
+    if let Some(battle_info_win) = app.get_window("battle-info") {
+        if let Err(e) = battle_info_win.close() {
+            log::warn!("Failed to close battle-info: {}", e);
+        }
     }
     if let Some(notify_win) = app.get_window("expedition-notify") {
-        let _ = notify_win.close();
+        if let Err(e) = notify_win.close() {
+            log::warn!("Failed to close expedition-notify: {}", e);
+        }
     }
     if let Some(win) = app.get_window("game") {
         // Force save cookies immediately before closing
@@ -297,10 +351,10 @@ pub(crate) fn toggle_game_mute(
 
     // Persist to disk so mute survives app restart
     if let Ok(dir) = app.path().app_local_data_dir() {
-        let _ = std::fs::write(
-            dir.join("local").join("game_muted"),
-            if muted { "1" } else { "0" },
-        );
+        let path = dir.join("local").join("game_muted");
+        if let Err(e) = std::fs::write(&path, if muted { "1" } else { "0" }) {
+            log::warn!("Failed to persist game_muted: {}", e);
+        }
     }
 
     let game_wv = app

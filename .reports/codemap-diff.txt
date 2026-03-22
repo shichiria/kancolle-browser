@@ -1,33 +1,41 @@
 Codemap Update Report
 ══════════════════════════════
-Date: 2026-03-13 (update #2 — post-refactoring)
-Previous: 2026-03-13 (initial generation)
+Date: 2026-03-22 (update #3 — post API type strengthening)
+Previous: 2026-03-18
 
 Updated Files:
-  docs/CODEMAPS/architecture.md  — Major update (frontend module map rewritten)
-  docs/CODEMAPS/frontend.md      — Complete rewrite (monolith → modular)
+  docs/CODEMAPS/architecture.md  — Line counts updated, new DTO files added
+  docs/CODEMAPS/backend.md       — DTO section added, test expansion noted, Category A+B routing
+  docs/CODEMAPS/frontend.md      — Test files added to utils section
+  docs/CODEMAPS/data.md          — Timestamp refreshed (no structural changes)
+  docs/CODEMAPS/dependencies.md  — Timestamp refreshed (no dependency changes)
 
-Unchanged Files:
-  docs/CODEMAPS/backend.md       — No backend changes
-  docs/CODEMAPS/data.md          — No storage changes
-  docs/CODEMAPS/dependencies.md  — No dependency changes
+Key Changes Since Last Scan (2026-03-18):
+  Commits: 2 (feat: API型付け強化, fix: ドメインバグレビュー)
 
-Architecture Changes:
-  ✓ App.tsx split: 3540L → 453L (87% reduction)
-  ✓ App.css split: 2500L → 231L (91% reduction)
-  ✓ New: src/types/ (10 files, 385L) — extracted type definitions
-  ✓ New: src/utils/ (4 files, 187L) — extracted utility functions
-  ✓ New: src/components/ (7 subdirectories, 37 files)
-      common/ (382L), homeport/ (1961L), battle/ (1270L)
-      ships/ (326L), equips/ (124L), improvement/ (386L), settings/ (466L)
+  Backend (Rust):
+  ✓ api/mod.rs:     917L → 1272L (+355L) — Category B processing added, typed DTO parsing
+  ✓ api/dto/:       123L → 316L (+193L) — New: member.rs (186L), ranking.rs (25L)
+  ✓ api/tests.rs:    84L → 1764L (+1680L) — Comprehensive test suite expansion
+  ✓ senka/mod.rs:   864L → 822L (-42L) — Refactored ranking decryption
+  ✓ battle_log/:    683L → 690L (+7L) — Minor fixes
 
-Code Fixes (this session):
-  ✓ Fixed refreshBattleLogs stale closure (useRef pattern)
-  ✓ Removed unused nodeIndex prop from BattleNodeDetail
-  ✓ Removed unused SupplyBar component
+  Frontend (TypeScript):
+  ✓ New: utils/color.test.ts (75L) — Unit tests for color utilities
+  ✓ New: utils/format.test.ts (108L) — Unit tests for format utilities
+
+  Totals:
+    Rust:     11,593L → 13,646L (+2,053L, +18%) — mainly tests & DTOs
+    Frontend:  6,530L →  6,501L (-29L, stable) — +183L tests, minor cleanups
+
+Resolved Warnings:
+  ✓ api/tests.rs: 84L → 1764L (no longer minimal)
+  ✓ Frontend tests now exist (color.test.ts, format.test.ts)
 
 Remaining Warnings:
-  ⚠ lib.rs is 2539 lines — oversized, many Tauri commands mixed with logic
-  ⚠ api/mod.rs is 2271 lines — large match block for API routing
-  ⚠ No frontend tests
-  ✓ Backend has test file (api/tests.rs, 84 lines — minimal)
+  ⚠ api/mod.rs is 1,272 lines — large but improved with typed DTO parsing
+  ⚠ commands.rs is 974 lines — many Tauri commands
+  ⚠ Frontend test coverage still limited (2 util test files only)
+
+Staleness Check:
+  All codemaps updated 2026-03-22 — fresh.

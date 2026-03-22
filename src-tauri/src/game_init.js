@@ -157,6 +157,7 @@
             + '<button id="kc-formation" title="\u{9663}\u{5F62}\u{8A18}\u{61B6}">\u{9663}\u{5F62}</button>'
             + '<button id="kc-taiha" title="\u{5927}\u{7834}\u{8B66}\u{544A}">\u{26A0}\u{5927}\u{7834}</button>'
             + '<button id="kc-minimap" title="\u{30DF}\u{30CB}\u{30DE}\u{30C3}\u{30D7}">MAP</button>'
+            + '<button id="kc-battle-info" title="\u{6226}\u{95D8}\u{60C5}\u{5831}">\u{6226}\u{95D8}</button>'
             + '<span class="spacer"></span>'
             + '<span class="label">KanColle Browser</span>';
         parent.appendChild(bar);
@@ -229,6 +230,23 @@
             this.className = taihaEnabled ? '' : 'muted';
             this.title = taihaEnabled ? '\u{5927}\u{7834}\u{8B66}\u{544A} ON' : '\u{5927}\u{7834}\u{8B66}\u{544A} OFF';
             window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('set_taiha_alert_enabled', { enabled: taihaEnabled });
+        });
+
+        // Battle info toggle
+        var battleInfoEnabled = true;
+        var battleInfoBtn = document.getElementById('kc-battle-info');
+        if (window.__TAURI_INTERNALS__) {
+            window.__TAURI_INTERNALS__.invoke('get_battle_info_enabled').then(function(e) {
+                battleInfoEnabled = !!e;
+                battleInfoBtn.className = battleInfoEnabled ? '' : 'muted';
+                battleInfoBtn.title = battleInfoEnabled ? '\u{6226}\u{95D8}\u{60C5}\u{5831} ON' : '\u{6226}\u{95D8}\u{60C5}\u{5831} OFF';
+            }).catch(function() {});
+        }
+        battleInfoBtn.addEventListener('click', function() {
+            battleInfoEnabled = !battleInfoEnabled;
+            this.className = battleInfoEnabled ? '' : 'muted';
+            this.title = battleInfoEnabled ? '\u{6226}\u{95D8}\u{60C5}\u{5831} ON' : '\u{6226}\u{95D8}\u{60C5}\u{5831} OFF';
+            window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('set_battle_info_enabled', { enabled: battleInfoEnabled });
         });
 
         // Minimap toggle
