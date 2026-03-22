@@ -232,7 +232,7 @@ pub(crate) async fn get_ship_list(
         .master
         .stypes
         .iter()
-        .map(|(&id, name)| (id, name.clone()))
+        .map(|(&id, name): (&i32, &String)| (id, name.clone()))
         .collect();
     stypes.sort_by_key(|(id, _)| *id);
 
@@ -257,7 +257,7 @@ pub(crate) async fn get_equipment_list(
 
     let mut items: Vec<api::models::EquipListItem> = groups
         .into_iter()
-        .filter_map(|(master_id, player_items)| {
+        .filter_map(|(master_id, player_items): (i32, Vec<&api::models::PlayerSlotItem>)| {
             let master = inner.master.slotitems.get(&master_id)?;
             let type_name = inner
                 .master
@@ -301,7 +301,7 @@ pub(crate) async fn get_equipment_list(
         .equip_types
         .iter()
         .filter(|(id, _)| used_types.contains(id))
-        .map(|(&id, name)| (id, name.clone()))
+        .map(|(&id, name): (&i32, &String)| (id, name.clone()))
         .collect();
     equip_types.sort_by_key(|(id, _)| *id);
 
@@ -925,7 +925,7 @@ pub(crate) async fn drive_logout(state: tauri::State<'_, GameState>) -> Result<(
 
     // Shut down sync engine
     if let Some(tx) = inner.sync_notifier.take() {
-        let _ = tx.send(drive_sync::SyncCommand::Shutdown).await;
+        let _: Result<(), _> = tx.send(drive_sync::SyncCommand::Shutdown).await;
     }
 
     drive_sync::auth::logout(&inner.data_dir);
@@ -963,7 +963,7 @@ pub(crate) async fn drive_force_sync(state: tauri::State<'_, GameState>) -> Resu
         .ok_or("Not connected to Google Drive")?;
     tx.send(drive_sync::SyncCommand::FullSync)
         .await
-        .map_err(|e| format!("Failed to send sync command: {}", e))?;
+        .map_err(|e: tokio::sync::mpsc::error::SendError<drive_sync::SyncCommand>| format!("Failed to send sync command: {}", e))?;
     Ok(())
 }
 
