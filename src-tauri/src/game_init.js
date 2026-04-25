@@ -1,5 +1,42 @@
 
 (function() {
+    // Spoof navigator.userAgentData to look like Edge (instead of WebView2-flavored brands).
+    // DMM appears to inspect Sec-CH-UA / userAgentData.brands and bounce non-Edge browsers
+    // back to login. Without this, login succeeds but play.games.dmm.com immediately
+    // redirects to /service/login/password.
+    try {
+        var fakeBrands = [
+            { brand: "Microsoft Edge", version: "132" },
+            { brand: "Chromium", version: "132" },
+            { brand: "Not_A Brand", version: "24" }
+        ];
+        var fakeUaData = {
+            brands: fakeBrands,
+            mobile: false,
+            platform: "Windows",
+            getHighEntropyValues: function(hints) {
+                return Promise.resolve({
+                    brands: fakeBrands,
+                    mobile: false,
+                    platform: "Windows",
+                    platformVersion: "15.0.0",
+                    architecture: "x86",
+                    bitness: "64",
+                    model: "",
+                    uaFullVersion: "132.0.0.0",
+                    fullVersionList: fakeBrands
+                });
+            },
+            toJSON: function() {
+                return { brands: fakeBrands, mobile: false, platform: "Windows" };
+            }
+        };
+        Object.defineProperty(navigator, 'userAgentData', {
+            get: function() { return fakeUaData; },
+            configurable: true
+        });
+    } catch(e) {}
+
     // --- CSS applied to ALL frames (including cross-origin game iframes) ---
     // This removes scrollbars everywhere in the WebView2 window.
     var COMMON_CSS = `

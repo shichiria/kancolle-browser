@@ -23,6 +23,7 @@ pub(crate) const MACOS_TITLEBAR_HEIGHT: f64 = 0.0;
 /// Uses multi-webview: game-content (game) + game-overlay (transparent overlay).
 #[tauri::command]
 pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String> {
+    crate::action_log::record("Command", "open_game_window", None);
     // Check if game window already exists
     if app.get_window("game").is_some() {
         if let Some(win) = app.get_window("game") {
@@ -39,10 +40,11 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
         return Err("Proxy is not ready yet. Please wait and try again.".to_string());
     }
 
+    #[cfg(target_os = "macos")]
     let proxy_url =
         Url::parse(&format!("http://127.0.0.1:{}", proxy_port)).map_err(|e| e.to_string())?;
 
-    info!("Opening game window with proxy: {}", proxy_url);
+    info!("Opening game window with proxy: http://127.0.0.1:{}", proxy_port);
 
     // Use a persistent data store so cookies/sessions survive across app restarts.
     // Windows: data_directory (file-based WebView2 profile)
@@ -76,7 +78,7 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
     // Add game webview (bottom layer)
     let mut game_wv_builder =
         WebviewBuilder::new("game-content", WebviewUrl::External(game_url))
-            .proxy_url(proxy_url)
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0")
             .initialization_script(&final_init_script)
             .on_navigation(move |nav_url| {
                 let url_str = nav_url.to_string();
@@ -97,12 +99,24 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
     #[cfg(not(target_os = "macos"))]
     {
         game_wv_builder = game_wv_builder.data_directory(data_dir);
+        // wry overrides proxy_url when additional_browser_args is set, so we build args manually
+        // to combine proxy + bypass list. DMM domains bypass the proxy because hudsucker tunneling
+        // to play.games.dmm.com is unreliable; kancolle-server.com still goes through the proxy
+        // for API intercept.
+        let browser_args = format!(
+            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
+             --proxy-server=http://127.0.0.1:{} \
+             --proxy-bypass-list=*.dmm.com;*.dmm-corp.com;*.dmm.co.jp;*.dmmgames.com",
+            proxy_port
+        );
+        game_wv_builder = game_wv_builder.additional_browser_args(&browser_args);
     }
 
     // macOS: use a fixed data_store_identifier for persistent WKWebsiteDataStore (macOS >= 14)
     // This persists cookies (including httpOnly), sessions, and cache natively.
     #[cfg(target_os = "macos")]
     {
+        game_wv_builder = game_wv_builder.proxy_url(proxy_url);
         // Fixed UUID: "kancolle-browser-game" as deterministic 16-byte identifier
         const GAME_DATA_STORE_ID: [u8; 16] = [
             0x6b, 0x61, 0x6e, 0x63, 0x6f, 0x6c, 0x6c, 0x65, // "kancolle"
@@ -262,6 +276,29 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
         }
     });
 
+    // Install OS-level mouse hook for click tracking (Windows only)
+    #[cfg(target_os = "windows")]
+    {
+        let hwnd = game_window.hwnd().map_err(|e| e.to_string())?;
+        let data_dir = app
+            .path()
+            .app_local_data_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."));
+        match crate::mouse_hook::install(hwnd.0 as isize) {
+            Ok(rx) => {
+                info!("Mouse hook installed for game window");
+                // Spawn consumer task for click events
+                let click_app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    crate::mouse_hook::consume_clicks(rx, click_app, data_dir).await;
+                });
+            }
+            Err(e) => {
+                log::warn!("Failed to install mouse hook: {}", e);
+            }
+        }
+    }
+
     info!("Game window opened with proxy on port {}", proxy_port);
     Ok(())
 }
@@ -269,6 +306,8 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
 /// Close the game window
 #[tauri::command]
 pub(crate) async fn close_game_window(app: tauri::AppHandle) -> Result<(), String> {
+    crate::action_log::record("Command", "close_game_window", None);
+    crate::mouse_hook::uninstall();
     info!("Closing game window and child windows");
     if let Some(hint_win) = app.get_window("formation-hint") {
         if let Err(e) = hint_win.close() {

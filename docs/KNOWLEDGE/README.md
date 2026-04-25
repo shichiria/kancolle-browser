@@ -15,4 +15,6 @@ KanColle Browser のドメイン知識。コードレビュー・バグ検出時
 | [ship-types.md](ship-types.md) | 艦種: stype一覧、敵艦種マッチング |
 | [overlay.md](overlay.md) | オーバーレイ: 大破警告、陣形記憶、座標系 |
 | [state-transitions.md](state-transitions.md) | 状態遷移: APIシーケンス、不変条件、クラッシュリカバリ |
+| [api-endpoints.md](api-endpoints.md) | API: 全エンドポイント一覧、レスポンス構造、資材配列フォーマット |
 | [review-checklist.md](review-checklist.md) | レビュー観点: チェックリスト、既知バグパターン、重大度定義 |
+| [dmm-connection.md](dmm-connection.md) | DMM 接続: WebView2 識別回避 (userAgentData 偽装)、proxy bypass、additional_browser_args の注意 |

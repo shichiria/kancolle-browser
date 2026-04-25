@@ -1871,34 +1871,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
-name = "hudsucker"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e69a3f72552bb8b8322341f995d021d0cccb3cd3717781a6dcb33243f29902b"
-dependencies = [
- "async-compression",
- "bstr",
- "futures",
- "http",
- "http-body-util",
- "hyper",
- "hyper-rustls",
- "hyper-tungstenite",
- "hyper-util",
- "moka",
- "rand 0.9.2",
- "rcgen",
- "thiserror 2.0.18",
- "time",
- "tokio",
- "tokio-graceful",
- "tokio-rustls",
- "tokio-tungstenite",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
 name = "hyper"
 version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2098,6 +2070,34 @@ name = "id-arena"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d3067d79b975e8844ca9eb072e16b31c3c1c36928edf9c6789548c524d0d954"
+
+[[package]]
+name = "ideamans-hudsucker"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9d25ef3fab04b7a7699d7a4ede32a92d77e1e9e2f74d56511a1ede45da13ad3"
+dependencies = [
+ "async-compression",
+ "bstr",
+ "futures",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-tungstenite",
+ "hyper-util",
+ "moka",
+ "rand 0.9.2",
+ "rcgen",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "tokio-graceful",
+ "tokio-rustls",
+ "tokio-tungstenite",
+ "tokio-util",
+ "tracing",
+]
 
 [[package]]
 name = "ident_case"
@@ -2342,10 +2342,10 @@ dependencies = [
  "google-drive3",
  "http",
  "http-body-util",
- "hudsucker",
  "hyper",
  "hyper-rustls",
  "hyper-util",
+ "ideamans-hudsucker",
  "image",
  "log",
  "md-5",
@@ -2364,6 +2364,7 @@ dependencies = [
  "url",
  "webview2-com",
  "windows-core 0.61.2",
+ "windows-sys 0.61.2",
  "yup-oauth2",
 ]
 
