@@ -23,4 +23,7 @@
 | [overlay.md](./overlay.md) | オーバーレイ（ミニマップ・陣形・大破警告・遠征通知） |
 | [frontend.md](./frontend.md) | Reactコンポーネント階層・状態管理・型定義・CSS設計 |
 | [action-analysis.md](./action-analysis.md) | action_logs からの画面遷移・アクション抽出手法 |
+| [window-role-swap.md](./window-role-swap.md) | ゲーム window をメイン化、管理 UI を control bar から開閉 |
+| [kantai-window.md](./kantai-window.md) | 艦隊 window + クリック/API ベース画面状態追跡 + Debug タブ |
+| [test-strategy.md](./test-strategy.md) | テスト方針・カバレッジ・リアル click ログ検証 |
 
