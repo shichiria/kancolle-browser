@@ -26,9 +26,6 @@ function App() {
   const [senkaData, setSenkaData] = useState<SenkaSummary | null>(null);
   const [senkaCheckpoint, setSenkaCheckpoint] = useState(false);
   const [apiLog, setApiLog] = useState<ApiLogEntry[]>([]);
-  const [gameOpen, setGameOpen] = useState(false);
-  const [caInstalled, setCaInstalled] = useState<boolean | null>(null);
-  const [caInstalling, setCaInstalling] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [expeditions, setExpeditions] = useState<ExpeditionDef[]>([]);
   const [sortieQuests, setSortieQuests] = useState<SortieQuestDef[]>([]);
@@ -76,7 +73,7 @@ function App() {
   // Expedition completion notification (1 minute before return)
   const prevNotifyKeyRef = useRef("");
   useEffect(() => {
-    if (!portData || !gameOpen) return;
+    if (!portData) return;
 
     const ready: { fleet_id: number; mission_name: string }[] = [];
     for (const fleet of portData.fleets) {
@@ -100,17 +97,7 @@ function App() {
     } else {
       invoke("hide_expedition_notification").catch(console.error);
     }
-  }, [portData, now, gameOpen]);
-
-  // Check CA status
-  const checkCa = useCallback(async () => {
-    try {
-      const installed = await invoke<boolean>("is_ca_installed");
-      setCaInstalled(installed);
-    } catch {
-      setCaInstalled(false);
-    }
-  }, []);
+  }, [portData, now]);
 
   const refreshBattleLogs = useCallback(async () => {
     try {
@@ -144,7 +131,6 @@ function App() {
   useEffect(() => {
     const unlistenProxy = listen<number>("proxy-ready", (event) => {
       setProxyPort(event.payload);
-      checkCa();
     });
 
     const unlistenPort = listen<PortData>("port-data", (event) => {
@@ -249,7 +235,6 @@ function App() {
     invoke<number>("get_proxy_port").then((port) => {
       if (port > 0) {
         setProxyPort(port);
-        checkCa();
       }
     });
 
@@ -287,73 +272,16 @@ function App() {
       unlistenDriveData.then((f) => f());
       unlistenApi.then((f) => f());
     };
-  }, [checkCa]);
-
-  const installCa = async () => {
-    setCaInstalling(true);
-    try {
-      await invoke("install_ca_cert");
-      setCaInstalled(true);
-    } catch (e) {
-      console.error("CA install failed:", e);
-      alert(`CA証明書のインストールに失敗しました: ${e}`);
-    } finally {
-      setCaInstalling(false);
-    }
-  };
-
-  const openGame = async () => {
-    try {
-      await invoke("open_game_window");
-      setGameOpen(true);
-    } catch (e) {
-      console.error("Failed to open game window:", e);
-      alert(`ゲームウィンドウを開けませんでした: ${e}`);
-    }
-  };
-
-  const closeGame = async () => {
-    try {
-      await invoke("close_game_window");
-      setGameOpen(false);
-    } catch (e) {
-      console.error("Failed to close game window:", e);
-    }
-  };
+  }, []);
 
   return (
     <div className="app" style={{ zoom: uiZoom / 100 }}>
       {/* Toolbar */}
       <div className="toolbar">
         <span className="toolbar-title">KanColle Browser</span>
-
-        {proxyPort > 0 && caInstalled === false && (
-          <button
-            className="ca-btn"
-            onClick={installCa}
-            disabled={caInstalling}
-          >
-            {caInstalling ? "Installing..." : "Install CA Cert"}
-          </button>
-        )}
-
-        {!gameOpen ? (
-          <button onClick={openGame} disabled={proxyPort === 0 || caInstalled !== true}>
-            Open Game
-          </button>
-        ) : (
-          <button onClick={closeGame}>Close Game</button>
-        )}
-
         <span className={`status ${proxyPort > 0 ? "connected" : ""}`}>
           {proxyPort > 0 ? `Proxy: ${proxyPort}` : "Proxy starting..."}
         </span>
-
-        {proxyPort > 0 && caInstalled !== null && (
-          <span className={`status ${caInstalled ? "connected" : "ca-warning"}`}>
-            {caInstalled ? "CA: OK" : "CA: Not Installed"}
-          </span>
-        )}
       </div>
 
       {/* Tab bar */}
@@ -412,8 +340,8 @@ function App() {
             now={now} expeditions={expeditions} sortieQuests={sortieQuests}
             mapRecommendations={mapRecommendations} activeQuests={activeQuests}
             questProgress={questProgress} portDataVersion={portDataVersion}
-            weaponIconSheet={weaponIconSheet} caInstalled={caInstalled}
-            gameOpen={gameOpen} showApiLog={showApiLog} apiLog={apiLog}
+            weaponIconSheet={weaponIconSheet}
+            showApiLog={showApiLog} apiLog={apiLog}
           />
         )}
 

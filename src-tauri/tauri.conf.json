@@ -12,11 +12,13 @@
   "app": {
     "windows": [
       {
+        "label": "management",
         "title": "KanColle Browser",
         "width": 1400,
         "height": 900,
         "minWidth": 800,
-        "minHeight": 600
+        "minHeight": 600,
+        "visible": false
       }
     ],
     "macOSPrivateApi": true,

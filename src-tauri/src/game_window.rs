@@ -241,7 +241,9 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
 
     info!("expedition-notify window created successfully");
 
-    // Sync game webview on resize, reposition formation hint on move/resize
+    // Sync game webview on resize, reposition formation hint on move/resize.
+    // Closing the game window terminates the whole app — game window is the
+    // primary surface; the management SPA is just an auxiliary panel.
     let resize_app = app.clone();
     game_window.on_window_event(move |event| {
         match event {
@@ -261,6 +263,10 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
             tauri::WindowEvent::Moved(_) => {
                 crate::overlay::reposition_formation_hint(&resize_app);
                 crate::overlay::reposition_expedition_notification(&resize_app);
+            }
+            tauri::WindowEvent::CloseRequested { .. } => {
+                info!("Game window close requested -> exiting app");
+                resize_app.exit(0);
             }
             _ => {}
         }

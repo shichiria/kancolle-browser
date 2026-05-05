@@ -20,8 +20,6 @@ export interface HomeportTabProps {
   questProgress: Map<number, QuestProgressSummary>;
   portDataVersion: number;
   weaponIconSheet: string | null;
-  caInstalled: boolean | null;
-  gameOpen: boolean;
   showApiLog: boolean;
   apiLog: ApiLogEntry[];
 }
@@ -38,8 +36,6 @@ export function HomeportTab({
   questProgress,
   portDataVersion,
   weaponIconSheet,
-  caInstalled,
-  gameOpen,
   showApiLog,
   apiLog,
 }: HomeportTabProps) {
@@ -177,11 +173,7 @@ export function HomeportTab({
         </>
       ) : (
         <div className="no-data-panel">
-          {caInstalled === false
-            ? 'CA証明書をインストールしてください。「Install CA Cert」を押すとmacOSのパスワード入力を求められます。'
-            : gameOpen
-              ? "ゲームウィンドウを開きました。APIデータ待機中..."
-              : '「Open Game」でゲームを起動してください。'}
+          ゲーム画面で母港画面を開くとAPIデータが読み込まれます。
         </div>
       )}
 

@@ -195,6 +195,7 @@
             + '<button id="kc-taiha" title="\u{5927}\u{7834}\u{8B66}\u{544A}">\u{26A0}\u{5927}\u{7834}</button>'
             + '<button id="kc-minimap" title="\u{30DF}\u{30CB}\u{30DE}\u{30C3}\u{30D7}">MAP</button>'
             + '<button id="kc-battle-info" title="\u{6226}\u{95D8}\u{60C5}\u{5831}">\u{6226}\u{95D8}</button>'
+            + '<button id="kc-mgmt" title="\u{7BA1}\u{7406}\u{30D1}\u{30CD}\u{30EB}">\u{1F4CA}</button>'
             + '<span class="spacer"></span>'
             + '<span class="label">KanColle Browser</span>';
         parent.appendChild(bar);
@@ -302,6 +303,12 @@
                     minimapBtn.className = minimapEnabled ? '' : 'muted';
                 }).catch(function() {});
             }
+        });
+
+        // Management panel toggle (show/hide React SPA window)
+        var mgmtBtn = document.getElementById('kc-mgmt');
+        mgmtBtn.addEventListener('click', function() {
+            window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_management_window');
         });
     }
 

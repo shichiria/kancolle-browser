@@ -8,6 +8,7 @@ mod drive_sync;
 mod expedition;
 mod game_window;
 mod improvement;
+mod management;
 mod migration;
 mod mouse_hook;
 mod overlay;
@@ -22,6 +23,8 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{Emitter, Manager};
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use url::Url;
 
 use api::models::GameState;
@@ -57,6 +60,99 @@ pub struct AppState {
     pub minimap_size: Mutex<(f64, f64)>,
 }
 
+/// Verify the CA certificate is installed; if not, prompt the user.
+///
+/// Returns `true` if the CA is (now) installed and the caller should proceed.
+/// Returns `false` after `app.exit()` was already called (user cancelled or
+/// install failed), in which case the caller should abort.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+async fn ensure_ca_installed(app: &tauri::AppHandle) -> bool {
+    if ca::is_ca_installed() {
+        return true;
+    }
+
+    info!("CA not installed — prompting user");
+    let confirmed = ask_dialog(
+        app,
+        "CA証明書のインストール",
+        "DMM 通信のためにCA証明書のインストールが必要です。\n\
+         インストールしますか?\n\n\
+         キャンセルするとアプリを終了します。",
+        MessageDialogKind::Warning,
+    )
+    .await;
+
+    if !confirmed {
+        info!("User declined CA install — exiting");
+        app.exit(0);
+        return false;
+    }
+
+    // install_ca_cert is blocking (spawns elevated process); offload it.
+    let install_result = tokio::task::spawn_blocking(ca::install_ca_cert)
+        .await
+        .unwrap_or_else(|e| Err(format!("install task panicked: {}", e)));
+
+    match install_result {
+        Ok(()) => {
+            info!("CA installed at startup");
+            true
+        }
+        Err(e) => {
+            log::error!("CA install failed: {}", e);
+            show_error_dialog(
+                app,
+                "CA証明書インストール失敗",
+                &format!("インストールに失敗しました:\n{}\n\nアプリを終了します。", e),
+            )
+            .await;
+            app.exit(1);
+            false
+        }
+    }
+}
+
+/// Show a Yes/No dialog and await the user's choice (true = Yes).
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+async fn ask_dialog(
+    app: &tauri::AppHandle,
+    title: &str,
+    message: &str,
+    kind: MessageDialogKind,
+) -> bool {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .message(message)
+        .title(title)
+        .kind(kind)
+        .buttons(MessageDialogButtons::YesNo)
+        .show(move |answer| {
+            let _ = tx.send(answer);
+        });
+    rx.await.unwrap_or(false)
+}
+
+/// Show a blocking error dialog (Ok button only) and wait for dismissal.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+async fn show_error_dialog(app: &tauri::AppHandle, title: &str, message: &str) {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .message(message)
+        .title(title)
+        .kind(MessageDialogKind::Error)
+        .buttons(MessageDialogButtons::Ok)
+        .show(move |_| {
+            let _ = tx.send(());
+        });
+    let _ = rx.await;
+}
+
+/// On unsupported platforms, skip CA enforcement (proxy itself won't work).
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+async fn ensure_ca_installed(_app: &tauri::AppHandle) -> bool {
+    true
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -66,6 +162,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             proxy_port: Mutex::new(0),
             game_muted: AtomicBool::new(false),
@@ -86,6 +183,9 @@ pub fn run() {
             ca::install_ca_cert,
             game_window::open_game_window,
             game_window::close_game_window,
+            management::show_management_window,
+            management::hide_management_window,
+            management::toggle_management_window,
             commands::get_expeditions,
             commands::check_expedition_cmd,
             commands::get_sortie_quests,
@@ -226,6 +326,21 @@ pub fn run() {
             let cache_dir = data_dir.join("local").join("cache");
             let _ = std::fs::create_dir_all(&cache_dir);
 
+            // Intercept management window close: hide instead of destroy so
+            // React state survives across toggles.
+            if let Some(mgmt_win) = app.get_window("management") {
+                let mgmt_handle = app.handle().clone();
+                mgmt_win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        if let Some(win) = mgmt_handle.get_window("management") {
+                            let _ = win.hide();
+                            info!("Management close intercepted -> hidden");
+                        }
+                    }
+                });
+            }
+
             let handle = app.handle().clone();
 
             tauri::async_runtime::spawn(async move {
@@ -236,6 +351,18 @@ pub fn run() {
                         let state = handle.state::<AppState>();
                         *state.proxy_port.lock().unwrap() = port;
                         let _ = handle.emit("proxy-ready", port);
+
+                        // CA check before opening the game window. Without a trusted
+                        // CA the proxy can't intercept HTTPS, so DMM ends up in a
+                        // login loop on Windows + WebView2.
+                        if !ensure_ca_installed(&handle).await {
+                            return;
+                        }
+
+                        // Auto-open game window once proxy is ready and CA is OK.
+                        if let Err(e) = game_window::open_game_window(handle.clone()).await {
+                            log::error!("Failed to auto-open game window: {}", e);
+                        }
                     }
                     Err(e) => {
                         log::error!("Failed to start proxy server: {}", e);
