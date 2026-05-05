@@ -1,0 +1,1 @@
+export { KantaiView } from "./KantaiView";

@@ -1,0 +1,145 @@
+.kantai-view {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  overflow: hidden;
+}
+
+.kantai-tabs {
+  display: flex;
+  background: #16213e;
+  border-bottom: 1px solid #0f3460;
+  padding: 4px;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.kantai-tab {
+  flex: 1;
+  padding: 8px 12px;
+  background: #0f3460;
+  color: #b0bec5;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.kantai-tab:hover:not(:disabled) {
+  background: #1a4080;
+  color: #e0e0e0;
+}
+
+.kantai-tab.active {
+  background: #1a4080;
+  color: #ffffff;
+  border-color: #4a90e2;
+  box-shadow: 0 0 6px rgba(74, 144, 226, 0.4);
+}
+
+.kantai-tab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.kantai-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.kantai-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  color: #78909c;
+  font-size: 14px;
+  padding: 20px;
+  text-align: center;
+}
+
+.kantai-zoom-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.kantai-zoom-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: #16213e;
+  border-top: 1px solid #0f3460;
+  font-size: 11px;
+  color: #b0bec5;
+}
+
+.kantai-zoom-label {
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #78909c;
+  min-width: 18px;
+}
+
+.kantai-zoom-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #0f3460;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.kantai-zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #4a90e2;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 1px solid #1a4080;
+  box-shadow: 0 0 4px rgba(74, 144, 226, 0.5);
+}
+
+.kantai-zoom-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #4a90e2;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 1px solid #1a4080;
+}
+
+.kantai-zoom-value {
+  min-width: 38px;
+  text-align: right;
+  font-family: monospace;
+  color: #e0e0e0;
+}
+
+.kantai-zoom-reset {
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4080;
+  border-radius: 3px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.kantai-zoom-reset:hover {
+  background: #1a4080;
+}

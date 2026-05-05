@@ -177,15 +177,70 @@ mod inner {
 #[cfg(target_os = "windows")]
 pub use inner::{install, uninstall, GameClick};
 
+/// Map a Navigate / SideMenuClick event to the resulting Screen, if known.
+#[cfg(target_os = "windows")]
+fn screen_from_event(event: &crate::ui_event::UiEvent) -> Option<crate::ui_event::Screen> {
+    use crate::ui_event::{Screen, UiEvent};
+    let target = match event {
+        UiEvent::Navigate { target } => target.as_str(),
+        UiEvent::SideMenuClick { target } => target.as_str(),
+        _ => return None,
+    };
+    match target {
+        "編成" => Some(Screen::FleetComposition),
+        "改装" => Some(Screen::Remodel),
+        "補給" => Some(Screen::Resupply),
+        "出撃" => Some(Screen::SortieSelect),
+        "入渠" => Some(Screen::RepairDockSelect),
+        "工廠" => Some(Screen::Factory),
+        _ => None,
+    }
+}
+
+/// Fleet-tab-bearing screens: 編成 / 補給 / 改装. Other screens reset
+/// `current_fleet` to None so the Debug UI doesn't show stale selections.
+#[cfg(target_os = "windows")]
+fn screen_has_fleet_tabs(screen: crate::ui_event::Screen) -> bool {
+    use crate::ui_event::Screen;
+    matches!(
+        screen,
+        Screen::FleetComposition | Screen::Resupply | Screen::Remodel
+    )
+}
+
+/// Extract (period, category) updates from a click event on the QuestList.
+#[cfg(target_os = "windows")]
+fn quest_filter_from_event(
+    event: &crate::ui_event::UiEvent,
+) -> Option<(Option<&str>, Option<&str>)> {
+    use crate::ui_event::UiEvent;
+    match event {
+        UiEvent::QuestFilter { filter } => Some((Some(filter.as_str()), None)),
+        UiEvent::QuestCategoryFilter { category } => Some((None, Some(category.as_str()))),
+        _ => None,
+    }
+}
+
+/// Extract a fleet number (1-4) from fleet-tab click events.
+#[cfg(target_os = "windows")]
+fn fleet_from_event(event: &crate::ui_event::UiEvent) -> Option<u32> {
+    use crate::ui_event::UiEvent;
+    match event {
+        UiEvent::FleetSelect { fleet } | UiEvent::SupplyFleetSelect { fleet } => Some(*fleet),
+        _ => None,
+    }
+}
+
 /// Consume click events from the hook and log them.
 /// In dev builds, also captures screenshots via GDI and crops the click region.
 #[cfg(target_os = "windows")]
 pub async fn consume_clicks(
     mut rx: tokio::sync::mpsc::UnboundedReceiver<GameClick>,
-    _app: tauri::AppHandle,
+    app: tauri::AppHandle,
     data_dir: std::path::PathBuf,
 ) {
     use log::info;
+    use tauri::{Emitter, Manager};
 
     #[cfg(debug_assertions)]
     let screenshot_dir = {
@@ -194,20 +249,22 @@ pub async fn consume_clicks(
         dir
     };
 
-    // Track current screen for event detection
-    // TODO: implement screen detection from header pixel matching
-    let current_screen = crate::ui_event::Screen::Unknown;
-    log::info!("[MouseHook] Screen detection not yet implemented — all events will be UnknownClick");
+    log::info!("[MouseHook] Click consumer started (screen tracked via Navigate / SideMenuClick events)");
 
-    // Rate-limit screenshots: max 1 concurrent capture, min 2s between captures
+    // Concurrent screenshot guard (max 1 capture in flight). The Debug UI needs
+    // a screenshot for every click, so the prior 2-second time gate is removed.
     #[cfg(debug_assertions)]
     let screenshot_semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(1));
-    #[cfg(debug_assertions)]
-    let last_screenshot_ms = std::sync::Arc::new(std::sync::atomic::AtomicI64::new(0));
-    #[cfg(debug_assertions)]
-    const SCREENSHOT_INTERVAL_MS: i64 = 2000;
 
     while let Some(click) = rx.recv().await {
+        // Read current screen from app state
+        let current_screen =
+            *app.state::<crate::AppState>().current_screen.lock().unwrap();
+
+        // Single timestamp for this click — shared by click-event payload and
+        // the click-screenshot event so the Debug UI can correlate them.
+        let click_ts = chrono::Local::now().format("%H:%M:%S%.3f").to_string();
+
         // Detect semantic UI event from screen + coordinates
         let event = crate::ui_event::detect_event(current_screen, click.x, click.y);
         let event_json = serde_json::to_string(&event).unwrap_or_default();
@@ -218,23 +275,158 @@ pub async fn consume_clicks(
             &format!("x={} y={} event={}", click.x, click.y, event_json),
         );
 
+        // Update tracked screen when user navigates (button click in Homeport
+        // returns `Navigate`, side-menu click in any screen returns `SideMenuClick`).
+        if let Some(new_screen) = screen_from_event(&event) {
+            let state = app.state::<crate::AppState>();
+            let mut guard = state.current_screen.lock().unwrap();
+            if *guard != new_screen {
+                let prev = *guard;
+                info!("[MouseHook] Screen changed: {:?} -> {:?}", prev, new_screen);
+                crate::action_log::log(
+                    "Screen",
+                    "click",
+                    &format!("{:?} -> {:?}", prev, new_screen),
+                );
+                *guard = new_screen;
+                drop(guard);
+                let _ = app.emit("screen-changed", format!("{:?}", new_screen));
+
+                // Clear fleet selection when leaving fleet-compatible screens.
+                if !screen_has_fleet_tabs(new_screen) {
+                    let mut f_guard = state.current_fleet.lock().unwrap();
+                    if f_guard.is_some() {
+                        *f_guard = None;
+                        drop(f_guard);
+                        let _ = app.emit("fleet-view-changed", serde_json::Value::Null);
+                    }
+                }
+
+                // Clear quest sub-state when leaving QuestList.
+                if new_screen != crate::ui_event::Screen::QuestList {
+                    let mut p = state.current_quest_period.lock().unwrap();
+                    let mut c = state.current_quest_category.lock().unwrap();
+                    if p.is_some() || c.is_some() {
+                        *p = None;
+                        *c = None;
+                        drop(p);
+                        drop(c);
+                        let _ = app.emit(
+                            "quest-filters-changed",
+                            serde_json::json!({"period": null, "category": null}),
+                        );
+                    }
+                }
+            }
+        }
+
+        // Always emit the raw debug event so the Debug tab can show what was
+        // detected for each click. Payload includes coords + JSON-encoded event.
+        let _ = app.emit(
+            "click-event",
+            serde_json::json!({
+                "ts": click_ts.clone(),
+                "x": click.x,
+                "y": click.y,
+                "screen": format!("{:?}", current_screen),
+                "event": event.clone(),
+            }),
+        );
+
+        // Track current fleet selection and emit fleet-view-changed for kantai.
+        if let Some(fleet) = fleet_from_event(&event) {
+            let state = app.state::<crate::AppState>();
+            let mut guard = state.current_fleet.lock().unwrap();
+            let prev = *guard;
+            if prev != Some(fleet) {
+                info!("[MouseHook] Fleet changed: {:?} -> Some({})", prev, fleet);
+                crate::action_log::log(
+                    "Fleet",
+                    "click",
+                    &format!("{:?} -> Some({})", prev, fleet),
+                );
+                *guard = Some(fleet);
+            }
+            drop(guard);
+            // Emit unconditionally so the kantai window stays in sync even on
+            // repeated clicks of the same tab.
+            let _ = app.emit("fleet-view-changed", fleet);
+        }
+
+        // Track QuestList sub-screen filters (period × category).
+        if let Some((period, category)) = quest_filter_from_event(&event) {
+            let state = app.state::<crate::AppState>();
+            if let Some(p) = period {
+                let mut guard = state.current_quest_period.lock().unwrap();
+                if guard.as_deref() != Some(p) {
+                    info!("[MouseHook] Quest period: {:?} -> Some({:?})", *guard, p);
+                    crate::action_log::log(
+                        "Quest",
+                        "period",
+                        &format!("{:?} -> Some({:?})", *guard, p),
+                    );
+                    *guard = Some(p.to_string());
+                }
+            }
+            if let Some(c) = category {
+                let mut guard = state.current_quest_category.lock().unwrap();
+                if guard.as_deref() != Some(c) {
+                    info!("[MouseHook] Quest category: {:?} -> Some({:?})", *guard, c);
+                    crate::action_log::log(
+                        "Quest",
+                        "category",
+                        &format!("{:?} -> Some({:?})", *guard, c),
+                    );
+                    *guard = Some(c.to_string());
+                }
+            }
+            let snap_period = state.current_quest_period.lock().unwrap().clone();
+            let snap_category = state.current_quest_category.lock().unwrap().clone();
+            let _ = app.emit(
+                "quest-filters-changed",
+                serde_json::json!({
+                    "period": snap_period,
+                    "category": snap_category,
+                }),
+            );
+        }
+
         #[cfg(debug_assertions)]
         {
-            let now_ms = chrono::Utc::now().timestamp_millis();
-            let last = last_screenshot_ms.load(std::sync::atomic::Ordering::Relaxed);
-            if now_ms - last >= SCREENSHOT_INTERVAL_MS {
-                if let Ok(permit) = screenshot_semaphore.clone().try_acquire_owned() {
-                    last_screenshot_ms.store(now_ms, std::sync::atomic::Ordering::Relaxed);
-                    let ss_dir = screenshot_dir.clone();
-                    let cx = click.x;
-                    let cy = click.y;
-                    tokio::task::spawn_blocking(move || {
-                        if let Err(e) = capture_and_crop(&ss_dir, cx, cy) {
-                            log::warn!("[MouseHook] Screenshot failed: {}", e);
+            if let Ok(permit) = screenshot_semaphore.clone().try_acquire_owned() {
+                let ss_dir = screenshot_dir.clone();
+                let app_for_ss = app.clone();
+                let ts_for_ss = click_ts.clone();
+                let cx = click.x;
+                let cy = click.y;
+                tokio::task::spawn_blocking(move || {
+                    match capture_and_crop(&ss_dir, cx, cy) {
+                        Ok(Some(bytes)) => {
+                            use base64::Engine;
+                            let b64 =
+                                base64::engine::general_purpose::STANDARD.encode(&bytes);
+                            let _ = app_for_ss.emit(
+                                "click-screenshot",
+                                serde_json::json!({
+                                    "ts": ts_for_ss,
+                                    "x": cx,
+                                    "y": cy,
+                                    "image": format!("data:image/png;base64,{}", b64),
+                                }),
+                            );
                         }
-                        drop(permit);
-                    });
-                }
+                        Ok(None) => {
+                            log::warn!(
+                                "[MouseHook] No crop produced for click ({}, {})",
+                                cx, cy
+                            );
+                        }
+                        Err(e) => log::warn!("[MouseHook] Screenshot failed: {}", e),
+                    }
+                    drop(permit);
+                });
+            } else {
+                log::debug!("[MouseHook] Screenshot in flight, skipping ({}, {})", click.x, click.y);
             }
         }
     }
@@ -244,12 +436,14 @@ pub async fn consume_clicks(
 
 /// Capture game window screenshot using PrintWindow and crop around click point.
 /// PrintWindow with PW_RENDERFULLCONTENT captures WebView2 GPU-rendered content.
+/// Returns the cropped PNG bytes (None if the click was at a window edge with
+/// no usable crop area).
 #[cfg(all(target_os = "windows", debug_assertions))]
 fn capture_and_crop(
     screenshot_dir: &std::path::Path,
     click_x: i32,
     click_y: i32,
-) -> Result<(), String> {
+) -> Result<Option<Vec<u8>>, String> {
     use windows_sys::Win32::Foundation::HWND;
     use windows_sys::Win32::Graphics::Gdi::{
         CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetDC,
@@ -350,15 +544,24 @@ fn capture_and_crop(
             cropped
                 .save(&crop_path)
                 .map_err(|e| format!("Save crop: {}", e))?;
+
+            log::info!(
+                "[MouseHook] Screenshot: full_{}.png + crop_{}.png (click {}, {})",
+                timestamp, timestamp, click_x, click_y
+            );
+
+            // Read back the cropped PNG bytes to forward to the Debug UI.
+            let bytes = std::fs::read(&crop_path).map_err(|e| format!("Read crop: {}", e))?;
+            return Ok(Some(bytes));
         }
 
         log::info!(
-            "[MouseHook] Screenshot: full_{}.png + crop_{}.png (click {}, {})",
-            timestamp, timestamp, click_x, click_y
+            "[MouseHook] Screenshot: full_{}.png (no crop, click {}, {})",
+            timestamp, click_x, click_y
         );
     }
 
-    Ok(())
+    Ok(None)
 }
 
 // No-op stubs for non-Windows

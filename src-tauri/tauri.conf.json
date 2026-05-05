@@ -19,6 +19,15 @@
         "minWidth": 800,
         "minHeight": 600,
         "visible": false
+      },
+      {
+        "label": "kantai",
+        "title": "KanColle Browser - 艦隊",
+        "width": 600,
+        "height": 900,
+        "minWidth": 400,
+        "minHeight": 600,
+        "visible": false
       }
     ],
     "macOSPrivateApi": true,

@@ -191,13 +191,14 @@
             + '<option value="2">200%</option>'
             + '</select>'
             + '<button id="kc-mute">\u{1f50a}</button>'
-            + '<button id="kc-formation" title="\u{9663}\u{5F62}\u{8A18}\u{61B6}">\u{9663}\u{5F62}</button>'
-            + '<button id="kc-taiha" title="\u{5927}\u{7834}\u{8B66}\u{544A}">\u{26A0}\u{5927}\u{7834}</button>'
-            + '<button id="kc-minimap" title="\u{30DF}\u{30CB}\u{30DE}\u{30C3}\u{30D7}">MAP</button>'
-            + '<button id="kc-battle-info" title="\u{6226}\u{95D8}\u{60C5}\u{5831}">\u{6226}\u{95D8}</button>'
-            + '<button id="kc-mgmt" title="\u{7BA1}\u{7406}\u{30D1}\u{30CD}\u{30EB}">\u{1F4CA}</button>'
+            + '<button id="kc-formation" title="\u{9663}\u{5F62}\u{8A18}\u{61B6}">\u{1F3AF} \u{9663}\u{5F62}</button>'
+            + '<button id="kc-taiha" title="\u{5927}\u{7834}\u{8B66}\u{544A}">\u{26A0} \u{5927}\u{7834}</button>'
+            + '<button id="kc-minimap" title="\u{30DF}\u{30CB}\u{30DE}\u{30C3}\u{30D7}">\u{1F5FA} MAP</button>'
+            + '<button id="kc-battle-info" title="\u{6226}\u{95D8}\u{60C5}\u{5831}">\u{2694} \u{6226}\u{95D8}</button>'
+            + '<button id="kc-kantai" title="\u{8266}\u{968A}\u{30D1}\u{30CD}\u{30EB}">\u{2693} \u{8266}\u{968A}</button>'
             + '<span class="spacer"></span>'
-            + '<span class="label">KanColle Browser</span>';
+            + '<span class="label">KanColle Browser</span>'
+            + '<button id="kc-mgmt" title="\u{7BA1}\u{7406}\u{30D1}\u{30CD}\u{30EB}">\u{1F4CA} \u{7BA1}\u{7406}</button>';
         parent.appendChild(bar);
 
         // Restore saved zoom
@@ -309,6 +310,12 @@
         var mgmtBtn = document.getElementById('kc-mgmt');
         mgmtBtn.addEventListener('click', function() {
             window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_management_window');
+        });
+
+        // Kantai (fleet) panel toggle
+        var kantaiBtn = document.getElementById('kc-kantai');
+        kantaiBtn.addEventListener('click', function() {
+            window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_kantai_window');
         });
     }
 

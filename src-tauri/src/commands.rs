@@ -988,6 +988,33 @@ pub(crate) fn get_action_log(limit: Option<usize>) -> Vec<serde_json::Value> {
     }
 }
 
+/// Get the currently inferred game screen (for the Debug tab).
+#[tauri::command]
+pub(crate) fn get_current_screen(state: tauri::State<'_, crate::AppState>) -> String {
+    format!("{:?}", *state.current_screen.lock().unwrap())
+}
+
+/// Get the currently selected fleet (1-4) within fleet-compatible screens.
+#[tauri::command]
+pub(crate) fn get_current_fleet(state: tauri::State<'_, crate::AppState>) -> Option<u32> {
+    *state.current_fleet.lock().unwrap()
+}
+
+#[derive(serde::Serialize)]
+pub(crate) struct QuestFilters {
+    pub period: Option<String>,
+    pub category: Option<String>,
+}
+
+/// Get the QuestList sub-screen filters (period × category).
+#[tauri::command]
+pub(crate) fn get_quest_filters(state: tauri::State<'_, crate::AppState>) -> QuestFilters {
+    QuestFilters {
+        period: state.current_quest_period.lock().unwrap().clone(),
+        category: state.current_quest_category.lock().unwrap().clone(),
+    }
+}
+
 /// Get the proxy port for the frontend
 #[tauri::command]
 pub(crate) fn get_proxy_port(state: tauri::State<'_, crate::AppState>) -> u16 {

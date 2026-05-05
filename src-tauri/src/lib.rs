@@ -8,6 +8,7 @@ mod drive_sync;
 mod expedition;
 mod game_window;
 mod improvement;
+mod kantai;
 mod management;
 mod migration;
 mod mouse_hook;
@@ -58,6 +59,16 @@ pub struct AppState {
     pub minimap_position: Mutex<Option<(f64, f64)>>,
     /// Minimap size (logical w, h)
     pub minimap_size: Mutex<(f64, f64)>,
+    /// Currently displayed game screen, inferred from click navigation events.
+    /// Used by the mouse hook to dispatch coordinate-based UI event detection.
+    pub current_screen: Mutex<ui_event::Screen>,
+    /// Currently selected fleet (1-4) within fleet-compatible screens
+    /// (編成 / 補給 / 改装). `None` when on a screen without fleet tabs.
+    pub current_fleet: Mutex<Option<u32>>,
+    /// QuestList left-side period filter (全 / 遂行中 / Daily / ...).
+    pub current_quest_period: Mutex<Option<String>>,
+    /// QuestList top-row category filter (出撃 / 演習 / 遠征 / 編成 / その他).
+    pub current_quest_category: Mutex<Option<String>>,
 }
 
 /// Verify the CA certificate is installed; if not, prompt the user.
@@ -176,6 +187,13 @@ pub fn run() {
             game_zoom: Mutex::new(1.0),
             minimap_position: Mutex::new(None),
             minimap_size: Mutex::new((overlay::MINIMAP_DEFAULT_W, overlay::MINIMAP_DEFAULT_H)),
+            // Default to Unknown — the game starts on title/login screens
+            // where no Navigate buttons exist. `api_port/port` will set Homeport
+            // on first port load.
+            current_screen: Mutex::new(ui_event::Screen::Unknown),
+            current_fleet: Mutex::new(None),
+            current_quest_period: Mutex::new(None),
+            current_quest_category: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_proxy_port,
@@ -186,6 +204,9 @@ pub fn run() {
             management::show_management_window,
             management::hide_management_window,
             management::toggle_management_window,
+            kantai::show_kantai_window,
+            kantai::hide_kantai_window,
+            kantai::toggle_kantai_window,
             commands::get_expeditions,
             commands::check_expedition_cmd,
             commands::get_sortie_quests,
@@ -233,7 +254,10 @@ pub fn run() {
             commands::drive_logout,
             commands::get_drive_status,
             commands::drive_force_sync,
-            commands::get_action_log
+            commands::get_action_log,
+            commands::get_current_screen,
+            commands::get_current_fleet,
+            commands::get_quest_filters
         ])
         .setup(|app| {
             let data_dir = app
@@ -336,6 +360,20 @@ pub fn run() {
                         if let Some(win) = mgmt_handle.get_window("management") {
                             let _ = win.hide();
                             info!("Management close intercepted -> hidden");
+                        }
+                    }
+                });
+            }
+
+            // Same intercept for the kantai window.
+            if let Some(kantai_win) = app.get_window("kantai") {
+                let kantai_handle = app.handle().clone();
+                kantai_win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        if let Some(win) = kantai_handle.get_window("kantai") {
+                            let _ = win.hide();
+                            info!("Kantai close intercepted -> hidden");
                         }
                     }
                 });

@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the management window",
-  "windows": ["management"],
+  "description": "Capability for the React-app windows (management + kantai)",
+  "windows": ["management", "kantai"],
   "permissions": [
     "core:default",
     "core:event:default",

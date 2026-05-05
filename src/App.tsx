@@ -12,12 +12,28 @@ import type {
   SortieRecord, BattleLogsResponse,
   TabId,
 } from "./types";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { HomeportTab } from "./components/homeport";
 import { BattleTab } from "./components/battle";
 import { ShipListTab } from "./components/ships";
 import { EquipListTab } from "./components/equips";
 import { ImprovementTab } from "./components/improvement";
 import { SettingsTab } from "./components/settings";
+import { KantaiView } from "./components/kantai";
+import { DebugTab } from "./components/debug";
+
+// View mode is decided once at startup from the Tauri window label.
+// Each window loads the same React bundle; the label distinguishes them.
+//   label="management" → full SPA (toolbar + tabs)
+//   label="kantai"     → fleet-only view
+const VIEW_MODE: "management" | "kantai" = (() => {
+  try {
+    return getCurrentWindow().label === "kantai" ? "kantai" : "management";
+  } catch {
+    return "management";
+  }
+})();
+console.log(`[App] VIEW_MODE=${VIEW_MODE} label=${getCurrentWindow().label}`);
 
 
 function App() {
@@ -274,6 +290,22 @@ function App() {
     };
   }, []);
 
+  if (VIEW_MODE === "kantai") {
+    return (
+      <KantaiView
+        portData={portData}
+        now={now}
+        expeditions={expeditions}
+        sortieQuests={sortieQuests}
+        mapRecommendations={mapRecommendations}
+        activeQuests={activeQuests}
+        questProgress={questProgress}
+        portDataVersion={portDataVersion}
+        weaponIconSheet={weaponIconSheet}
+      />
+    );
+  }
+
   return (
     <div className="app" style={{ zoom: uiZoom / 100 }}>
       {/* Toolbar */}
@@ -323,9 +355,15 @@ function App() {
           装備
         </button>
         <button
+          className={`tab-btn ${activeTab === "debug" ? "active" : ""}`}
+          onClick={() => setActiveTab("debug")}
+          style={{ marginLeft: "auto" }}
+        >
+          🐛 Debug
+        </button>
+        <button
           className={`tab-btn ${activeTab === "options" ? "active" : ""}`}
           onClick={() => setActiveTab("options")}
-          style={{ marginLeft: "auto" }}
         >
           設定
         </button>
@@ -365,6 +403,7 @@ function App() {
         {activeTab === "equips" && (
           <EquipListTab portDataVersion={portDataVersion} />
         )}
+        {activeTab === "debug" && <DebugTab />}
         {activeTab === "options" && (
           <SettingsTab
             uiZoom={uiZoom} driveStatus={driveStatus}

@@ -2,9 +2,11 @@ use super::*;
 
 // ── Homeport ──────────────────────────────────────────────────────────
 
+// Calibrated from observed user clicks (2026-05-05):
+//   編成 (258, 249), 改装 (493, 358), 入渠 (199, 558), 工廠 (394, 590)
 #[test]
 fn homeport_click_hensei_button() {
-    let event = detect_event(Screen::Homeport, 270, 130);
+    let event = detect_event(Screen::Homeport, 258, 249);
     assert_eq!(
         event,
         UiEvent::Navigate {
@@ -14,30 +16,30 @@ fn homeport_click_hensei_button() {
 }
 
 #[test]
-fn homeport_click_sortie_button() {
-    let event = detect_event(Screen::Homeport, 330, 320);
+fn homeport_click_kaisou_button() {
+    let event = detect_event(Screen::Homeport, 493, 358);
     assert_eq!(
         event,
         UiEvent::Navigate {
-            target: "出撃".to_string()
+            target: "改装".to_string()
         }
     );
 }
 
 #[test]
-fn homeport_click_supply_button() {
-    let event = detect_event(Screen::Homeport, 160, 220);
+fn homeport_click_nyukyo_button() {
+    let event = detect_event(Screen::Homeport, 199, 558);
     assert_eq!(
         event,
         UiEvent::Navigate {
-            target: "補給".to_string()
+            target: "入渠".to_string()
         }
     );
 }
 
 #[test]
 fn homeport_click_factory_button() {
-    let event = detect_event(Screen::Homeport, 440, 420);
+    let event = detect_event(Screen::Homeport, 394, 590);
     assert_eq!(
         event,
         UiEvent::Navigate {
@@ -159,15 +161,17 @@ fn expedition_select_row_5() {
 
 // ── Fleet Composition ────────────────────────────────────────────────
 
+// Calibrated from user-confirmed clicks (2026-05-05):
+//   第2 (244, 208), 第3 (291, 202), 第4 (336, 204) → fleet tabs at y≈200
 #[test]
 fn fleet_select_tab_1() {
-    let event = detect_event(Screen::FleetComposition, 80, 130);
+    let event = detect_event(Screen::FleetComposition, 197, 200);
     assert_eq!(event, UiEvent::FleetSelect { fleet: 1 });
 }
 
 #[test]
 fn fleet_select_tab_3() {
-    let event = detect_event(Screen::FleetComposition, 130, 130);
+    let event = detect_event(Screen::FleetComposition, 291, 202);
     assert_eq!(event, UiEvent::FleetSelect { fleet: 3 });
 }
 
@@ -180,8 +184,9 @@ fn fleet_change_start_slot_2_right_side() {
 
 #[test]
 fn fleet_ship_detail_slot_1() {
-    // Slot 1 = left column, row 1, left half
-    let event = detect_event(Screen::FleetComposition, 200, 200);
+    // Slot 1 = left column, row 1, left half. y must be below the fleet-tab
+    // strip (≤235) but within row 1 (160-290) and x outside fleet-tab x-range.
+    let event = detect_event(Screen::FleetComposition, 200, 260);
     assert_eq!(event, UiEvent::ShipDetail { slot: 1 });
 }
 
@@ -249,7 +254,8 @@ fn factory_develop_start() {
 
 #[test]
 fn quest_filter_daily() {
-    let event = detect_event(Screen::QuestList, 100, 190);
+    // Calibrated 2026-05-05: Daily filter at y≈330 (was y=180-200 in stale docs)
+    let event = detect_event(Screen::QuestList, 100, 330);
     assert_eq!(
         event,
         UiEvent::QuestFilter {
@@ -277,8 +283,9 @@ fn get_screen_dismiss() {
 
 #[test]
 fn real_session_homeport_to_hensei() {
-    // 15:16:37 x=250 y=115 — clicked 編成 on homeport
-    let event = detect_event(Screen::Homeport, 250, 115);
+    // 2026-05-05 user-confirmed: x=258 y=249 — clicked 編成 on homeport
+    // (older docs at y≈115 were inaccurate for the user's actual UI)
+    let event = detect_event(Screen::Homeport, 258, 249);
     assert_eq!(
         event,
         UiEvent::Navigate {

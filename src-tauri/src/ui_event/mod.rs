@@ -22,6 +22,10 @@ pub enum Screen {
     ShipSelection,
     /// 編成 - 変更確認 — ship change confirmation
     ShipChangeConfirm,
+    /// 改装 — modernization / equipment / remodel screen.
+    /// Shares the fleet-tab area with 編成 (x≈70-170, y≈120-140) but has a
+    /// distinct ship-list / equipment layout.
+    Remodel,
     /// 補給 — resupply screen
     Resupply,
     /// 入渠 - ドック選択 — repair dock selection
@@ -88,8 +92,10 @@ pub enum UiEvent {
     DevelopStart,
     /// Use instant construction
     FactoryInstantBuild { dock: u32 },
-    /// Select quest filter
+    /// Select left-side quest period filter (全/遂行中/Daily/Weekly/Monthly/単/他/Others)
     QuestFilter { filter: String },
+    /// Select top-row quest category filter (出撃/演習/遠征/編成/その他)
+    QuestCategoryFilter { category: String },
     /// Select a quest
     QuestSelect { row: u32 },
     /// Dismiss GET screen
@@ -142,6 +148,7 @@ pub fn detect_event(screen: Screen, x: i32, y: i32) -> UiEvent {
         Screen::FleetComposition => detect_fleet_composition(x, y),
         Screen::ShipSelection => detect_ship_selection(x, y),
         Screen::ShipChangeConfirm => detect_ship_change_confirm(x, y),
+        Screen::Remodel => detect_remodel(x, y),
         Screen::Resupply => detect_resupply(x, y),
         Screen::RepairDockSelect => detect_repair_dock(x, y),
         Screen::Factory => detect_factory(x, y),
@@ -204,17 +211,24 @@ fn check_top_menu(x: i32, y: i32) -> Option<UiEvent> {
 // ── Screen-specific detectors ────────────────────────────────────────
 
 fn detect_homeport(x: i32, y: i32) -> UiEvent {
-    let target = if HitRegion::new(200, 100, 350, 160).contains(x, y) {
+    // Coordinates calibrated from observed clicks (2026-05-05):
+    //   編成 (258, 249) — user-confirmed
+    //   改装 (493, 358) — preceded api_req_kaisou/can_preset_slot_select
+    //   入渠 (199, 558) — preceded api_get_member/ndock
+    //   工廠 (394, 590) — preceded api_get_member/preset_dev_items
+    // The previously documented coords (top-of-canvas) were way off — actual
+    // buttons are 100-200px lower than ui-regions.md states.
+    let target = if HitRegion::new(200, 200, 320, 300).contains(x, y) {
         "編成"
-    } else if HitRegion::new(100, 180, 230, 270).contains(x, y) {
+    } else if HitRegion::new(100, 320, 220, 440).contains(x, y) {
         "補給"
-    } else if HitRegion::new(370, 180, 520, 270).contains(x, y) {
+    } else if HitRegion::new(430, 300, 560, 420).contains(x, y) {
         "改装"
-    } else if HitRegion::new(230, 270, 430, 370).contains(x, y) {
+    } else if HitRegion::new(250, 380, 410, 510).contains(x, y) {
         "出撃"
-    } else if HitRegion::new(100, 370, 230, 470).contains(x, y) {
+    } else if HitRegion::new(130, 510, 280, 620).contains(x, y) {
         "入渠"
-    } else if HitRegion::new(370, 370, 520, 470).contains(x, y) {
+    } else if HitRegion::new(320, 530, 470, 650).contains(x, y) {
         "工廠"
     } else {
         return UiEvent::UnknownClick { x, y };
@@ -291,15 +305,17 @@ fn detect_expedition_select(x: i32, y: i32) -> UiEvent {
 }
 
 fn detect_fleet_composition(x: i32, y: i32) -> UiEvent {
-    // Fleet tabs (y≈120-140)
-    if y >= 120 && y <= 145 {
-        if x >= 70 && x < 95 {
+    // Fleet tabs — calibrated from user clicks (2026-05-05):
+    //   第2 (244, 208), 第3 (291, 202), 第4 (336, 204).
+    // Tab spacing ≈ 47px starting around x=197 for 第1.
+    if y >= 180 && y <= 235 {
+        if x >= 170 && x < 220 {
             return UiEvent::FleetSelect { fleet: 1 };
-        } else if x >= 95 && x < 120 {
+        } else if x >= 220 && x < 270 {
             return UiEvent::FleetSelect { fleet: 2 };
-        } else if x >= 120 && x < 145 {
+        } else if x >= 270 && x < 315 {
             return UiEvent::FleetSelect { fleet: 3 };
-        } else if x >= 145 && x < 170 {
+        } else if x >= 315 && x < 365 {
             return UiEvent::FleetSelect { fleet: 4 };
         }
     }
@@ -395,6 +411,28 @@ fn detect_ship_change_confirm(x: i32, y: i32) -> UiEvent {
     UiEvent::UnknownClick { x, y }
 }
 
+fn detect_remodel(x: i32, y: i32) -> UiEvent {
+    // 改装 has 5 fleet tabs (第1/第2/第3/第4/他) at y≈180-235.
+    // Calibrated from user clicks 2026-05-05:
+    //   第2 (271, 214), 第3 (313, 216), 第4 (369, 192), 他 (399, 201)
+    // Tabs spread over x≈200-420 at ~42px each.
+    // 他 is encoded as fleet=5.
+    if y >= 180 && y <= 235 {
+        if x >= 200 && x < 242 {
+            return UiEvent::FleetSelect { fleet: 1 };
+        } else if x >= 242 && x < 285 {
+            return UiEvent::FleetSelect { fleet: 2 };
+        } else if x >= 285 && x < 330 {
+            return UiEvent::FleetSelect { fleet: 3 };
+        } else if x >= 330 && x < 380 {
+            return UiEvent::FleetSelect { fleet: 4 };
+        } else if x >= 380 && x < 425 {
+            return UiEvent::FleetSelect { fleet: 5 };
+        }
+    }
+    UiEvent::UnknownClick { x, y }
+}
+
 fn detect_resupply(x: i32, y: i32) -> UiEvent {
     // Fleet tabs (y≈100-120)
     if y >= 95 && y <= 125 {
@@ -484,28 +522,56 @@ fn detect_factory_develop(x: i32, y: i32) -> UiEvent {
 }
 
 fn detect_quest_list(x: i32, y: i32) -> UiEvent {
-    // Left filter buttons (x≈70-160)
-    if x >= 70 && x <= 160 {
-        let filter = if y >= 125 && y <= 145 {
+    // Left filter buttons calibrated from user clicks (2026-05-05):
+    //   全 y≈247, 遂行中 y≈282, Daily y≈330, Weekly y≈374,
+    //   Monthly y≈412, 単 y≈455, 他 y≈497, Others y≈540 (estimated).
+    // ~40-45px spacing per row.
+    if x >= 60 && x <= 160 {
+        let filter = if y >= 225 && y < 270 {
             "全"
-        } else if y >= 150 && y <= 170 {
+        } else if y >= 270 && y < 310 {
             "遂行中"
-        } else if y >= 180 && y <= 200 {
+        } else if y >= 310 && y < 355 {
             "Daily"
-        } else if y >= 210 && y <= 230 {
+        } else if y >= 355 && y < 395 {
             "Weekly"
-        } else if y >= 240 && y <= 260 {
+        } else if y >= 395 && y < 435 {
             "Monthly"
-        } else if y >= 270 && y <= 290 {
+        } else if y >= 435 && y < 475 {
             "単"
-        } else if y >= 320 && y <= 345 {
+        } else if y >= 475 && y < 520 {
             "他"
+        } else if y >= 520 && y < 565 {
+            "Others"
         } else {
             return UiEvent::UnknownClick { x, y };
         };
         return UiEvent::QuestFilter {
             filter: filter.to_string(),
         };
+    }
+
+    // Top category filter row (y≈145-175) calibrated from user clicks 2026-05-05:
+    //   出撃 ≈743, 演習 ≈807, 遠征 ≈947-955, 編成 ≈1022, その他 ≈1129-1130
+    if y >= 140 && y <= 180 {
+        let category = if x >= 700 && x < 780 {
+            "出撃"
+        } else if x >= 780 && x < 880 {
+            "演習"
+        } else if x >= 880 && x < 1000 {
+            "遠征"
+        } else if x >= 1000 && x < 1080 {
+            "編成"
+        } else if x >= 1080 && x < 1170 {
+            "その他"
+        } else {
+            ""
+        };
+        if !category.is_empty() {
+            return UiEvent::QuestCategoryFilter {
+                category: category.to_string(),
+            };
+        }
     }
 
     // Quest rows (x≈200-1100, y≈120-680, ~100px per row)

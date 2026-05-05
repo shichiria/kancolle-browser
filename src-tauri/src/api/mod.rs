@@ -106,11 +106,152 @@ enum ParsedApi {
     Other,
 }
 
+/// Map a KanColle API endpoint to the game screen the user is currently on.
+///
+/// Only includes APIs whose endpoint uniquely identifies a screen. Ambiguous
+/// APIs (e.g. `api_get_member/deck` which fires on multiple screens) are
+/// intentionally omitted to avoid wrong-screen flapping.
+///
+/// 改装 reuses `Screen::FleetComposition` because its fleet-tab area shares
+/// the 編成 coordinates.
+fn screen_from_api(endpoint: &str) -> Option<crate::ui_event::Screen> {
+    use crate::ui_event::Screen;
+    match endpoint {
+        // ゲーム再ロード時にリセット — タイトル/ログイン画面では Unknown にして
+        // detect_homeport が誤って Navigate を返すのを防ぐ
+        "/kcsapi/api_start2/getData" => Some(Screen::Unknown),
+
+        // 母港復帰 — fires whenever the user returns to the port screen
+        "/kcsapi/api_port/port" => Some(Screen::Homeport),
+
+        // 編成 — 執行系 API のみ採用。`preset_deck` / `ship_deck` は 補給 / 改装
+        // 遷移時にも飛ぶ汎用 preload なので含めない。エントリ判定は
+        // SideMenuClick{編成} / Navigate{編成} (click 検知) に任せる。
+        "/kcsapi/api_req_hensei/change"
+        | "/kcsapi/api_req_hensei/preset_select"
+        | "/kcsapi/api_req_hensei/lock"
+        | "/kcsapi/api_req_hensei/preset_register"
+        | "/kcsapi/api_req_hensei/preset_delete"
+        | "/kcsapi/api_req_hensei/combined" => Some(Screen::FleetComposition),
+
+        // 改装 — 執行系のみ。`can_preset_slot_select` は 補給 / 入渠 / 工廠 遷移時
+        // にも飛ぶ汎用 preload なので含めない。エントリ判定は SideMenuClick{改装}
+        // (click 検知) に任せる。
+        "/kcsapi/api_req_kaisou/powerup"
+        | "/kcsapi/api_req_kaisou/remodeling"
+        | "/kcsapi/api_req_kaisou/slotset"
+        | "/kcsapi/api_req_kaisou/slotset_ex"
+        | "/kcsapi/api_req_kaisou/slot_deprive"
+        | "/kcsapi/api_req_kaisou/slot_exchange_index"
+        | "/kcsapi/api_req_kaisou/preset_slot_select"
+        | "/kcsapi/api_req_kaisou/preset_slot_register"
+        | "/kcsapi/api_req_kaisou/preset_slot_delete" => Some(Screen::Remodel),
+
+        // 補給 — only fires on execution (no entry API). Click-based detection
+        // (Navigate{補給} from homeport) handles entry.
+        "/kcsapi/api_req_hokyu/charge" => Some(Screen::Resupply),
+
+        // 入渠 — 執行系のみ。`ndock` は入渠以外でも飛ぶ可能性があるので
+        // 採用しない。エントリ判定は SideMenuClick{入渠} / Navigate{入渠} に任せる。
+        "/kcsapi/api_req_nyukyo/start"
+        | "/kcsapi/api_req_nyukyo/speedchange" => Some(Screen::RepairDockSelect),
+
+        // 工廠 — 執行系のみ。`kdock` も実行系の前段で飛ぶことがあるので除外。
+        // `remodel_slot` / `remodel_slotlist` は 改修(明石)用だが汎用 preload
+        // と重複の可能性があり保守的に除外。
+        "/kcsapi/api_req_kousyou/createship"
+        | "/kcsapi/api_req_kousyou/createship_speedchange"
+        | "/kcsapi/api_req_kousyou/destroyship"
+        | "/kcsapi/api_req_kousyou/destroyitem2"
+        | "/kcsapi/api_req_kousyou/getship" => Some(Screen::Factory),
+
+        // 工廠 - 開発 — 開発開始(`createitem`)のみ。`preset_dev_items` は
+        // 工廠 entry でも飛ぶ可能性があり保守的に除外。
+        "/kcsapi/api_req_kousyou/createitem" => Some(Screen::FactoryDevelop),
+
+        // 任務
+        "/kcsapi/api_get_member/questlist"
+        | "/kcsapi/api_req_quest/start"
+        | "/kcsapi/api_req_quest/stop"
+        | "/kcsapi/api_req_quest/clearitemget" => Some(Screen::QuestList),
+
+        // 出撃-海域選択
+        "/kcsapi/api_get_member/mapinfo" => Some(Screen::SortieSelect),
+
+        // Battle / sortie / expedition / practice screens have no fleet tabs;
+        // intentionally don't update screen state for them so we keep whatever
+        // was set last (the user will return through 母港 anyway).
+        _ => None,
+    }
+}
+
+/// Whether a screen has fleet-tab UI (編成 / 補給 / 改装).
+fn screen_has_fleet_tabs(screen: crate::ui_event::Screen) -> bool {
+    use crate::ui_event::Screen;
+    matches!(
+        screen,
+        Screen::FleetComposition | Screen::Resupply | Screen::Remodel
+    )
+}
+
+/// Update tracked screen from an API URL. Emits `screen-changed` on actual change.
+fn update_screen_from_api(app_handle: &AppHandle, endpoint: &str) {
+    let Some(new_screen) = screen_from_api(endpoint) else {
+        return;
+    };
+    let state = app_handle.state::<crate::AppState>();
+    let mut guard = state.current_screen.lock().unwrap();
+    if *guard != new_screen {
+        let prev = *guard;
+        info!(
+            "[Screen] API '{}' -> {:?} (was {:?})",
+            endpoint, new_screen, prev
+        );
+        crate::action_log::log(
+            "Screen",
+            "api",
+            &format!("{:?} -> {:?} via {}", prev, new_screen, endpoint),
+        );
+        *guard = new_screen;
+        drop(guard);
+        let _ = app_handle.emit("screen-changed", format!("{:?}", new_screen));
+
+        // Clear fleet selection when leaving fleet-compatible screens.
+        if !screen_has_fleet_tabs(new_screen) {
+            let mut f_guard = state.current_fleet.lock().unwrap();
+            if f_guard.is_some() {
+                *f_guard = None;
+                drop(f_guard);
+                let _ = app_handle.emit("fleet-view-changed", serde_json::Value::Null);
+            }
+        }
+
+        // Clear quest filters when leaving QuestList.
+        if new_screen != crate::ui_event::Screen::QuestList {
+            let mut p = state.current_quest_period.lock().unwrap();
+            let mut c = state.current_quest_category.lock().unwrap();
+            if p.is_some() || c.is_some() {
+                *p = None;
+                *c = None;
+                drop(p);
+                drop(c);
+                let _ = app_handle.emit(
+                    "quest-filters-changed",
+                    serde_json::json!({"period": null, "category": null}),
+                );
+            }
+        }
+    }
+}
+
 /// Process intercepted KanColle API data.
 /// All state updates happen in a SINGLE async task to guarantee ordering.
 pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, request_body: &str) {
     // Action log: record every API interception (dev only)
     crate::action_log::log("API", endpoint, &format!("body_len={}", json_str.len()));
+
+    // Update the tracked screen state from this API endpoint, if known.
+    update_screen_from_api(app_handle, endpoint);
 
     let game_state = app_handle.state::<GameState>();
 
