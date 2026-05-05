@@ -384,6 +384,37 @@ npx vitest run src/utils/
 4. 既存53テストも全て通ることを確認 → リグレッションなし
 ```
 
+## テストデータ構築パターン
+
+### Private フィールドを持つ構造体
+
+`Material` 等の `#[serde(flatten)]` で private `_extra` フィールドを持つ構造体は、テストモジュール外からリテラル構築できない。
+
+```rust
+// NG: private フィールドがあるため外部モジュールからは構築不可
+let m = models::Material { api_id: 1, api_value: 100, _extra: ... };
+
+// OK: serde_json::from_value で構築
+let materials: Vec<models::Material> = serde_json::from_value(serde_json::json!([
+    {"api_id": 1, "api_value": 100},
+    {"api_id": 2, "api_value": 200}
+])).unwrap();
+```
+
+ヘルパー関数 (`get_material`) は `api/mod.rs` に配置し、アプリロジックとテストの両方からアクセス可能にする。
+
+### Rustの型推論補助
+
+複雑なイテレータチェーンやチャネル操作では、コンパイラの局所型推論が限界に達する場合がある:
+
+```rust
+// HashMap::iter() のクロージャに型注釈
+.iter().map(|(k, v): (&i32, &String)| { ... })
+
+// チャネル送信の型注釈
+let _: Result<(), _> = tx.send(value);
+```
+
 ## 成功基準
 
 - **カバレッジ**: データ変換・判定ロジックの80%以上 (現在Layer 1完了)

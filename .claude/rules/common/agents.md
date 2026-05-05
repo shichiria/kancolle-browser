@@ -9,10 +9,8 @@ Located in `~/.claude/agents/`:
 | planner | Implementation planning | Complex features, refactoring |
 | architect | System design | Architectural decisions |
 | tdd-guide | Test-driven development | New features, bug fixes |
-| code-reviewer | Code review | After writing code |
-| security-reviewer | Security analysis | Before commits |
+| code-reviewer | 統合レビュー(失敗パターン+ドメイン+品質) | After writing code |
 | build-error-resolver | Fix build errors | When build fails |
-| e2e-runner | E2E testing | Critical user flows |
 | refactor-cleaner | Dead code cleanup | Code maintenance |
 | doc-updater | Documentation | Updating docs |
 
@@ -20,9 +18,14 @@ Located in `~/.claude/agents/`:
 
 No user prompt needed:
 1. Complex feature requests - Use **planner** agent
-2. Code just written/modified - Use **code-reviewer** agent
+2. **Code just written/modified** - Use **code-reviewer** agent (失敗パターン+ドメイン知識+品質の3軸統合レビュー)
 3. Bug fix or new feature - Use **tdd-guide** agent
 4. Architectural decision - Use **architect** agent
+
+### code-reviewer 自動呼び出し条件
+以下の場合、ユーザーの指示なしで code-reviewer エージェントを起動する:
+- Rust/TypeScript/CSS のコードを新規作成または修正した後
+- レビュー結果の CRITICAL/HIGH はユーザーに報告し、修正してからコミットする
 
 ## Parallel Task Execution
 

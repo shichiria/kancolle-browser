@@ -60,6 +60,32 @@
 - 複数エッジが同じノードに到達可能 (例: 1-3のエッジ5と11が共にEノード)
 - A-Z ラベルはコミュニティ管理 (KC3Kai edges.json)、ゲームAPI内には存在しない
 
+## マルチゲージマップ
+
+### ゲージ構成
+| 海域 | ゲージ数 | ボスセル |
+|------|---------|---------|
+| 7-2 | 2 | Gauge 1: Cell 7, Gauge 2: Cell 15 |
+| 7-5 | 3 | Gauge 1: Cell 9, Gauge 2: Cell 14, Gauge 3: Cell 19 |
+
+### マップID計算
+`map_id = area × 10 + map_no` (例: 7-2 → 72)
+
+### ゲージ情報の取得元
+- **通常海域**: `api_get_member/mapinfo` の `api_map_info[]` から取得
+  - `api_id`: map_id
+  - `api_gauge_num`: ゲージ番号 (>0 でマルチゲージ)
+- **イベント海域**: `api_req_map/start` の `api_eventmap.api_gauge_num` から取得
+- **注意**: `api_eventmap` はイベント海域**のみ**。通常海域では `null`
+
+### ボスセル推定
+- `api_req_map/start` の `api_bosscell_no` でアクティブなボスセルを特定
+- ボスセル番号からゲージ番号を推定可能
+
+### 任務とゲージ
+- 任務海域キー: `{area}-{no}` (基本) / `{area}-{no}({gauge})` (ゲージ指定)
+- 例: `7-2(2nd)` は第2ゲージのみカウント、`7-2` はゲージ不問
+
 ## 不変条件
 
 - `on_port()` はアクティブ出撃を完了させる

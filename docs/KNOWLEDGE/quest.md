@@ -62,10 +62,13 @@
 - 改装形態を横断してマッチング
 
 ### 条件タイプ
+- `ShipCount { value: i32 }` — 艦隊の総隻数条件
 - `ShipTypeCount { stype: [i32], count: i32 }` — 指定艦種N隻
 - `MaxShipTypeCount { stype: [i32], max: i32 }` — 指定艦種が最大N隻
+- `FlagshipType { stype: [i32] }` — 旗艦が指定艦種
 - `OnlyShipTypes { stype: [i32] }` — 全艦が指定艦種のみ
-- `ContainsShipName { names: [String] }` — 前方一致の艦名を含む
+- `ContainsShipName { names: [String], count: i32 }` — 前方一致の艦名を含む (count隻以上)
+- `ContainsShipNameAny { names: [String], count: i32 }` — リスト中いずれかの艦名 (OR一致、count隻以上)
 - `OrConditions` — 複数の代替条件セット (いずれか一つで満足)
 - `no_conditions: true` — 条件チェックをバイパス
 

@@ -172,6 +172,7 @@ pub(super) fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle)
         })
         .collect();
 
+    crate::action_log::log("Event", "fleet-updated", &format!("{} fleets", fleets.len()));
     match app.emit("fleet-updated", &fleets) {
         Ok(_) => info!("fleet-updated event emitted: {} fleets", fleets.len()),
         Err(e) => error!("Failed to emit fleet-updated: {}", e),

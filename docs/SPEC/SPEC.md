@@ -22,4 +22,5 @@
 | [drive-sync.md](./drive-sync.md) | Google Drive同期・OAuth2認証・競合解決 |
 | [overlay.md](./overlay.md) | オーバーレイ（ミニマップ・陣形・大破警告・遠征通知） |
 | [frontend.md](./frontend.md) | Reactコンポーネント階層・状態管理・型定義・CSS設計 |
+| [action-analysis.md](./action-analysis.md) | action_logs からの画面遷移・アクション抽出手法 |
 

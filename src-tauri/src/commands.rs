@@ -897,6 +897,7 @@ pub(crate) async fn drive_login(
     app: tauri::AppHandle,
     state: tauri::State<'_, GameState>,
 ) -> Result<(), String> {
+    crate::action_log::record("Command", "drive_login", None);
     info!("drive_login: started");
     let inner = state.inner.read().await;
     let data_dir = inner.data_dir.clone();
@@ -921,6 +922,7 @@ pub(crate) async fn drive_login(
 /// Log out from Google Drive
 #[tauri::command]
 pub(crate) async fn drive_logout(state: tauri::State<'_, GameState>) -> Result<(), String> {
+    crate::action_log::record("Command", "drive_logout", None);
     let mut inner = state.inner.write().await;
 
     // Shut down sync engine
@@ -956,6 +958,7 @@ pub(crate) async fn get_drive_status(
 /// Force a full sync with Google Drive
 #[tauri::command]
 pub(crate) async fn drive_force_sync(state: tauri::State<'_, GameState>) -> Result<(), String> {
+    crate::action_log::record("Command", "drive_force_sync", None);
     let inner = state.inner.read().await;
     let tx = inner
         .sync_notifier
@@ -965,6 +968,24 @@ pub(crate) async fn drive_force_sync(state: tauri::State<'_, GameState>) -> Resu
         .await
         .map_err(|e: tokio::sync::mpsc::error::SendError<drive_sync::SyncCommand>| format!("Failed to send sync command: {}", e))?;
     Ok(())
+}
+
+/// Get recent action log entries (dev only, returns empty in release)
+#[tauri::command]
+pub(crate) fn get_action_log(limit: Option<usize>) -> Vec<serde_json::Value> {
+    #[cfg(debug_assertions)]
+    {
+        let entries = crate::action_log::get_recent(limit.unwrap_or(100));
+        entries
+            .into_iter()
+            .map(|e| serde_json::to_value(e).unwrap_or_default())
+            .collect()
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = limit;
+        Vec::new()
+    }
 }
 
 /// Get the proxy port for the frontend

@@ -35667,7 +35667,118 @@
         "count": 3
       }
     ],
-    "recommended": []
+    "recommended": [
+      {
+        "area": "2-3",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": ["玉波", "涼波", "藤波", "早波", "浜波"],
+            "count": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "空母",
+            "stypes": [11, 18],
+            "value": 1
+          },
+          {
+            "type": "ShipCount",
+            "value": 6
+          }
+        ]
+      },
+      {
+        "area": "7-1",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": ["玉波", "涼波", "藤波", "早波", "浜波"],
+            "count": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [3],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [2],
+            "value": 4
+          },
+          {
+            "type": "ShipCount",
+            "value": 5
+          }
+        ]
+      },
+      {
+        "area": "4-1",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": ["玉波", "涼波", "藤波", "早波", "浜波"],
+            "count": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [2],
+            "value": 4
+          },
+          {
+            "type": "MaxShipTypeCount",
+            "ship_type": "戦艦",
+            "stypes": [8, 9, 10, 12],
+            "value": 0
+          },
+          {
+            "type": "ShipCount",
+            "value": 6
+          }
+        ]
+      },
+      {
+        "area": "5-1",
+        "fleet": [
+          {
+            "type": "ContainsShipNameAny",
+            "names": ["玉波", "涼波", "藤波", "早波", "浜波"],
+            "count": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [3],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [2],
+            "value": 2
+          },
+          {
+            "type": "MaxShipTypeCount",
+            "ship_type": "戦艦級",
+            "stypes": [8, 9, 10, 12],
+            "value": 2
+          },
+          {
+            "type": "MaxShipTypeCount",
+            "ship_type": "正規空母",
+            "stypes": [11, 18],
+            "value": 0
+          },
+          {
+            "type": "ShipCount",
+            "value": 6
+          }
+        ]
+      }
+    ]
   },
   {
     "id": 10001,
@@ -36243,5 +36354,780 @@
       }
     ],
     "note": "※玉波改二を旗艦に配置。api_no要確認"
+  },
+  {
+    "id": 10004,
+    "quest_id": "2604B1",
+    "name": "【13周年記念任務】艦隊13周年、抜錨せよ！",
+    "area": "1-2/1-3/1-4/1-5",
+    "rank": "S",
+    "boss_only": true,
+    "count": 1,
+    "reset": "limited",
+    "conditions": [
+      {
+        "type": "FlagshipType",
+        "ship_type": "軽巡/潜水母艦",
+        "stypes": [
+          3,
+          20
+        ]
+      },
+      {
+        "type": "ShipTypeCount",
+        "ship_type": "軽巡+潜水母艦",
+        "stypes": [
+          3,
+          20
+        ],
+        "value": 2
+      },
+      {
+        "type": "ShipTypeCount",
+        "ship_type": "駆逐+潜水",
+        "stypes": [
+          2,
+          13,
+          14
+        ],
+        "value": 2
+      }
+    ],
+    "recommended": [
+      {
+        "area": "1-2",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      },
+      {
+        "area": "1-3",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "水母",
+            "stypes": [
+              16
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "1-4",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "水母",
+            "stypes": [
+              16
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "1-5",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      }
+    ],
+    "note": "※各海域でS勝利×1。1-2: 軽巡2駆逐2(高速統一)、1-3/1-4: 軽空1軽巡2駆逐2水母1、1-5: 軽巡2駆逐2(対潜先制)。api_no要確認"
+  },
+  {
+    "id": 10005,
+    "quest_id": "2604B2",
+    "name": "【13周年記念任務】一航戦、揺るぎません！",
+    "area": "2-3/2-4/5-2/5-4",
+    "rank": "S",
+    "boss_only": true,
+    "count": 1,
+    "reset": "limited",
+    "conditions": [
+      {
+        "type": "OrConditions",
+        "desc": "一航戦(赤城+加賀) or 五航戦(翔鶴+瑞鶴) を旗艦+2番艦",
+        "alternatives": [
+          [
+            {
+              "type": "ContainsShipName",
+              "names": [
+                "赤城"
+              ],
+              "count": 1
+            },
+            {
+              "type": "ContainsShipName",
+              "names": [
+                "加賀"
+              ],
+              "count": 1
+            }
+          ],
+          [
+            {
+              "type": "ContainsShipName",
+              "names": [
+                "翔鶴"
+              ],
+              "count": 1
+            },
+            {
+              "type": "ContainsShipName",
+              "names": [
+                "瑞鶴"
+              ],
+              "count": 1
+            }
+          ]
+        ]
+      }
+    ],
+    "recommended": [
+      {
+        "area": "2-3",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "正規空母",
+            "stypes": [
+              11,
+              18
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "水母",
+            "stypes": [
+              16
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "2-4",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "正規空母",
+            "stypes": [
+              11,
+              18
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      },
+      {
+        "area": "5-2",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "正規空母",
+            "stypes": [
+              11,
+              18
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "水母",
+            "stypes": [
+              16
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "5-4",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "正規空母",
+            "stypes": [
+              11,
+              18
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "水母",
+            "stypes": [
+              16
+            ],
+            "value": 1
+          }
+        ]
+      }
+    ],
+    "note": "※前提:【13周年記念任務】艦隊13周年、抜錨せよ！。一航戦と五航戦を混ぜると進捗しない。2-3/2-4は制空165-180、5-2は制空375+、5-4は制空325+目安。api_no要確認"
+  },
+  {
+    "id": 10006,
+    "quest_id": "2604B3",
+    "name": "【13周年記念任務:拡張作戦】艦隊、南方へ！",
+    "area": "5-1/5-2/5-3/5-4/5-5",
+    "rank": "A",
+    "boss_only": true,
+    "count": 1,
+    "reset": "limited",
+    "conditions": [
+      {
+        "type": "ContainsShipNameAny",
+        "names": [
+          "大和",
+          "翔鶴",
+          "衣笠改二",
+          "Gotland",
+          "吹雪",
+          "杉",
+          "Mogador",
+          "Johnston",
+          "Fletcher",
+          "Thonburi",
+          "迅鯨"
+        ],
+        "count": 2
+      }
+    ],
+    "recommended": [
+      {
+        "area": "5-1",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "戦艦",
+            "stypes": [
+              8,
+              9
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      },
+      {
+        "area": "5-2",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "戦艦",
+            "stypes": [
+              8,
+              9
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "正規空母",
+            "stypes": [
+              11,
+              18
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      },
+      {
+        "area": "5-3",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 3
+          }
+        ]
+      },
+      {
+        "area": "5-4",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 3
+          }
+        ]
+      },
+      {
+        "area": "5-5",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "戦艦",
+            "stypes": [
+              8,
+              9
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "正規空母",
+            "stypes": [
+              11,
+              18
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "補給",
+            "stypes": [
+              22
+            ],
+            "value": 1
+          }
+        ]
+      }
+    ],
+    "note": "※前提:【13周年記念任務】一航戦、揺るぎません！。指定艦のいずれかを旗艦+2番艦に配置。5-1: 制空270、5-2: 制空375+、5-3/5-4: 制空160+(夜戦)、5-5: 制空430+。api_no要確認"
+  },
+  {
+    "id": 10007,
+    "quest_id": "2604B4",
+    "name": "【13周年記念任務:拡張作戦】強行輸送作戦",
+    "area": "1-3/1-4/1-6",
+    "rank": "A",
+    "boss_only": true,
+    "count": 2,
+    "reset": "monthly",
+    "conditions": [
+      {
+        "type": "FlagshipType",
+        "ship_type": "海防",
+        "stypes": [
+          1
+        ]
+      },
+      {
+        "type": "ShipTypeCount",
+        "ship_type": "海防",
+        "stypes": [
+          1
+        ],
+        "value": 3
+      }
+    ],
+    "recommended": [
+      {
+        "area": "1-3",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "海防",
+            "stypes": [
+              1
+            ],
+            "value": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "潜水母艦",
+            "stypes": [
+              20
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "1-4",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "海防",
+            "stypes": [
+              1
+            ],
+            "value": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽空母",
+            "stypes": [
+              7
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "航巡",
+            "stypes": [
+              6
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "潜水母艦",
+            "stypes": [
+              20
+            ],
+            "value": 1
+          }
+        ]
+      },
+      {
+        "area": "1-6",
+        "fleet": [
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "海防",
+            "stypes": [
+              1
+            ],
+            "value": 3
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "軽巡",
+            "stypes": [
+              3
+            ],
+            "value": 1
+          },
+          {
+            "type": "ShipTypeCount",
+            "ship_type": "駆逐",
+            "stypes": [
+              2
+            ],
+            "value": 2
+          }
+        ]
+      }
+    ],
+    "note": "※海防艦を旗艦・2番艦・3番艦に配置。各海域 A勝利以上×2 (1-6は港到達でも可)。1-3/1-4: 軽空1航巡1海防3潜母1(制空60+)、1-6: 軽巡1駆逐2海防3(F航空対策必須)。api_no要確認"
+  },
+  {
+    "id": 10008,
+    "quest_id": "2604C1",
+    "name": "【13周年記念任務】記念祝賀艦隊演習！",
+    "area": "演習",
+    "rank": "A",
+    "boss_only": false,
+    "count": 5,
+    "reset": "weekly",
+    "counter_reset": "daily",
+    "conditions": [
+      {
+        "type": "ContainsShipNameAny",
+        "names": [
+          "杉",
+          "朧",
+          "曙",
+          "漣",
+          "潮",
+          "吹雪",
+          "Thonburi",
+          "野埼",
+          "南海",
+          "大泊",
+          "瑞穂"
+        ],
+        "count": 2
+      }
+    ],
+    "recommended": [],
+    "note": "※指定艦のいずれかを旗艦+2番艦に配置。1日のうちにA勝利以上×5回。api_no要確認"
+  },
+  {
+    "id": 1020,
+    "quest_id": "By16",
+    "name": "「吹雪改三」抜錨します！見てくださいっ！",
+    "area": "7-5(3rd)/5-1/5-3/5-4/5-5",
+    "rank": "S",
+    "boss_only": true,
+    "count": 1,
+    "reset": "yearly",
+    "conditions": [
+      {
+        "type": "ContainsShipName",
+        "names": [
+          "吹雪改三"
+        ],
+        "count": 1
+      },
+      {
+        "type": "ContainsShipNameAny",
+        "names": [
+          "白雪",
+          "初雪",
+          "深雪",
+          "叢雲",
+          "磯波",
+          "浦波"
+        ],
+        "count": 1
+      }
+    ],
+    "recommended": [],
+    "note": "※吹雪改三/改三護(六式)を旗艦、特I型駆逐艦を2番艦に配置。各海域S勝利×1。api_no要確認"
   }
 ]

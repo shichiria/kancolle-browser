@@ -1,3 +1,4 @@
+mod action_log;
 mod api;
 mod battle_log;
 mod ca;
@@ -8,11 +9,13 @@ mod expedition;
 mod game_window;
 mod improvement;
 mod migration;
+mod mouse_hook;
 mod overlay;
 mod proxy;
 mod quest_progress;
 mod senka;
 mod sortie_quest;
+mod ui_event;
 
 use log::info;
 use std::path::PathBuf;
@@ -129,7 +132,8 @@ pub fn run() {
             commands::drive_login,
             commands::drive_logout,
             commands::get_drive_status,
-            commands::drive_force_sync
+            commands::drive_force_sync,
+            commands::get_action_log
         ])
         .setup(|app| {
             let data_dir = app
@@ -139,6 +143,9 @@ pub fn run() {
 
             // Migrate old flat layout to sync/ + local/ structure
             migration::migrate_data_dir(&data_dir);
+
+            // Initialise dev-only action log (no-op in release)
+            action_log::init(&data_dir);
 
             // Initialize GameState
             let sync_dir = data_dir.join("sync");
@@ -225,6 +232,7 @@ pub fn run() {
                 match proxy::start_proxy(handle.clone(), cache_dir).await {
                     Ok(port) => {
                         info!("Proxy server started on port {}", port);
+                        crate::action_log::log("Event", "proxy-ready", &format!("port={}", port));
                         let state = handle.state::<AppState>();
                         *state.proxy_port.lock().unwrap() = port;
                         let _ = handle.emit("proxy-ready", port);
@@ -268,6 +276,9 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             if let tauri::RunEvent::ExitRequested { .. } = &event {
+                // Uninstall mouse hook before exit
+                mouse_hook::uninstall();
+
                 // Save DMM cookies before the app exits so login persists across restarts
                 if let Some(game_wv) = app_handle.get_webview("game-content") {
                     let urls = [

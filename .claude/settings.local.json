@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo doc:*)",
+      "Bash(rustup doc:*)",
+      "Bash(cargo check:*)",
+      "Bash(taskkill //IM kancolle-browser.exe //F)",
+      "Bash(taskkill //IM cargo.exe //F)",
+      "Bash(npm run:*)",
+      "Bash(tee \"$LOGFILE\")",
+      "Bash(echo \"HOME=$HOME\")",
+      "Read(//c/Users/takta/OneDrive/Desktop/kancolle-browser/src-tauri/$HOME/.claude/**)",
+      "Bash(touch \"$HOME/.claude/gemini_approved\")",
+      "Bash(cargo test:*)"
+    ]
+  }
+}

@@ -102,8 +102,11 @@ src-tauri/src/
 │   ├── formation.rs          陣形ヒントオーバーレイ制御
 │   ├── minimap.rs            ミニマップデータ送信
 │   ├── dto/                  データ転送オブジェクト
-│   │   ├── battle.rs         戦闘/任務/改修レスポンス構造体
-│   │   └── request.rs        編成/改修/任務リクエスト構造体
+│   │   ├── mod.rs            モジュールエクスポート
+│   │   ├── battle.rs         戦闘系DTO (ApiBattleResponse, ApiBattleResultResponse, ApiMapNextResponse)
+│   │   ├── member.rs         艦船/装備/任務系DTO (Ship3, SlotDeprive, Charge, Powerup, etc.)
+│   │   ├── ranking.rs        ランキングDTO (ApiRankingResponse, ApiRankingEntry)
+│   │   └── request.rs        リクエストDTO (HenseiChangeReq, RemodelSlotReq, QuestReq)
 │   └── tests.rs              APIハンドラテスト
 │
 ├── proxy/
@@ -563,3 +566,38 @@ npm run tauri build
 - **CSP**: `null` 設定 (ゲーム互換性のため無効化)
 - **OAuth トークン**: ローカルファイルに永続化、アプリスコープ `drive.file` (自アプリ作成ファイルのみ)
 - **Cookie**: 終了時に自動保存、起動時に JS 経由で復元
+
+
+## 11. ロギング戦略
+
+### 11.1 フレームワーク
+
+- `log` クレート + `env_logger`
+- 初期化: `env_logger::Env::default().default_filter_or("info")`
+- 開発時: `RUST_LOG=debug cargo tauri dev` で全ログ表示
+- 本番: デフォルト `info` レベル
+
+### 11.2 ログレベル方針
+
+| レベル | 用途 | 例 |
+|--------|------|-----|
+| `error!` | データ破損・回復不能エラー | serde パース失敗 |
+| `warn!` | 回復可能な異常 | ウィンドウ未検出, eval失敗 |
+| `info!` | 状態遷移 | ウィンドウ表示/非表示, 機能トグル |
+| `debug!` | 高頻度データ | JSONペイロード, 座標計算, APIディスパッチ |
+
+### 11.3 カバレッジ対象
+
+| 領域 | 重点ポイント |
+|------|-------------|
+| Window/Webview操作 | `get_window()`/`get_webview()` の None, `show()`/`eval()` の結果 |
+| ファイルI/O | 読み書き失敗、マスターデータ参照ミス |
+| APIパース | エンドポイント別ディスパッチ、`ParsedApi::Other` の未処理API |
+| silent `let _ =` | Tauri API呼び出し (`set_position`, `eval` 等) の結果ログ化 |
+| プロキシ | `request_data` 未検出時のデフォルトフォールバック |
+
+### 11.4 注意事項
+
+- `log` マクロ + `env_logger` はスレッドセーフ。`std::sync::Mutex` との組み合わせでデッドロックなし
+- 高頻度APIイベントは `debug!` で `info` を汚さない
+- ログメッセージに関数名/識別子を含める (例: `[BattleInfo] window not found`)

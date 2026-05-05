@@ -31,6 +31,7 @@ pub(super) fn process_battle(
 
     match endpoint {
         "/kcsapi/api_req_map/start" => {
+            crate::action_log::record("State", "sortie_start", None);
             let fleets = state.profile.fleets.clone();
             let player_ships = state.profile.ships.clone();
             let player_slotitems = state.profile.slotitems.clone();

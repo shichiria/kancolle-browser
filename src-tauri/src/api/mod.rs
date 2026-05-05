@@ -109,6 +109,9 @@ enum ParsedApi {
 /// Process intercepted KanColle API data.
 /// All state updates happen in a SINGLE async task to guarantee ordering.
 pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, request_body: &str) {
+    // Action log: record every API interception (dev only)
+    crate::action_log::log("API", endpoint, &format!("body_len={}", json_str.len()));
+
     let game_state = app_handle.state::<GameState>();
 
     // Parse data on the calling thread (sync) to avoid cloning large json_str
@@ -604,6 +607,26 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
             let _ = tx.try_send(crate::drive_sync::SyncCommand::UploadChanged(vec![path]));
         }
 
+        // Action log: record parsed result variant (dev only)
+        macro_rules! variant_name {
+            ($val:expr, $($variant:ident),+ $(,)?) => {
+                match $val {
+                    $(ParsedApi::$variant { .. } => stringify!($variant),)+
+                }
+            };
+        }
+        let variant_name = variant_name!(
+            &parsed,
+            Start2, Port, SlotItem, QuestList, Battle, ExerciseResult,
+            HenseiChange, HenseiPresetSelect, RemodelSlot,
+            QuestStart, QuestStop, QuestClear,
+            Ship3, SlotDeprive, Charge, Ranking, Powerup,
+            SlotExchange, GetShip, DestroyItem2, DestroyShip,
+            CreateItem, MemberMaterial, MemberNDock, MemberDeck,
+            MissionResult, MapInfoGauges, LogOnly, Other,
+        );
+        crate::action_log::log("API_PARSED", &endpoint, &format!("variant={}", variant_name));
+
         match parsed {
             ParsedApi::Start2(api_data) => {
                 process_start2(&mut state, &api_data, &app);
@@ -1039,12 +1062,14 @@ fn process_start2(
 
 /// Process api_port data
 fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, app: &AppHandle) {
+    crate::action_log::log("State", "process_port", &format!("ships={}", api_data.api_ship.len()));
     // Finalize active sortie if any
     if state.sortie.battle_logger.is_in_sortie() {
         if let Some(record) = state.sortie.battle_logger.on_port() {
             let filename = format!("battle_logs/{}.json", record.id);
             notify_sync(state, vec![&filename]);
             let summary = crate::battle_log::SortieRecordSummary::from(&record);
+            crate::action_log::log("Event", "sortie-complete", &format!("id={}", record.id));
             let _ = app.emit("sortie-complete", &summary);
         }
         minimap::hide_minimap_overlay(app);
@@ -1197,6 +1222,10 @@ fn process_port(state: &mut models::GameStateInner, api_data: &models::ApiPort, 
     // Cache for re-emitting during sortie
     state.sortie.last_port_summary = Some(port_data.clone());
 
+    crate::action_log::log("Event", "port-data", &format!(
+        "admiral={} lv={} ships={}",
+        port_data.admiral_name, port_data.admiral_level, port_data.ship_count
+    ));
     match app.emit("port-data", &port_data) {
         Ok(_) => info!("port-data event emitted successfully"),
         Err(e) => error!("Failed to emit port-data: {}", e),
