@@ -376,6 +376,44 @@ pub(crate) fn reposition_expedition_notification(app: &tauri::AppHandle) {
     }
 }
 
+/// Reposition the battle-info overlay to follow the game window.
+/// Mirrors the positioning math in `battle_info::show_battle_info_overlay` so
+/// that move/resize events keep the overlay anchored to the top-left of the
+/// game canvas, just below the control bar.
+pub(crate) fn reposition_battle_info(app: &tauri::AppHandle) {
+    let battle_info_win = match app.get_window("battle-info") {
+        Some(w) => w,
+        None => return,
+    };
+    // Only reposition if currently shown — avoids moving a hidden window.
+    if !battle_info_win.is_visible().unwrap_or(false) {
+        return;
+    }
+    let game_win = match app.get_window("game") {
+        Some(w) => w,
+        None => return,
+    };
+
+    let scale = game_win.scale_factor().unwrap_or(1.0);
+    let inner_pos = match game_win.inner_position() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    let zoom = app
+        .try_state::<AppState>()
+        .map(|s| *s.game_zoom.lock().unwrap())
+        .unwrap_or(1.0);
+    let bar_h = CONTROL_BAR_HEIGHT * zoom;
+    let margin = 8.0;
+
+    let x = inner_pos.x + (margin * scale) as i32;
+    let y = inner_pos.y + ((bar_h + margin) * scale) as i32;
+
+    if let Err(e) = battle_info_win.set_position(tauri::PhysicalPosition::new(x, y)) {
+        log::warn!("[BattleInfo] failed to reposition: {}", e);
+    }
+}
+
 /// Reposition the formation hint window to follow the game window
 pub(crate) fn reposition_formation_hint(app: &tauri::AppHandle) {
     let state = app.state::<AppState>();

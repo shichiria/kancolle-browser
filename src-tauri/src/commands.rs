@@ -1015,6 +1015,17 @@ pub(crate) fn get_quest_filters(state: tauri::State<'_, crate::AppState>) -> Que
     }
 }
 
+/// Get the current Land-Based Air Squadron (基地航空隊) state.
+/// Used by the kantai window's 陣形 tab on initial mount; subsequent updates
+/// arrive via the `air-base-updated` event.
+#[tauri::command]
+pub(crate) async fn get_air_bases(
+    state: tauri::State<'_, api::models::GameState>,
+) -> Result<Vec<api::models::AirBase>, String> {
+    let inner = state.inner.read().await;
+    Ok(inner.air_bases.clone())
+}
+
 /// Get the proxy port for the frontend
 #[tauri::command]
 pub(crate) fn get_proxy_port(state: tauri::State<'_, crate::AppState>) -> u16 {

@@ -195,6 +195,7 @@
             + '<button id="kc-taiha" title="\u{5927}\u{7834}\u{8B66}\u{544A}">\u{26A0} \u{5927}\u{7834}</button>'
             + '<button id="kc-minimap" title="\u{30DF}\u{30CB}\u{30DE}\u{30C3}\u{30D7}">\u{1F5FA} MAP</button>'
             + '<button id="kc-battle-info" title="\u{6226}\u{95D8}\u{60C5}\u{5831}">\u{2694} \u{6226}\u{95D8}</button>'
+            + '<button id="kc-quest" title="\u{4EFB}\u{52D9}\u{30A6}\u{30A3}\u{30F3}\u{30C9}\u{30A6}">\u{1F4DC} \u{4EFB}\u{52D9}</button>'
             + '<button id="kc-kantai" title="\u{8266}\u{968A}\u{30D1}\u{30CD}\u{30EB}">\u{2693} \u{8266}\u{968A}</button>'
             + '<span class="spacer"></span>'
             + '<span class="label">KanColle Browser</span>'
@@ -316,6 +317,12 @@
         var kantaiBtn = document.getElementById('kc-kantai');
         kantaiBtn.addEventListener('click', function() {
             window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_kantai_window');
+        });
+
+        // Quest window toggle
+        var questBtn = document.getElementById('kc-quest');
+        questBtn.addEventListener('click', function() {
+            window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_quests_window');
         });
     }
 

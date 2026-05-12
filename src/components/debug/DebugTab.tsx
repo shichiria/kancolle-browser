@@ -30,6 +30,7 @@ const SCREEN_JA: Record<string, string> = {
   Homeport: "母港",
   SortieSelect: "出撃選択",
   ExpeditionSelect: "遠征選択",
+  ExpeditionFleetSelect: "遠征-艦隊選択",
   FleetComposition: "編成",
   ShipSelection: "編成-艦船選択",
   ShipChangeConfirm: "編成-変更確認",
@@ -53,6 +54,7 @@ const FLEET_SCREENS = new Set([
   "FleetComposition",
   "Resupply",
   "Remodel",
+  "ExpeditionFleetSelect",
 ]);
 
 function withFleet(screenName: string, fleet: number | null): string {

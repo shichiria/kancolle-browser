@@ -20,15 +20,19 @@ import { EquipListTab } from "./components/equips";
 import { ImprovementTab } from "./components/improvement";
 import { SettingsTab } from "./components/settings";
 import { KantaiView } from "./components/kantai";
+import { QuestTab } from "./components/quests";
 import { DebugTab } from "./components/debug";
 
 // View mode is decided once at startup from the Tauri window label.
 // Each window loads the same React bundle; the label distinguishes them.
 //   label="management" → full SPA (toolbar + tabs)
 //   label="kantai"     → fleet-only view
-const VIEW_MODE: "management" | "kantai" = (() => {
+const VIEW_MODE: "management" | "kantai" | "quests" = (() => {
   try {
-    return getCurrentWindow().label === "kantai" ? "kantai" : "management";
+    const label = getCurrentWindow().label;
+    if (label === "kantai") return "kantai";
+    if (label === "quests") return "quests";
+    return "management";
   } catch {
     return "management";
   }
@@ -289,6 +293,16 @@ function App() {
       unlistenApi.then((f) => f());
     };
   }, []);
+
+  if (VIEW_MODE === "quests") {
+    return (
+      <QuestTab
+        sortieQuests={sortieQuests}
+        activeQuests={activeQuests}
+        questProgress={questProgress}
+      />
+    );
+  }
 
   if (VIEW_MODE === "kantai") {
     return (

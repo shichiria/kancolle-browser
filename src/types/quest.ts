@@ -3,6 +3,16 @@
 import type { ConditionResult } from "./common";
 import type { MapRecommendedResult } from "./expedition";
 
+export type SortieQuestCondition =
+  | { type: "ShipCount"; value: number }
+  | { type: "ShipTypeCount"; ship_type: string; stypes: number[]; value: number }
+  | { type: "FlagshipType"; ship_type: string; stypes: number[] }
+  | { type: "ContainsShipName"; names: string[]; count: number }
+  | { type: "ContainsShipNameAny"; names: string[]; count: number }
+  | { type: "OnlyShipTypes"; desc: string; stypes: number[] }
+  | { type: "MaxShipTypeCount"; ship_type: string; stypes: number[]; value: number }
+  | { type: "OrConditions"; desc: string; alternatives: SortieQuestCondition[][] };
+
 export interface SortieQuestDef {
   id: number;
   quest_id: string;
@@ -14,6 +24,7 @@ export interface SortieQuestDef {
   reset: string;
   no_conditions: boolean;
   sub_goals?: { name: string; count: number; boss_only: boolean; rank: string }[];
+  conditions: SortieQuestCondition[];
 }
 
 export interface ActiveQuestDetail {

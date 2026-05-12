@@ -1,6 +1,7 @@
 use log::{error, info, warn};
 use tauri::{AppHandle, Emitter, Manager};
 
+use super::air_corps;
 use super::models;
 use super::formation::{formation_name, show_formation_hint, hide_formation_hint};
 use super::minimap::update_minimap_overlay;
@@ -32,6 +33,11 @@ pub(super) fn process_battle(
     match endpoint {
         "/kcsapi/api_req_map/start" => {
             crate::action_log::record("State", "sortie_start", None);
+            // Clear LBAS attack history at the start of every new sortie so the
+            // 陣形 tab only shows results from the current outing.
+            if air_corps::clear_recent_attacks(state) {
+                air_corps::emit_air_base_update(state, app);
+            }
             let fleets = state.profile.fleets.clone();
             let player_ships = state.profile.ships.clone();
             let player_slotitems = state.profile.slotitems.clone();
@@ -212,6 +218,24 @@ pub(super) fn process_battle(
                     if let Some(data) = resp.api_data {
                         state.sortie.battle_logger.on_battle(&data, json);
 
+                        // Apply LBAS attack waves (api_air_base_attack[]) to the
+                        // air-base state. Resolve area_id from the active sortie.
+                        // NOTE: `api_air_base_attack` lives inside `api_data`, not at
+                        // the outer envelope — pass the api_data sub-value, not `json`.
+                        let area_id = state
+                            .sortie
+                            .battle_logger
+                            .active_sortie_ref()
+                            .map(|s| s.map_area)
+                            .unwrap_or(0);
+                        if area_id != 0 {
+                            if let Some(api_data_json) = json.get("api_data") {
+                                if air_corps::apply_battle_attack(state, area_id, api_data_json) {
+                                    air_corps::emit_air_base_update(state, app);
+                                }
+                            }
+                        }
+
                         // Save formation to memory and hide hint
                         if let Some(arr) = &data.api_formation {
                             let friendly_formation = arr.first().copied().unwrap_or(0);
@@ -240,12 +264,22 @@ pub(super) fn process_battle(
                                 let (air_text, air_color) = air_id
                                     .map(|id| battle_info::air_superiority_label(id))
                                     .unwrap_or(("", ""));
-                                info!("[Battle] showing overlay: engagement={}, air={:?}", engagement_id, air_id);
+                                let lbas_waves = json
+                                    .get("api_data")
+                                    .map(|d| battle_info::extract_lbas_waves(d))
+                                    .unwrap_or_default();
+                                info!(
+                                    "[Battle] showing overlay: engagement={}, air={:?}, lbas_waves={}",
+                                    engagement_id,
+                                    air_id,
+                                    lbas_waves.len()
+                                );
                                 let info_data = battle_info::BattleInfoData {
                                     engagement: battle_info::engagement_name(engagement_id).to_string(),
                                     engagement_color: battle_info::engagement_color(engagement_id).to_string(),
                                     air_control: air_text.to_string(),
                                     air_control_color: air_color.to_string(),
+                                    lbas_waves,
                                 };
                                 battle_info::show_battle_info_overlay(app, &info_data);
                             }
@@ -281,6 +315,7 @@ pub(super) fn process_battle(
                                         engagement_color: battle_info::engagement_color(engagement_id).to_string(),
                                         air_control: String::new(),
                                         air_control_color: String::new(),
+                                        lbas_waves: Vec::new(),
                                     };
                                     battle_info::show_battle_info_overlay(app, &info_data);
                                 }

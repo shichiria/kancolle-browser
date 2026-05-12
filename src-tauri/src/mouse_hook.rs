@@ -177,34 +177,50 @@ mod inner {
 #[cfg(target_os = "windows")]
 pub use inner::{install, uninstall, GameClick};
 
-/// Map a Navigate / SideMenuClick event to the resulting Screen, if known.
+/// Map a Navigate / SideMenuClick / SelectMode / ExpeditionAction event to
+/// the resulting Screen, if known.
 #[cfg(target_os = "windows")]
 fn screen_from_event(event: &crate::ui_event::UiEvent) -> Option<crate::ui_event::Screen> {
     use crate::ui_event::{Screen, UiEvent};
-    let target = match event {
-        UiEvent::Navigate { target } => target.as_str(),
-        UiEvent::SideMenuClick { target } => target.as_str(),
-        _ => return None,
-    };
-    match target {
-        "編成" => Some(Screen::FleetComposition),
-        "改装" => Some(Screen::Remodel),
-        "補給" => Some(Screen::Resupply),
-        "出撃" => Some(Screen::SortieSelect),
-        "入渠" => Some(Screen::RepairDockSelect),
-        "工廠" => Some(Screen::Factory),
+    match event {
+        UiEvent::Navigate { target } | UiEvent::SideMenuClick { target } => {
+            match target.as_str() {
+                "編成" => Some(Screen::FleetComposition),
+                "改装" => Some(Screen::Remodel),
+                "補給" => Some(Screen::Resupply),
+                "出撃" => Some(Screen::SortieSelect),
+                "入渠" => Some(Screen::RepairDockSelect),
+                "工廠" => Some(Screen::Factory),
+                _ => None,
+            }
+        }
+        UiEvent::SelectMode { mode } => match mode.as_str() {
+            // SortieSelect tabs: 出撃/演習/遠征.
+            // 遠征タブ → ExpeditionSelect screen.
+            "遠征" => Some(Screen::ExpeditionSelect),
+            _ => None,
+        },
+        UiEvent::ExpeditionAction { action } => match action.as_str() {
+            // 決定 button on ExpeditionSelect transitions to fleet-select sub-screen.
+            "決定" => Some(Screen::ExpeditionFleetSelect),
+            _ => None,
+        },
         _ => None,
     }
 }
 
-/// Fleet-tab-bearing screens: 編成 / 補給 / 改装. Other screens reset
-/// `current_fleet` to None so the Debug UI doesn't show stale selections.
+/// Fleet-tab-bearing screens: 編成 / 補給 / 改装 / 遠征-艦隊選択.
+/// Other screens reset `current_fleet` to None so the Debug UI doesn't
+/// show stale selections.
 #[cfg(target_os = "windows")]
 fn screen_has_fleet_tabs(screen: crate::ui_event::Screen) -> bool {
     use crate::ui_event::Screen;
     matches!(
         screen,
-        Screen::FleetComposition | Screen::Resupply | Screen::Remodel
+        Screen::FleetComposition
+            | Screen::Resupply
+            | Screen::Remodel
+            | Screen::ExpeditionFleetSelect
     )
 }
 

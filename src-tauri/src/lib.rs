@@ -15,6 +15,7 @@ mod mouse_hook;
 mod overlay;
 mod proxy;
 mod quest_progress;
+mod quests;
 mod senka;
 mod sortie_quest;
 mod ui_event;
@@ -207,6 +208,9 @@ pub fn run() {
             kantai::show_kantai_window,
             kantai::hide_kantai_window,
             kantai::toggle_kantai_window,
+            quests::show_quests_window,
+            quests::hide_quests_window,
+            quests::toggle_quests_window,
             commands::get_expeditions,
             commands::check_expedition_cmd,
             commands::get_sortie_quests,
@@ -257,7 +261,8 @@ pub fn run() {
             commands::get_action_log,
             commands::get_current_screen,
             commands::get_current_fleet,
-            commands::get_quest_filters
+            commands::get_quest_filters,
+            commands::get_air_bases
         ])
         .setup(|app| {
             let data_dir = app
@@ -374,6 +379,20 @@ pub fn run() {
                         if let Some(win) = kantai_handle.get_window("kantai") {
                             let _ = win.hide();
                             info!("Kantai close intercepted -> hidden");
+                        }
+                    }
+                });
+            }
+
+            // Same intercept for the quests window.
+            if let Some(quests_win) = app.get_window("quests") {
+                let quests_handle = app.handle().clone();
+                quests_win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        if let Some(win) = quests_handle.get_window("quests") {
+                            let _ = win.hide();
+                            info!("Quests close intercepted -> hidden");
                         }
                     }
                 });

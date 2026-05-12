@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 // =============================================================================
 
 /// A single condition from the JSON file
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum SortieQuestCondition {
     /// Minimum number of ships in fleet
@@ -133,7 +133,6 @@ pub struct SortieQuestDef {
     /// Enemy ship type to count for sinking quests (carrier/transport/submarine)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enemy_type: Option<String>,
-    #[serde(skip_serializing)]
     pub conditions: Vec<SortieQuestCondition>,
     #[serde(default, skip_serializing)]
     pub recommended: Vec<MapRecommendation>,

@@ -38,6 +38,35 @@ html, body {
   text-shadow: 0 0 6px currentColor;
   white-space: nowrap;
 }
+.battle-info-lbas {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 1px dashed #34557a;
+}
+.battle-info-lbas-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.1;
+}
+.battle-info-lbas-tag {
+  font-size: 9px;
+  color: #b0bec5;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #34557a;
+  border-radius: 3px;
+  padding: 1px 4px;
+  white-space: nowrap;
+}
+.battle-info-lbas-seiku {
+  font-weight: bold;
+  text-shadow: 0 0 4px currentColor;
+  white-space: nowrap;
+}
 </style>
 </head>
 <body>
@@ -46,16 +75,37 @@ html, body {
 (function() {
   var root = document.getElementById('battle-info-root');
 
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   window.showBattleInfo = function(data) {
     var html = '<div class="battle-info-panel">';
     html += '<div class="battle-info-item">';
     html += '<span class="battle-info-label">\u4EA4\u6226</span>';
-    html += '<span class="battle-info-value" style="color:' + (data.engagement_color || '#b0bec5') + ';">' + (data.engagement || '') + '</span>';
+    html += '<span class="battle-info-value" style="color:' + escapeHtml(data.engagement_color || '#b0bec5') + ';">' + escapeHtml(data.engagement || '') + '</span>';
     html += '</div>';
     if (data.air_control) {
       html += '<div class="battle-info-item">';
-      html += '<span class="battle-info-label">\u5236\u7A7A</span>';
-      html += '<span class="battle-info-value" style="color:' + (data.air_control_color || '#78909c') + ';">' + data.air_control + '</span>';
+      html += '<span class="battle-info-label">\u672C\u6226\u5236\u7A7A</span>';
+      html += '<span class="battle-info-value" style="color:' + escapeHtml(data.air_control_color || '#78909c') + ';">' + escapeHtml(data.air_control) + '</span>';
+      html += '</div>';
+    }
+    var waves = Array.isArray(data.lbas_waves) ? data.lbas_waves : [];
+    if (waves.length > 0) {
+      html += '<div class="battle-info-lbas">';
+      for (var i = 0; i < waves.length; i++) {
+        var w = waves[i];
+        html += '<div class="battle-info-lbas-row">';
+        html += '<span class="battle-info-lbas-tag">\u57FA' + escapeHtml(w.base_id) + ' \u6CE2' + escapeHtml(w.wave) + '</span>';
+        html += '<span class="battle-info-lbas-seiku" style="color:' + escapeHtml(w.color || '#78909c') + ';">' + escapeHtml(w.text || '-') + '</span>';
+        html += '</div>';
+      }
       html += '</div>';
     }
     html += '</div>';

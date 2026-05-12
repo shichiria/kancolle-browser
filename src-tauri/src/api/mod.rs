@@ -1,5 +1,6 @@
 pub mod dto;
 pub mod models;
+mod air_corps;
 mod battle;
 pub(crate) mod battle_info;
 mod fleet;
@@ -99,8 +100,36 @@ enum ParsedApi {
     MemberDeck(Vec<models::Fleet>),
     // Category B: Mission
     MissionResult(dto::member::ApiMissionResultResponse),
-    // Category B: mapinfo gauge cache
-    MapInfoGauges(std::collections::HashMap<i32, i32>),
+    // Category B: mapinfo — gauge cache + air-base state
+    MapInfoData {
+        gauges: std::collections::HashMap<i32, i32>,
+        api_data: serde_json::Value,
+    },
+    // Category B: 基地航空隊 — full state (api_get_member/base_air_corps)
+    BaseAirCorps(serde_json::Value),
+    // Category B: 基地航空隊 incremental updates
+    AirCorpsSetPlane {
+        request_body: String,
+        api_data: serde_json::Value,
+    },
+    AirCorpsSetAction {
+        request_body: String,
+    },
+    AirCorpsSupply {
+        request_body: String,
+        api_data: serde_json::Value,
+    },
+    AirCorpsChangeName {
+        request_body: String,
+    },
+    AirCorpsChangeDeployment {
+        request_body: String,
+        api_data: serde_json::Value,
+    },
+    AirCorpsCondRecovery {
+        request_body: String,
+        api_data: serde_json::Value,
+    },
     // Category B: Log-only (null response or follow-up refresh)
     LogOnly,
     Other,
@@ -178,6 +207,9 @@ fn screen_from_api(endpoint: &str) -> Option<crate::ui_event::Screen> {
         // 出撃-海域選択
         "/kcsapi/api_get_member/mapinfo" => Some(Screen::SortieSelect),
 
+        // 遠征選択 — 出撃選択画面で「遠征」タブを選んだ際に飛ぶ
+        "/kcsapi/api_get_member/mission" => Some(Screen::ExpeditionSelect),
+
         // Battle / sortie / expedition / practice screens have no fleet tabs;
         // intentionally don't update screen state for them so we keep whatever
         // was set last (the user will return through 母港 anyway).
@@ -185,12 +217,15 @@ fn screen_from_api(endpoint: &str) -> Option<crate::ui_event::Screen> {
     }
 }
 
-/// Whether a screen has fleet-tab UI (編成 / 補給 / 改装).
+/// Whether a screen has fleet-tab UI (編成 / 補給 / 改装 / 遠征-艦隊選択).
 fn screen_has_fleet_tabs(screen: crate::ui_event::Screen) -> bool {
     use crate::ui_event::Screen;
     matches!(
         screen,
-        Screen::FleetComposition | Screen::Resupply | Screen::Remodel
+        Screen::FleetComposition
+            | Screen::Resupply
+            | Screen::Remodel
+            | Screen::ExpeditionFleetSelect
     )
 }
 
@@ -638,31 +673,122 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
                 }
             }
         }
-        // --- Category B: Log-only (null response / follow-up refresh) ---
+        // --- Category B: mapinfo (gauge cache + 基地航空隊 state) ---
         "/kcsapi/api_get_member/mapinfo" => {
-            info!("Processing api_get_member/mapinfo (gauge cache)");
+            info!("Processing api_get_member/mapinfo");
             match serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str) {
-                Ok(data) => {
-                    let mut gauges = std::collections::HashMap::new();
-                    if let Some(api_data) = &data.api_data {
-                        if let Some(map_info) = api_data.get("api_map_info").and_then(|v| v.as_array()) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => {
+                        let mut gauges = std::collections::HashMap::new();
+                        if let Some(map_info) =
+                            api_data.get("api_map_info").and_then(|v| v.as_array())
+                        {
                             for m in map_info {
-                                let map_id = m.get("api_id").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                                if let Some(gauge) = m.get("api_gauge_num").and_then(|v| v.as_i64()) {
+                                let map_id =
+                                    m.get("api_id").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                                if let Some(gauge) =
+                                    m.get("api_gauge_num").and_then(|v| v.as_i64())
+                                {
                                     if gauge > 0 {
                                         gauges.insert(map_id, gauge as i32);
                                     }
                                 }
                             }
                         }
+                        ParsedApi::MapInfoData { gauges, api_data }
                     }
-                    if gauges.is_empty() {
-                        ParsedApi::LogOnly
-                    } else {
-                        ParsedApi::MapInfoGauges(gauges)
-                    }
-                }
+                    None => ParsedApi::LogOnly,
+                },
                 Err(_) => ParsedApi::LogOnly,
+            }
+        }
+        "/kcsapi/api_req_air_corps/set_plane" => {
+            info!("Processing api_req_air_corps/set_plane");
+            match serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::AirCorpsSetPlane {
+                        request_body: request_body.to_string(),
+                        api_data,
+                    },
+                    None => ParsedApi::LogOnly,
+                },
+                Err(e) => {
+                    error!("Failed to parse air_corps/set_plane: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        "/kcsapi/api_req_air_corps/set_action" => {
+            info!("Processing api_req_air_corps/set_action");
+            ParsedApi::AirCorpsSetAction {
+                request_body: request_body.to_string(),
+            }
+        }
+        "/kcsapi/api_req_air_corps/supply" => {
+            info!("Processing api_req_air_corps/supply");
+            match serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::AirCorpsSupply {
+                        request_body: request_body.to_string(),
+                        api_data,
+                    },
+                    None => ParsedApi::LogOnly,
+                },
+                Err(e) => {
+                    error!("Failed to parse air_corps/supply: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        "/kcsapi/api_get_member/base_air_corps" => {
+            info!("Processing api_get_member/base_air_corps");
+            match serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::BaseAirCorps(api_data),
+                    None => ParsedApi::LogOnly,
+                },
+                Err(e) => {
+                    error!("Failed to parse base_air_corps: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        "/kcsapi/api_req_air_corps/change_name" => {
+            info!("Processing api_req_air_corps/change_name");
+            ParsedApi::AirCorpsChangeName {
+                request_body: request_body.to_string(),
+            }
+        }
+        "/kcsapi/api_req_air_corps/change_deployment_base" => {
+            info!("Processing api_req_air_corps/change_deployment_base");
+            match serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::AirCorpsChangeDeployment {
+                        request_body: request_body.to_string(),
+                        api_data,
+                    },
+                    None => ParsedApi::LogOnly,
+                },
+                Err(e) => {
+                    error!("Failed to parse change_deployment_base: {}", e);
+                    ParsedApi::Other
+                }
+            }
+        }
+        "/kcsapi/api_port/airCorpsCondRecoveryWithTimer" => {
+            info!("Processing api_port/airCorpsCondRecoveryWithTimer");
+            match serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str) {
+                Ok(data) => match data.api_data {
+                    Some(api_data) => ParsedApi::AirCorpsCondRecovery {
+                        request_body: request_body.to_string(),
+                        api_data,
+                    },
+                    None => ParsedApi::LogOnly,
+                },
+                Err(e) => {
+                    error!("Failed to parse airCorpsCondRecoveryWithTimer: {}", e);
+                    ParsedApi::Other
+                }
             }
         }
         "/kcsapi/api_req_kaisou/slotset"
@@ -764,7 +890,11 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
             Ship3, SlotDeprive, Charge, Ranking, Powerup,
             SlotExchange, GetShip, DestroyItem2, DestroyShip,
             CreateItem, MemberMaterial, MemberNDock, MemberDeck,
-            MissionResult, MapInfoGauges, LogOnly, Other,
+            MissionResult, MapInfoData,
+            BaseAirCorps,
+            AirCorpsSetPlane, AirCorpsSetAction, AirCorpsSupply,
+            AirCorpsChangeName, AirCorpsChangeDeployment, AirCorpsCondRecovery,
+            LogOnly, Other,
         );
         crate::action_log::log("API_PARSED", &endpoint, &format!("variant={}", variant_name));
 
@@ -1053,9 +1183,84 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
                     api_data.api_clear_result, api_data.api_get_exp, api_data.api_get_material
                 );
             }
-            ParsedApi::MapInfoGauges(gauges) => {
+            ParsedApi::MapInfoData { gauges, api_data } => {
                 state.mapinfo_gauges = gauges;
-                info!("mapinfo: cached {} gauge entries", state.mapinfo_gauges.len());
+                info!(
+                    "mapinfo: cached {} gauge entries",
+                    state.mapinfo_gauges.len()
+                );
+                let bases = air_corps::parse_air_bases(
+                    &api_data,
+                    &state.profile.slotitems,
+                    &state.master.slotitems,
+                    &state.air_bases,
+                );
+                if !bases.is_empty() {
+                    state.air_bases = bases;
+                    info!(
+                        "mapinfo: parsed {} air-base entries",
+                        state.air_bases.len()
+                    );
+                    air_corps::emit_air_base_update(&state, &app);
+                }
+            }
+            ParsedApi::AirCorpsSetPlane {
+                request_body,
+                api_data,
+            } => {
+                if air_corps::apply_set_plane(&mut state, &request_body, &api_data) {
+                    air_corps::emit_air_base_update(&state, &app);
+                }
+            }
+            ParsedApi::AirCorpsSetAction { request_body } => {
+                if air_corps::apply_set_action(&mut state, &request_body) {
+                    air_corps::emit_air_base_update(&state, &app);
+                }
+            }
+            ParsedApi::AirCorpsSupply {
+                request_body,
+                api_data,
+            } => {
+                if air_corps::apply_supply(&mut state, &request_body, &api_data) {
+                    air_corps::emit_air_base_update(&state, &app);
+                }
+            }
+            ParsedApi::BaseAirCorps(api_data) => {
+                let bases = air_corps::parse_base_air_corps(
+                    &api_data,
+                    &state.profile.slotitems,
+                    &state.master.slotitems,
+                    &state.air_bases,
+                );
+                if !bases.is_empty() {
+                    state.air_bases = bases;
+                    info!(
+                        "base_air_corps: parsed {} air-base entries",
+                        state.air_bases.len()
+                    );
+                    air_corps::emit_air_base_update(&state, &app);
+                }
+            }
+            ParsedApi::AirCorpsChangeName { request_body } => {
+                if air_corps::apply_change_name(&mut state, &request_body) {
+                    air_corps::emit_air_base_update(&state, &app);
+                }
+            }
+            ParsedApi::AirCorpsChangeDeployment {
+                request_body,
+                api_data,
+            } => {
+                if air_corps::apply_change_deployment(&mut state, &request_body, &api_data) {
+                    air_corps::emit_air_base_update(&state, &app);
+                }
+            }
+            ParsedApi::AirCorpsCondRecovery {
+                request_body,
+                api_data,
+            } => {
+                if air_corps::apply_supply(&mut state, &request_body, &api_data) {
+                    air_corps::emit_air_base_update(&state, &app);
+                }
             }
             ParsedApi::LogOnly => {}
             ParsedApi::Other => {}

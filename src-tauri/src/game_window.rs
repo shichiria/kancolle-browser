@@ -179,7 +179,7 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
         .always_on_top(true)
         .visible(false)
         .skip_taskbar(true)
-        .inner_size(280.0, 50.0)
+        .inner_size(520.0, 140.0)
         .build()
         .map_err(|e| {
             log::error!("Failed to create battle-info window: {}", e);
@@ -201,7 +201,7 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
             )
             .transparent(true),
             tauri::LogicalPosition::new(0.0, 0.0),
-            tauri::LogicalSize::new(280.0, 50.0),
+            tauri::LogicalSize::new(520.0, 140.0),
         )
         .map_err(|e| {
             log::error!("Failed to create battle-info-content webview: {}", e);
@@ -259,10 +259,13 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
                 }
                 // Reposition expedition notification if visible
                 crate::overlay::reposition_expedition_notification(&resize_app);
+                // Reposition battle info overlay if visible
+                crate::overlay::reposition_battle_info(&resize_app);
             }
             tauri::WindowEvent::Moved(_) => {
                 crate::overlay::reposition_formation_hint(&resize_app);
                 crate::overlay::reposition_expedition_notification(&resize_app);
+                crate::overlay::reposition_battle_info(&resize_app);
             }
             tauri::WindowEvent::CloseRequested { .. } => {
                 info!("Game window close requested -> exiting app");

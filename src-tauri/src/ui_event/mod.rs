@@ -22,6 +22,9 @@ pub enum Screen {
     ShipSelection,
     /// 編成 - 変更確認 — ship change confirmation
     ShipChangeConfirm,
+    /// 遠征 - 艦隊選択 — fleet selection sub-screen of ExpeditionSelect.
+    /// Has its own fleet-tab strip at x≈565-745, y≈175-220.
+    ExpeditionFleetSelect,
     /// 改装 — modernization / equipment / remodel screen.
     /// Shares the fleet-tab area with 編成 (x≈70-170, y≈120-140) but has a
     /// distinct ship-list / equipment layout.
@@ -148,6 +151,7 @@ pub fn detect_event(screen: Screen, x: i32, y: i32) -> UiEvent {
         Screen::FleetComposition => detect_fleet_composition(x, y),
         Screen::ShipSelection => detect_ship_selection(x, y),
         Screen::ShipChangeConfirm => detect_ship_change_confirm(x, y),
+        Screen::ExpeditionFleetSelect => detect_expedition_fleet_select(x, y),
         Screen::Remodel => detect_remodel(x, y),
         Screen::Resupply => detect_resupply(x, y),
         Screen::RepairDockSelect => detect_repair_dock(x, y),
@@ -257,8 +261,24 @@ fn detect_sortie_select(x: i32, y: i32) -> UiEvent {
 }
 
 fn detect_expedition_select(x: i32, y: i32) -> UiEvent {
-    // Area tabs at bottom (y≈695-720)
-    if y >= 690 {
+    // Right-panel buttons checked FIRST so they aren't shadowed by the
+    // bottom area-tab branch (which spans y≥690 across narrow x).
+    // 決定 (right-bottom) advances to ExpeditionFleetSelect via screen tracker.
+    if x >= 900 && x <= 1160 {
+        if y >= 200 && y <= 230 {
+            return UiEvent::ExpeditionAction {
+                action: "開始".to_string(),
+            };
+        }
+        if y >= 650 && y <= 720 {
+            return UiEvent::ExpeditionAction {
+                action: "決定".to_string(),
+            };
+        }
+    }
+
+    // Area tabs at bottom (y≈695-720, x≈170-620)
+    if y >= 690 && x < 700 {
         let area = if x >= 170 && x < 250 {
             "鎮守府海域"
         } else if x >= 250 && x < 320 {
@@ -287,20 +307,31 @@ fn detect_expedition_select(x: i32, y: i32) -> UiEvent {
         return UiEvent::ExpeditionSelect { row: row.min(8) };
     }
 
-    // Right panel buttons
-    if x >= 900 && x <= 1100 {
-        if y >= 200 && y <= 230 {
-            return UiEvent::ExpeditionAction {
-                action: "開始".to_string(),
-            };
-        }
-        if y >= 650 && y <= 700 {
-            return UiEvent::ExpeditionAction {
-                action: "中止/帰還".to_string(),
-            };
+    UiEvent::UnknownClick { x, y }
+}
+
+fn detect_expedition_fleet_select(x: i32, y: i32) -> UiEvent {
+    // 遠征-艦隊選択 has only 3 tabs (第2/第3/第4) — 第1 is the main fleet
+    // and cannot be sent on expeditions, so it isn't shown as a tab.
+    // Calibrated from user clicks 2026-05-06:
+    //   第2 cluster: 495, 544, 590
+    //   第3 cluster: 633, 639, 642
+    //   第4 cluster: 689, 693
+    if y >= 175 && y <= 225 {
+        if x >= 480 && x < 615 {
+            return UiEvent::FleetSelect { fleet: 2 };
+        } else if x >= 615 && x < 665 {
+            return UiEvent::FleetSelect { fleet: 3 };
+        } else if x >= 665 && x < 720 {
+            return UiEvent::FleetSelect { fleet: 4 };
         }
     }
-
+    // 「遠征開始！」ボタン (right-bottom of fleet-select sub-screen)
+    if x >= 950 && x <= 1160 && y >= 700 && y <= 720 {
+        return UiEvent::ExpeditionAction {
+            action: "遠征開始".to_string(),
+        };
+    }
     UiEvent::UnknownClick { x, y }
 }
 

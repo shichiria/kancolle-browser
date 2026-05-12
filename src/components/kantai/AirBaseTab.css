@@ -1,0 +1,356 @@
+.airbase-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.airbase-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #78909c;
+  font-size: 13px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.airbase-area-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.airbase-area-tab {
+  padding: 4px 10px;
+  background: #0f3460;
+  color: #b0bec5;
+  border: 1px solid #1a4080;
+  border-radius: 3px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.airbase-area-tab:hover {
+  background: #1a4080;
+  color: #e0e0e0;
+}
+
+.airbase-area-tab.active {
+  background: #1a4080;
+  color: #ffffff;
+  border-color: #4a90e2;
+}
+
+.airbase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.airbase-base {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 5px;
+  padding: 8px;
+}
+
+.airbase-base-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #0f3460;
+  font-size: 12px;
+}
+
+.airbase-base-rid {
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #1a4080;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.airbase-base-name {
+  font-weight: 600;
+  color: #ffffff;
+  flex: 1;
+}
+
+.airbase-base-action {
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.action-idle {
+  background: #455a64;
+  color: #cfd8dc;
+}
+
+.action-attack {
+  background: #c62828;
+  color: #ffffff;
+}
+
+.action-defense {
+  background: #1565c0;
+  color: #ffffff;
+}
+
+.action-retreat {
+  background: #616161;
+  color: #e0e0e0;
+}
+
+.action-rest {
+  background: #2e7d32;
+  color: #ffffff;
+}
+
+.airbase-base-distance {
+  color: #b0bec5;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.airbase-planes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+@media (min-width: 720px) {
+  .airbase-planes {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.airbase-plane {
+  background: #0f3460;
+  border: 1px solid #1a4080;
+  border-radius: 4px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  min-height: 72px;
+}
+
+.airbase-plane.empty {
+  background: #1a1a2e;
+  border-color: #16213e;
+  opacity: 0.55;
+  align-items: center;
+  justify-content: center;
+}
+
+.airbase-plane.state-2 {
+  border-color: #ff9800;
+  box-shadow: 0 0 4px rgba(255, 152, 0, 0.3);
+}
+
+.airbase-plane-squadron {
+  font-size: 10px;
+  color: #78909c;
+  font-weight: 600;
+}
+
+.airbase-plane-empty {
+  color: #607d8b;
+  font-size: 11px;
+}
+
+.airbase-plane-name {
+  color: #ffffff;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.airbase-plane-meta {
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.airbase-plane-star {
+  color: #ffd54f;
+}
+
+.airbase-plane-alv {
+  color: #81c784;
+}
+
+.airbase-plane-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.airbase-plane-count {
+  font-weight: 600;
+}
+
+.count-full {
+  color: #66bb6a;
+}
+
+.count-mid {
+  color: #ffd54f;
+}
+
+.count-low {
+  color: #ff9800;
+}
+
+.count-zero {
+  color: #ef5350;
+}
+
+.airbase-plane-cond {
+  font-size: 10px;
+}
+
+.cond-sparkle {
+  color: #ffd54f;
+  font-weight: 600;
+}
+
+.cond-normal {
+  color: #b0bec5;
+}
+
+.cond-tired {
+  color: #ffb74d;
+  font-weight: 600;
+}
+
+.cond-very-tired {
+  color: #ef5350;
+  font-weight: 700;
+}
+
+.airbase-plane-warning {
+  color: #ffab40;
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.airbase-attacks {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #1a4080;
+}
+
+.airbase-attacks-title {
+  font-size: 11px;
+  color: #b0bec5;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.airbase-attacks-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.airbase-attacks-table th {
+  text-align: left;
+  padding: 2px 6px;
+  background: #0f3460;
+  color: #78909c;
+  font-weight: 600;
+  font-size: 10px;
+  border-bottom: 1px solid #1a4080;
+}
+
+.airbase-attacks-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid rgba(26, 64, 128, 0.3);
+}
+
+.airbase-wave-num {
+  font-weight: 600;
+  color: #4a90e2;
+  width: 36px;
+}
+
+.airbase-wave-seiku {
+  font-weight: 600;
+  width: 50px;
+  text-align: center;
+}
+
+.seiku-kakuho {
+  color: #66bb6a;
+}
+
+.seiku-yuusei {
+  color: #81c784;
+}
+
+.seiku-kinkou {
+  color: #ffd54f;
+}
+
+.seiku-ressei {
+  color: #ff9800;
+}
+
+.seiku-soshitsu {
+  color: #ef5350;
+  font-weight: 700;
+}
+
+.seiku-unknown {
+  color: #607d8b;
+}
+
+.airbase-wave-lost {
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+.airbase-wave-total {
+  color: #ff8a65;
+  font-weight: 600;
+}
+
+.airbase-wave-stage {
+  color: #78909c;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.airbase-wave-per {
+  font-family: monospace;
+  font-size: 10px;
+  color: #b0bec5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.airbase-wave-edam {
+  color: #4fc3f7;
+  font-family: monospace;
+  white-space: nowrap;
+}

@@ -53,6 +53,7 @@ pub fn build_battle_info(
         engagement_color: engagement_color(engagement_id).to_string(),
         air_control: air_text.to_string(),
         air_control_color: air_color.to_string(),
+        lbas_waves: Vec::new(),
     }
 }
 
@@ -62,6 +63,58 @@ pub struct BattleInfoData {
     pub engagement_color: String,
     pub air_control: String,
     pub air_control_color: String,
+    /// Per-wave air superiority from LBAS attacks (api_air_base_attack[]).
+    /// Ordered by wave appearance, typically up to 4 entries (2 bases × 2 waves).
+    pub lbas_waves: Vec<LbasWaveLabel>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct LbasWaveLabel {
+    /// Base id (`api_base_id`) e.g. 1, 2.
+    pub base_id: i32,
+    /// 1-based wave index within this base (1 or 2).
+    pub wave: i32,
+    pub text: String,
+    pub color: String,
+}
+
+/// Extract per-wave LBAS air-superiority labels from a battle response's `api_data`.
+/// Returns empty if `api_air_base_attack` is missing or empty.
+pub fn extract_lbas_waves(api_data: &serde_json::Value) -> Vec<LbasWaveLabel> {
+    let arr = match api_data.get("api_air_base_attack").and_then(|v| v.as_array()) {
+        Some(a) => a,
+        None => return Vec::new(),
+    };
+    use std::collections::HashMap;
+    let mut wave_for_base: HashMap<i32, i32> = HashMap::new();
+    let mut out = Vec::with_capacity(arr.len());
+    for entry in arr {
+        let base_id = entry
+            .get("api_base_id")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0) as i32;
+        let seiku = entry
+            .get("api_stage1")
+            .and_then(|s| s.get("api_disp_seiku"))
+            .and_then(|v| v.as_i64())
+            .map(|n| n as i32);
+        let (text, color) = match seiku {
+            Some(id) => air_superiority_label(id),
+            None => ("-", "#78909c"),
+        };
+        let w = {
+            let counter = wave_for_base.entry(base_id).or_insert(0);
+            *counter += 1;
+            *counter
+        };
+        out.push(LbasWaveLabel {
+            base_id,
+            wave: w,
+            text: text.to_string(),
+            color: color.to_string(),
+        });
+    }
+    out
 }
 
 /// Send battle info to the battle-info window (only if enabled).

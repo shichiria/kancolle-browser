@@ -1,11 +1,16 @@
 import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { FleetPanel } from "../homeport/FleetPanel";
+import { AirBaseTab } from "./AirBaseTab";
 import "./KantaiView.css";
 import type {
   PortData, ExpeditionDef, MapRecommendationDef,
   SortieQuestDef, ActiveQuestDetail, QuestProgressSummary,
+  AirBase,
 } from "../../types";
+
+type SelectedTab = number | "airbase";
 
 const STORAGE_KEY = "kc-kantai-fleet-id";
 const ZOOM_STORAGE_KEY = "kc-kantai-ui-zoom";
@@ -35,8 +40,9 @@ export function KantaiView({
   portDataVersion,
   weaponIconSheet,
 }: KantaiViewProps) {
-  const [selectedFleetId, setSelectedFleetId] = useState<number>(() => {
+  const [selectedTab, setSelectedTab] = useState<SelectedTab>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "airbase") return "airbase";
     const parsed = saved ? Number(saved) : 1;
     return parsed >= 1 && parsed <= 4 ? parsed : 1;
   });
@@ -47,9 +53,11 @@ export function KantaiView({
     return parsed >= MIN_ZOOM && parsed <= MAX_ZOOM ? parsed : 100;
   });
 
+  const [airBases, setAirBases] = useState<AirBase[]>([]);
+
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(selectedFleetId));
-  }, [selectedFleetId]);
+    localStorage.setItem(STORAGE_KEY, String(selectedTab));
+  }, [selectedTab]);
 
   useEffect(() => {
     localStorage.setItem(ZOOM_STORAGE_KEY, String(uiZoom));
@@ -63,8 +71,18 @@ export function KantaiView({
     const unlisten = listen<number | null>("fleet-view-changed", (event) => {
       const fleet = event.payload;
       if (typeof fleet === "number" && fleet >= 1 && fleet <= 4) {
-        setSelectedFleetId(fleet);
+        setSelectedTab(fleet);
       }
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
+
+  useEffect(() => {
+    invoke<AirBase[]>("get_air_bases").then(setAirBases).catch(() => {});
+    const unlisten = listen<AirBase[]>("air-base-updated", (event) => {
+      setAirBases(event.payload);
     });
     return () => {
       unlisten.then((f) => f());
@@ -80,8 +98,11 @@ export function KantaiView({
   }
 
   const fleets = portData.fleets ?? [];
+  const selectedFleetId = typeof selectedTab === "number" ? selectedTab : null;
   const selectedFleet =
-    fleets.find((f) => f.id === selectedFleetId) ?? fleets[0];
+    selectedFleetId !== null
+      ? fleets.find((f) => f.id === selectedFleetId) ?? fleets[0]
+      : undefined;
   const selectedIndex = selectedFleet ? fleets.indexOf(selectedFleet) : 0;
 
   return (
@@ -94,30 +115,43 @@ export function KantaiView({
             return (
               <button
                 key={id}
-                className={`kantai-tab ${selectedFleetId === id ? "active" : ""}`}
-                onClick={() => setSelectedFleetId(id)}
+                className={`kantai-tab ${selectedTab === id ? "active" : ""}`}
+                onClick={() => setSelectedTab(id)}
                 disabled={disabled}
               >
                 第{id}艦隊
               </button>
             );
           })}
+          <button
+            className={`kantai-tab ${selectedTab === "airbase" ? "active" : ""}`}
+            onClick={() => setSelectedTab("airbase")}
+            title="基地航空隊の状態"
+          >
+            🛩 陣形
+          </button>
         </div>
-        {selectedFleet && (
+        {selectedTab === "airbase" ? (
           <div className="kantai-body">
-            <FleetPanel
-              fleet={selectedFleet}
-              now={now}
-              fleetIndex={selectedIndex}
-              expeditions={expeditions}
-              portDataVersion={portDataVersion}
-              sortieQuests={sortieQuests}
-              mapRecommendations={mapRecommendations}
-              activeQuests={activeQuests}
-              questProgress={questProgress}
-              weaponIconSheet={weaponIconSheet}
-            />
+            <AirBaseTab bases={airBases} />
           </div>
+        ) : (
+          selectedFleet && (
+            <div className="kantai-body">
+              <FleetPanel
+                fleet={selectedFleet}
+                now={now}
+                fleetIndex={selectedIndex}
+                expeditions={expeditions}
+                portDataVersion={portDataVersion}
+                sortieQuests={sortieQuests}
+                mapRecommendations={mapRecommendations}
+                activeQuests={activeQuests}
+                questProgress={questProgress}
+                weaponIconSheet={weaponIconSheet}
+              />
+            </div>
+          )
         )}
       </div>
       <div className="kantai-zoom-bar">
@@ -143,3 +177,4 @@ export function KantaiView({
     </div>
   );
 }
+

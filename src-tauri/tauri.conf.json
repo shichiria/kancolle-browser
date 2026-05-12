@@ -28,6 +28,15 @@
         "minWidth": 400,
         "minHeight": 600,
         "visible": false
+      },
+      {
+        "label": "quests",
+        "title": "KanColle Browser - 任務",
+        "width": 800,
+        "height": 800,
+        "minWidth": 400,
+        "minHeight": 400,
+        "visible": false
       }
     ],
     "macOSPrivateApi": true,
