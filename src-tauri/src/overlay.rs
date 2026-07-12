@@ -252,7 +252,7 @@ pub(crate) fn move_minimap(app: tauri::AppHandle, state: State<AppState>, dx: f6
 /// Resize minimap overlay (called from overlay JS during resize drag)
 #[tauri::command]
 pub(crate) fn resize_minimap(app: tauri::AppHandle, state: State<AppState>, w: f64) -> Result<(), String> {
-    let new_w = w.max(MINIMAP_MIN_W).min(MINIMAP_MAX_W);
+    let new_w = w.clamp(MINIMAP_MIN_W, MINIMAP_MAX_W);
     let new_h = (new_w * MINIMAP_ASPECT).round();
 
     *state.minimap_size.lock().unwrap() = (new_w, new_h);
@@ -313,7 +313,7 @@ pub(crate) fn show_expedition_notification(
             log::warn!("[ExpeditionNotify] failed to set webview size: {}", e);
         }
         let json = serde_json::to_string(&notifications).unwrap_or_default();
-        if let Err(e) = wv.eval(&format!("window.showNotifications({})", json)) {
+        if let Err(e) = wv.eval(format!("window.showNotifications({})", json)) {
             log::warn!("[ExpeditionNotify] failed to eval JS: {}", e);
         }
     } else {

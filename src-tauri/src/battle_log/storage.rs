@@ -118,7 +118,7 @@ impl BattleLogger {
                     .map(|dir| dir.join(format!("{}.json", record.id)))
                     .and_then(|path| path.metadata().ok())
                     .and_then(|meta| meta.modified().ok())
-                    .map(|sys_time| DateTime::<Local>::from(sys_time))
+                    .map(DateTime::<Local>::from)
                     .unwrap_or(record.start_time);
                 record.end_time = Some(end_time);
                 fixed_indices.push(i);

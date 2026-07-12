@@ -50,6 +50,8 @@ fn get_material(materials: &[models::Material], id: i32) -> i32 {
 }
 
 /// Pre-parsed API data to pass into the single async task
+// One transient instance exists at a time; stack size is not a concern here.
+#[allow(clippy::large_enum_variant)]
 enum ParsedApi {
     Start2(Box<models::ApiStart2>),
     Port(Box<models::ApiPort>),
@@ -427,7 +429,7 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
                         .as_ref()
                         .and_then(|d| d.api_after_slot.as_ref())
                         .and_then(|s| s.api_slotitem_id)
-                        .unwrap_or(-1) as i32;
+                        .unwrap_or(-1);
 
                     if eq_id <= 0 {
                         eq_id = req_eq_id; // Fallback to request body's api_id
@@ -803,16 +805,14 @@ pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, reque
             ParsedApi::LogOnly
         }
         // --- Category B: Practice battles ---
+        // Log-only: exercise tracking uses battle_result (process_exercise_result);
+        // the battle payloads themselves have no handler yet. If practice support
+        // is added to the battle-info overlay, parse these as ParsedApi::Battle
+        // and add arms in battle::process_battle.
         "/kcsapi/api_req_practice/battle"
         | "/kcsapi/api_req_practice/midnight_battle" => {
-            info!("Processing {} (practice battle)", endpoint);
-            match serde_json::from_str::<serde_json::Value>(json_str) {
-                Ok(v) => ParsedApi::Battle(v),
-                Err(e) => {
-                    error!("Failed to parse practice battle: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            info!("Processing {} (log only, practice battle)", endpoint);
+            ParsedApi::LogOnly
         }
         ep if battle::is_battle_endpoint(ep) => match serde_json::from_str::<serde_json::Value>(json_str) {
             Ok(v) => ParsedApi::Battle(v),

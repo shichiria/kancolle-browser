@@ -217,6 +217,12 @@ pub struct SenkaData {
     /// Log entries (exp gains, EO, quest bonuses with timestamps for time-based filtering)
     #[serde(default)]
     pub entries: Vec<SenkaLogEntry>,
+
+    /// HQ exp already recorded as battle/practice entries but not yet reconciled
+    /// against a port update. Used to attribute the non-battle remainder
+    /// (expeditions, quest rewards, etc.) as an "exp" entry on the next port visit.
+    #[serde(default)]
+    pub pending_battle_exp: i64,
 }
 
 impl Default for SenkaData {
@@ -232,6 +238,7 @@ impl Default for SenkaData {
             confirmed_senka: None,
             confirmed_cutoff: None,
             entries: Vec::new(),
+            pending_battle_exp: 0,
         }
     }
 }
@@ -393,6 +400,8 @@ impl SenkaTracker {
             info!("Senka: setting month_start_exp = {}", current_exp);
             self.data.month_start_exp = Some(current_exp);
             self.data.last_exp = Some(current_exp);
+            // Battle exp recorded before the first port is inside the new base
+            self.data.pending_battle_exp = 0;
             self.save();
             return (true, false);
         }
@@ -401,7 +410,30 @@ impl SenkaTracker {
         let delta = current_exp - prev_exp;
         self.data.last_exp = Some(current_exp);
 
-        let changed = delta > 0;
+        // Attribute the non-battle portion of the gain (expeditions, quest
+        // rewards, etc.) as an entry so gains_after_cutoff() sees the full
+        // exp income, not just battle/practice results.
+        let pending = self.data.pending_battle_exp;
+        let non_battle = delta - pending;
+        if delta > 0 && non_battle > 0 {
+            self.data.entries.push(SenkaLogEntry {
+                timestamp: now.to_rfc3339(),
+                entry_type: "exp".to_string(),
+                exp_gain: Some(non_battle),
+                bonus: None,
+                detail: Some(format!("非戦闘 提督exp+{} (遠征・任務等)", non_battle)),
+            });
+            info!("Senka: non-battle exp +{} attributed at port", non_battle);
+        } else if non_battle < 0 {
+            log::warn!(
+                "Senka: pending battle exp {} exceeds port delta {} (counter reset)",
+                pending,
+                delta
+            );
+        }
+        self.data.pending_battle_exp = 0;
+
+        let changed = delta > 0 || pending != 0;
         if changed {
             info!(
                 "Senka: port exp update +{}, monthly gain: {}, senka: {:.1}",
@@ -445,6 +477,8 @@ impl SenkaTracker {
             bonus: None,
             detail: Some(format!("{} 提督exp+{}", map_display, exp)),
         });
+        // Track for reconciliation against the next port exp delta
+        self.data.pending_battle_exp += exp;
         info!(
             "Senka: battle exp +{} at {}, senka: {:.1}",
             exp,
@@ -623,6 +657,7 @@ impl SenkaTracker {
             confirmed_senka: None,
             confirmed_cutoff: None,
             entries: Vec::new(),
+            pending_battle_exp: 0,
         };
         self.save();
     }
@@ -819,4 +854,76 @@ fn last_day_of_month(year: i32, month: u32) -> u32 {
         .and_then(|d| d.pred_opt())
         .map(|d| d.day())
         .unwrap_or(28)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_tracker(name: &str) -> SenkaTracker {
+        let dir = std::env::temp_dir()
+            .join("kc-senka-tests")
+            .join(format!("{}-{}", name, std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut t = SenkaTracker::new(&dir);
+        // Establish the monthly baseline (first port of the month)
+        t.update_experience(10_000);
+        t
+    }
+
+    fn exp_entries(t: &SenkaTracker) -> Vec<i64> {
+        t.data
+            .entries
+            .iter()
+            .filter(|e| e.entry_type == "exp")
+            .filter_map(|e| e.exp_gain)
+            .collect()
+    }
+
+    #[test]
+    fn battle_exp_fully_covered_by_port_delta_adds_no_extra_entry() {
+        let mut t = test_tracker("battle-only");
+        t.add_battle_exp(150, "1-5");
+        t.update_experience(10_150);
+        assert_eq!(exp_entries(&t), vec![150]);
+        assert_eq!(t.data.pending_battle_exp, 0);
+    }
+
+    #[test]
+    fn non_battle_gain_is_attributed_at_port() {
+        let mut t = test_tracker("mixed");
+        t.add_battle_exp(150, "1-5");
+        // Port shows +500: 150 from battle, 350 from expeditions etc.
+        t.update_experience(10_500);
+        assert_eq!(exp_entries(&t), vec![150, 350]);
+        assert_eq!(t.data.pending_battle_exp, 0);
+        // Last "exp" entry is the port-attributed non-battle gain
+        // (a checkpoint entry may follow it in `entries`)
+        let detail = t
+            .data
+            .entries
+            .iter()
+            .rev()
+            .find(|e| e.entry_type == "exp")
+            .and_then(|e| e.detail.clone())
+            .unwrap();
+        assert!(detail.contains("非戦闘"), "detail: {}", detail);
+    }
+
+    #[test]
+    fn port_only_gain_is_recorded_in_full() {
+        let mut t = test_tracker("port-only");
+        t.update_experience(10_400);
+        assert_eq!(exp_entries(&t), vec![400]);
+    }
+
+    #[test]
+    fn pending_exceeding_delta_resets_without_negative_entry() {
+        let mut t = test_tracker("over-pending");
+        t.add_battle_exp(300, "1-5");
+        // Port delta (+100) is smaller than recorded battle exp — no extra entry
+        t.update_experience(10_100);
+        assert_eq!(exp_entries(&t), vec![300]);
+        assert_eq!(t.data.pending_battle_exp, 0);
+    }
 }

@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::api::models::{Fleet, PlayerShip, PlayerSlotItemApi, RepairDock};
+use crate::api::models::{Fleet, PlayerShip, PlayerSlotItemApi};
 
 // =============================================================================
 // Category A DTOs (処理済み)
@@ -47,6 +47,7 @@ pub struct ApiQuestListResponse {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApiHenseiPresetSelectResponse {
     pub api_id: i32,
+    #[allow(dead_code)] // kept for API schema completeness
     #[serde(default)]
     pub api_name: String,
     #[serde(default)]
@@ -61,6 +62,7 @@ pub struct ApiChargeShip {
     pub api_id: i32,
     pub api_fuel: i32,
     pub api_bull: i32,
+    #[allow(dead_code)] // kept for API schema completeness
     #[serde(default)]
     pub api_onslot: Vec<i32>,
 }
@@ -69,7 +71,9 @@ pub struct ApiChargeShip {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApiChargeResponse {
     pub api_ship: Vec<ApiChargeShip>,
+    #[allow(dead_code)] // kept for API schema completeness
     pub api_material: Vec<i64>,
+    #[allow(dead_code)] // kept for API schema completeness
     #[serde(default)]
     pub api_use_bou: i32,
 }
@@ -117,6 +121,7 @@ pub struct ApiGetShipResponse {
     pub api_ship: PlayerShip,
     #[serde(default)]
     pub api_slotitem: Vec<PlayerSlotItemApi>,
+    #[allow(dead_code)] // kept for API schema completeness
     #[serde(default)]
     pub api_kdock: Vec<serde_json::Value>,
     #[serde(flatten)]
@@ -124,24 +129,8 @@ pub struct ApiGetShipResponse {
 }
 
 // --- Group 3: Removal operations ---
-
-/// Response for api_req_kousyou/destroyitem2 (装備廃棄)
-#[derive(Debug, Deserialize, Clone)]
-pub struct ApiDestroyItem2Response {
-    #[serde(default)]
-    pub api_get_material: Vec<i64>,
-    #[serde(flatten)]
-    _extra: serde_json::Value,
-}
-
-/// Response for api_req_kousyou/destroyship (解体)
-#[derive(Debug, Deserialize, Clone)]
-pub struct ApiDestroyShipResponse {
-    #[serde(default)]
-    pub api_material: Vec<i64>,
-    #[serde(flatten)]
-    _extra: serde_json::Value,
-}
+// destroyitem2 / destroyship use only the request DTOs (DestroyItem2Req /
+// DestroyShipReq); material refresh arrives via follow-up api_get_member/material.
 
 /// Response for api_req_kousyou/createitem (開発)
 #[derive(Debug, Deserialize, Clone)]
@@ -150,6 +139,7 @@ pub struct ApiCreateItemResponse {
     pub api_create_flag: i32,
     #[serde(default)]
     pub api_get_items: Vec<serde_json::Value>,
+    #[allow(dead_code)] // kept for API schema completeness
     #[serde(default)]
     pub api_material: Vec<i64>,
     #[serde(flatten)]

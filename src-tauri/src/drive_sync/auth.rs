@@ -127,8 +127,3 @@ pub fn logout(data_dir: &Path) {
         info!("Removed Google Drive token");
     }
 }
-
-/// Check if a token file exists.
-pub fn has_token(data_dir: &Path) -> bool {
-    data_dir.join("google_drive_token.json").exists()
-}

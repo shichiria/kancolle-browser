@@ -125,7 +125,7 @@ mod inner {
                 return;
             }
 
-            HOOK_HANDLE.store(hook as *mut std::ffi::c_void, Ordering::Relaxed);
+            HOOK_HANDLE.store(hook, Ordering::Relaxed);
 
             // Store this thread's ID so we can post WM_QUIT from uninstall()
             let thread_id = windows_sys::Win32::System::Threading::GetCurrentThreadId();

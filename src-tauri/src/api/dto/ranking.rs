@@ -20,6 +20,7 @@ pub struct ApiRankingEntry {
 /// Response for api_req_ranking/mxltvkpyuklh
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApiRankingResponse {
+    #[allow(dead_code)] // kept for API schema completeness
     pub api_count: Option<i64>,
     pub api_list: Vec<ApiRankingEntry>,
 }

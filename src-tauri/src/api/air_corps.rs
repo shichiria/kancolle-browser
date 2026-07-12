@@ -576,7 +576,7 @@ fn distribute_losses(planes: &mut [models::AirBasePlane], total_lost: i32) -> Ve
         })
         .collect();
 
-    let mut allocated: i32 = allocations.iter().map(|(_, f, _)| *f).sum();
+    let allocated: i32 = allocations.iter().map(|(_, f, _)| *f).sum();
     let mut remainder = total_lost - allocated;
     if remainder > 0 {
         // Sort by descending fractional part — assign one extra to top remainders.
@@ -593,7 +593,6 @@ fn distribute_losses(planes: &mut [models::AirBasePlane], total_lost: i32) -> Ve
             }
             allocations[i].1 += 1;
             remainder -= 1;
-            allocated += 1;
         }
     }
 

@@ -619,12 +619,11 @@ pub(crate) async fn clear_browser_cache(app: tauri::AppHandle) -> Result<String,
 
             for dir_name in &cache_dirs {
                 let dir_path = webview_dir.join(dir_name);
-                if dir_path.exists() {
-                    if let Ok(_) = std::fs::remove_dir_all(&dir_path) {
+                if dir_path.exists()
+                    && std::fs::remove_dir_all(&dir_path).is_ok() {
                         deleted += 1;
                         info!("Deleted browser cache: {}", dir_name);
                     }
-                }
             }
         }
     }

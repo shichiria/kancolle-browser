@@ -13,7 +13,9 @@ use crate::sortie_quest::SortieQuestDef;
 /// All API responses follow: { "api_result": 1, "api_result_msg": "成功", "api_data": {...} }
 #[derive(Debug, Deserialize)]
 pub struct ApiResponse<T> {
+    #[allow(dead_code)] // kept for API schema completeness
     pub api_result: i32,
+    #[allow(dead_code)] // kept for API schema completeness
     pub api_result_msg: Option<String>,
     pub api_data: Option<T>,
 }

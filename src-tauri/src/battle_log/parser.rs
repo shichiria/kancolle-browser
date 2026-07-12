@@ -52,7 +52,7 @@ impl BattleLogger {
             pending.enemy_ship_ids = arr.iter().copied().filter(|&id| id > 0).collect();
         }
         if let Some(arr) = &data.api_ship_lv {
-            pending.enemy_ship_levels = arr.iter().copied().collect();
+            pending.enemy_ship_levels = arr.to_vec();
         }
 
         // --- Enemy equipment (api_eSlot) ---
@@ -147,7 +147,7 @@ impl BattleLogger {
                 pending.enemy_ship_ids = arr.iter().copied().filter(|&id| id > 0).collect();
             }
             if let Some(arr) = &data.api_ship_lv {
-                pending.enemy_ship_levels = arr.iter().copied().collect();
+                pending.enemy_ship_levels = arr.to_vec();
             }
 
             pending.raw_battle_json = Some(api_data_raw.clone());
@@ -468,7 +468,7 @@ fn apply_hougeki_damage(hp: &mut [i32], api_data: &serde_json::Value, key: &str)
                     for (t, d) in ts.iter().zip(ds.iter()) {
                         let target_idx = t.as_i64().unwrap_or(-1) as i32;
                         let damage = d.as_f64().unwrap_or(0.0) as i32;
-                        if target_idx >= 1 && target_idx <= 6 && (target_idx as usize) <= hp.len() {
+                        if (1..=6).contains(&target_idx) && (target_idx as usize) <= hp.len() {
                             hp[(target_idx - 1) as usize] -= damage;
                         }
                     }
@@ -521,7 +521,7 @@ fn apply_hougeki_damage_enemy(hp: &mut [i32], api_data: &serde_json::Value, key:
                     for (t, d) in ts.iter().zip(ds.iter()) {
                         let target_idx = t.as_i64().unwrap_or(-1) as i32;
                         let damage = d.as_f64().unwrap_or(0.0) as i32;
-                        if target_idx >= 7 && target_idx <= 12 {
+                        if (7..=12).contains(&target_idx) {
                             let idx = (target_idx - 7) as usize;
                             if idx < hp.len() {
                                 hp[idx] -= damage;

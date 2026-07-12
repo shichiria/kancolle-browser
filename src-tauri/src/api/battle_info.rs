@@ -1,4 +1,4 @@
-/// Battle info overlay — shows engagement form and air superiority on game overlay.
+//! Battle info overlay — shows engagement form and air superiority on game overlay.
 
 /// Get engagement form display name from API value.
 /// api_formation[2]: 1=同航戦, 2=反航戦, 3=T字有利, 4=T字不利
@@ -33,27 +33,6 @@ pub fn engagement_color(id: i32) -> &'static str {
         3 => "#4caf50",   // T字有利 — green (favorable)
         4 => "#f44336",   // T字不利 — red (unfavorable)
         _ => "#78909c",
-    }
-}
-
-/// Build battle info overlay data from battle detail.
-/// Returns (engagement_text, engagement_color, air_text, air_color) or None if no data.
-pub fn build_battle_info(
-    formation: &[i32; 3],
-    air_battle: Option<&crate::battle_log::AirBattleResult>,
-) -> BattleInfoData {
-    let engagement_id = formation[2];
-    let (air_text, air_color) = air_battle
-        .and_then(|ab| ab.air_superiority)
-        .map(|id| air_superiority_label(id))
-        .unwrap_or(("", ""));
-
-    BattleInfoData {
-        engagement: engagement_name(engagement_id).to_string(),
-        engagement_color: engagement_color(engagement_id).to_string(),
-        air_control: air_text.to_string(),
-        air_control_color: air_color.to_string(),
-        lbas_waves: Vec::new(),
     }
 }
 
@@ -189,7 +168,7 @@ pub fn show_battle_info_overlay(app: &tauri::AppHandle, data: &BattleInfoData) {
         Some(wv) => {
             let json = serde_json::to_string(data).unwrap_or_default();
             log::debug!("[BattleInfo] eval JS payload: {}", json);
-            if let Err(e) = wv.eval(&format!("window.showBattleInfo({})", json)) {
+            if let Err(e) = wv.eval(format!("window.showBattleInfo({})", json)) {
                 log::warn!("[BattleInfo] failed to eval JS: {}", e);
             }
         }
@@ -247,41 +226,4 @@ mod tests {
         assert_eq!(air_superiority_label(99), ("不明", "#78909c"));
     }
 
-    #[test]
-    fn test_build_battle_info_with_air_battle() {
-        let formation = [1, 2, 3]; // friendly=単縦陣, enemy=複縦陣, engagement=T字有利
-        let air = crate::battle_log::AirBattleResult {
-            air_superiority: Some(1), // 航空優勢
-            friendly_plane_count: None,
-            enemy_plane_count: None,
-        };
-        let info = build_battle_info(&formation, Some(&air));
-        assert_eq!(info.engagement, "T字有利");
-        assert_eq!(info.engagement_color, "#4caf50");
-        assert_eq!(info.air_control, "航空優勢");
-        assert_eq!(info.air_control_color, "#4caf50");
-    }
-
-    #[test]
-    fn test_build_battle_info_without_air_battle() {
-        let formation = [1, 2, 4]; // T字不利
-        let info = build_battle_info(&formation, None);
-        assert_eq!(info.engagement, "T字不利");
-        assert_eq!(info.engagement_color, "#f44336");
-        assert_eq!(info.air_control, "");
-        assert_eq!(info.air_control_color, "");
-    }
-
-    #[test]
-    fn test_build_battle_info_air_battle_without_seiku() {
-        let formation = [1, 2, 1]; // 同航戦
-        let air = crate::battle_log::AirBattleResult {
-            air_superiority: None,
-            friendly_plane_count: Some([20, 3]),
-            enemy_plane_count: Some([15, 8]),
-        };
-        let info = build_battle_info(&formation, Some(&air));
-        assert_eq!(info.engagement, "同航戦");
-        assert_eq!(info.air_control, "");
-    }
 }

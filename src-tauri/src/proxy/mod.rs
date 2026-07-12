@@ -174,10 +174,9 @@ impl KanColleHandler {
         let body_str = String::from_utf8_lossy(&decoded_bytes).to_string();
 
         // KanColle API responses are prefixed with "svdata="
-        let json_str = if body_str.starts_with("svdata=") {
-            body_str[7..].to_string()
-        } else {
-            body_str.clone()
+        let json_str = match body_str.strip_prefix("svdata=") {
+            Some(stripped) => stripped.to_string(),
+            None => body_str.clone(),
         };
 
         // Process the API data

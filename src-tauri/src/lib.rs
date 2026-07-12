@@ -27,7 +27,6 @@ use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use url::Url;
 
 use api::models::GameState;
 
@@ -465,45 +464,11 @@ pub fn run() {
 
                 // Save DMM cookies before the app exits so login persists across restarts
                 if let Some(game_wv) = app_handle.get_webview("game-content") {
-                    let urls = [
-                        "https://www.dmm.com",
-                        "https://accounts.dmm.com",
-                        "https://play.games.dmm.com",
-                        "https://osapi.dmm.com",
-                    ];
-                    let mut all_cookies: Vec<serde_json::Value> = Vec::new();
-                    let mut seen = std::collections::HashSet::new();
-                    for url_str in &urls {
-                        if let Ok(url) = url_str.parse::<Url>() {
-                            if let Ok(cookies) = game_wv.cookies_for_url(url) {
-                                for cookie in cookies {
-                                    let key = format!(
-                                        "{}={}",
-                                        cookie.name(),
-                                        cookie.domain().unwrap_or("")
-                                    );
-                                    if seen.insert(key) {
-                                        all_cookies.push(serde_json::json!({
-                                            "name": cookie.name(),
-                                            "value": cookie.value(),
-                                            "domain": cookie.domain(),
-                                            "path": cookie.path(),
-                                            "http_only": cookie.http_only().unwrap_or(false),
-                                            "secure": cookie.secure().unwrap_or(false),
-                                        }));
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    let all_cookies = cookie::collect_dmm_cookies(&game_wv);
                     if !all_cookies.is_empty() {
-                        let path = cookie::cookie_file_path(app_handle);
-                        if let Some(parent) = path.parent() {
-                            let _ = std::fs::create_dir_all(parent);
-                        }
-                        if let Ok(json) = serde_json::to_string_pretty(&all_cookies) {
-                            let _ = std::fs::write(&path, json);
-                            info!("Saved {} cookies on app exit", all_cookies.len());
+                        match cookie::write_cookie_file(app_handle, &all_cookies) {
+                            Ok(n) => info!("Saved {} cookies on app exit", n),
+                            Err(e) => log::warn!("Failed to save cookies on exit: {}", e),
                         }
                     }
                 }

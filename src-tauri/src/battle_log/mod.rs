@@ -88,6 +88,18 @@ pub struct BattleDetail {
     pub raw_result: Option<serde_json::Value>,
 }
 
+impl BattleDetail {
+    /// Copy without the bulky raw API payloads.
+    /// Raw JSON stays in the on-disk battle log only.
+    pub fn without_raw(&self) -> Self {
+        Self {
+            raw_battle: None,
+            raw_result: None,
+            ..self.clone()
+        }
+    }
+}
+
 /// A single battle node (cell) within a sortie
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BattleNode {
@@ -126,6 +138,14 @@ pub struct BattleNode {
 }
 
 impl BattleNode {
+    /// Copy for frontend transfer without the raw API payloads.
+    pub fn without_raw(&self) -> Self {
+        Self {
+            battle: self.battle.as_ref().map(BattleDetail::without_raw),
+            ..self.clone()
+        }
+    }
+
     /// Create a new empty node (no battle yet)
     fn new(cell_no: i32, event_kind: i32, event_id: i32) -> Self {
         Self {
@@ -236,7 +256,7 @@ pub struct SortieShip {
 pub struct SortieRecord {
     /// Unique ID (timestamp-based)
     pub id: String,
-    /// Fleet index (0-based)
+    /// Fleet ID (1-based, from api_deck_id)
     pub fleet_id: i32,
     /// Map area ID (e.g., 1)
     pub map_area: i32,
@@ -279,7 +299,7 @@ impl From<&SortieRecord> for SortieRecordSummary {
             fleet_id: r.fleet_id,
             map_display: r.map_display.clone(),
             ships: r.ships.clone(),
-            nodes: r.nodes.clone(),
+            nodes: r.nodes.iter().map(BattleNode::without_raw).collect(),
             start_time: r.start_time.format("%Y-%m-%d %H:%M:%S").to_string(),
             end_time: r
                 .end_time
@@ -435,6 +455,7 @@ impl BattleLogger {
     }
 
     /// Handle sortie start (api_req_map/start)
+    #[allow(clippy::too_many_arguments)]
     pub fn on_sortie_start(
         &mut self,
         json: &serde_json::Value,

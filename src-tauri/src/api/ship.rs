@@ -1,4 +1,4 @@
-use log::{error, info, warn};
+use log::{info, warn};
 use tauri::AppHandle;
 
 use super::models;
@@ -427,6 +427,7 @@ pub(super) fn collect_ship_marks(
 }
 
 /// Determine if a ship can perform opening ASW
+#[allow(clippy::too_many_arguments)]
 fn check_opening_asw(
     ship: &models::ShipInfo,
     has_sonar: bool,

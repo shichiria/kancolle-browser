@@ -174,7 +174,7 @@ mod inner {
 // ── Public re-exports (dev only) ──────────────────────────────────────
 
 #[cfg(debug_assertions)]
-pub use inner::{get_recent, init, record, ActionEntry};
+pub use inner::{get_recent, init, record};
 
 // ── No-op stubs for release builds ────────────────────────────────────
 

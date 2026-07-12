@@ -143,6 +143,8 @@ pub struct SortieQuestDef {
 pub struct FleetShipData {
     pub name: String,
     pub ship_type: i32,
+    /// Part of the caller-facing input contract; no current condition reads it.
+    #[allow(dead_code)]
     pub level: i32,
 }
 

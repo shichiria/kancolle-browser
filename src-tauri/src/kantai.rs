@@ -1,9 +1,9 @@
 //! Kantai (fleet) window — show/hide commands.
 //!
 //! Same hide/show pattern as `management` to preserve React state across
-//! toggles. The window loads the same React bundle as the management window
-//! but at URL `index.html#kantai`, and the React app branches on
-//! `window.location.hash` to render the kantai view.
+//! toggles. The window loads the same React bundle as the management window,
+//! and the React app branches on `getCurrentWindow().label === "kantai"`
+//! to render the kantai view.
 
 use log::info;
 use tauri::Manager;

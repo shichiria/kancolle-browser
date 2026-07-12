@@ -414,6 +414,7 @@ fn ensure_entry<'a>(
 }
 
 /// Process a sortie battle result
+#[allow(clippy::too_many_arguments)]
 pub fn on_battle_result(
     state: &mut QuestProgressState,
     map_area_str: &str,

@@ -211,6 +211,8 @@ pub struct RemoteFile {
     pub id: String,
     pub name: String,
     pub modified_time: chrono::DateTime<chrono::Utc>,
+    /// Content-hash comparison is not implemented; sync compares timestamps.
+    #[allow(dead_code)]
     pub md5: Option<String>,
 }
 
@@ -270,6 +272,9 @@ pub async fn list_files(hub: &Hub, folder_id: &str) -> Result<Vec<RemoteFile>, S
 }
 
 /// Delete a file from Google Drive.
+/// Deletion sync is not implemented yet (engine only uploads/downloads);
+/// kept as the API wrapper for it (see SPEC/drive-sync.md).
+#[allow(dead_code)]
 pub async fn delete_file(hub: &Hub, file_id: &str) -> Result<(), String> {
     hub.files()
         .delete(file_id)

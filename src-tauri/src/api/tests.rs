@@ -103,7 +103,7 @@ mod a02_port {
 
         // Ships
         assert!(
-            data.api_ship.len() > 0,
+            !data.api_ship.is_empty(),
             "Should have at least one ship"
         );
         let ship = &data.api_ship[0];
@@ -114,13 +114,13 @@ mod a02_port {
 
         // Fleets
         assert!(
-            data.api_deck_port.len() >= 1,
+            !data.api_deck_port.is_empty(),
             "Should have at least one fleet"
         );
         let fleet = &data.api_deck_port[0];
         assert_eq!(fleet.api_id, 1, "First fleet should have id=1");
         assert!(!fleet.api_name.is_empty(), "Fleet should have a name");
-        assert!(fleet.api_ship.len() > 0, "Fleet should have ships");
+        assert!(!fleet.api_ship.is_empty(), "Fleet should have ships");
 
         // Materials
         assert!(
@@ -760,7 +760,7 @@ mod a36_map_start {
 
         assert!(maparea >= 1, "Map area should be >= 1");
         assert!(mapinfo >= 1, "Map info should be >= 1");
-        assert!(deck >= 1 && deck <= 4, "Deck ID should be 1-4");
+        assert!((1..=4).contains(&deck), "Deck ID should be 1-4");
     }
 
     #[test]

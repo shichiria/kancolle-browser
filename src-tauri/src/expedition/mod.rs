@@ -22,6 +22,8 @@ pub enum GreatSuccessType {
 }
 
 /// A single condition from the JSON file
+// Variant names must match the `type` tags in expeditions.json (e.g. "ASW", "LOS")
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
 pub enum ExpeditionCondition {
@@ -137,6 +139,8 @@ fn count_by_stypes(ships: &[FleetShipData], stypes: &[i32]) -> i32 {
 
 /// Escort fleet (6 patterns):
 /// (CL≥1 AND DD≥2) OR (CL≥1 AND DE≥2) OR (CVE≥1 AND DD≥2) OR (CVE≥1 AND DE≥2) OR (DD≥1 AND DE≥3) OR (CT≥1 AND DE≥2)
+// Kept in the documented 6-pattern form (matches SPEC/expedition.md) over the minimal boolean.
+#[allow(clippy::nonminimal_bool)]
 fn check_escort_fleet(ships: &[FleetShipData]) -> bool {
     let cl = count_by_stypes(ships, &[STYPE_CL]);
     let dd = count_by_stypes(ships, &[STYPE_DD]);

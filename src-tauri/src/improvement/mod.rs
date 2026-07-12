@@ -13,8 +13,10 @@ use crate::api::models::{GameStateInner, MasterSlotItemInfo};
 struct EquipmentUpgradeEntry {
     eq_id: i32,
     improvement: Vec<ImprovementPath>,
+    #[allow(dead_code)] // kept for JSON schema completeness
     #[serde(default)]
     convert_to: serde_json::Value,
+    #[allow(dead_code)] // kept for JSON schema completeness
     #[serde(default)]
     upgrade_for: serde_json::Value,
 }
@@ -22,6 +24,7 @@ struct EquipmentUpgradeEntry {
 #[derive(Debug, Deserialize)]
 struct ImprovementPath {
     helpers: Vec<ImprovementHelper>,
+    #[allow(dead_code)] // kept for JSON schema completeness
     #[serde(default)]
     convert: serde_json::Value,
     #[serde(default)]

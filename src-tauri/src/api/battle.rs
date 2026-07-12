@@ -136,7 +136,7 @@ pub(super) fn process_battle(
                                 }
                             }
                             let ships_json = serde_json::to_string(&taiha_names).unwrap_or_else(|_| "[]".to_string());
-                            let _ = overlay.eval(&format!("window.showTaihaWarning({})", ships_json));
+                            let _ = overlay.eval(format!("window.showTaihaWarning({})", ships_json));
                         }
                     }
                 }
@@ -185,7 +185,7 @@ pub(super) fn process_battle(
                                         let summary = state.senka.summary();
                                         let _ = app.emit("senka-updated", &summary);
                                         notify_sync(
-                                            &state,
+                                            state,
                                             vec![crate::senka::SenkaTracker::sync_path()],
                                         );
                                     }
@@ -246,7 +246,7 @@ pub(super) fn process_battle(
                                         info!("Formation saved: {} = {} ({})", key, friendly_formation, formation_name(friendly_formation));
                                         state.formation_memory.insert(key, friendly_formation);
                                         models::save_formation_memory(&state.formation_memory_path, &state.formation_memory);
-                                        notify_sync(&state, vec!["formation_memory.json"]);
+                                        notify_sync(state, vec!["formation_memory.json"]);
                                     }
                                 }
                             }
@@ -262,11 +262,11 @@ pub(super) fn process_battle(
                                     .and_then(|k| k.api_stage1.as_ref())
                                     .and_then(|s| s.api_disp_seiku);
                                 let (air_text, air_color) = air_id
-                                    .map(|id| battle_info::air_superiority_label(id))
+                                    .map(battle_info::air_superiority_label)
                                     .unwrap_or(("", ""));
                                 let lbas_waves = json
                                     .get("api_data")
-                                    .map(|d| battle_info::extract_lbas_waves(d))
+                                    .map(battle_info::extract_lbas_waves)
                                     .unwrap_or_default();
                                 info!(
                                     "[Battle] showing overlay: engagement={}, air={:?}, lbas_waves={}",

@@ -56,13 +56,23 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
         .map(|d| d.join("local").join("game-webview"))
         .map_err(|e| e.to_string())?;
 
-    // Start with about:blank so we can inject cookies into the global Cookie Manager before DMM loads.
+    // Start with about:blank so cookies can be restored before DMM loads.
     let game_url: Url = "about:blank".parse().unwrap();
     let app_handle = app.clone();
 
-    // Append the cookie restoration script to the default initialization script
-    let restore_script = crate::cookie::build_cookie_restore_script(&app).await;
-    let final_init_script = format!("{}\n{}", GAME_INIT_SCRIPT, restore_script);
+    // Cookie restore strategy:
+    // - Windows: WebView2's data_directory profile persists session cookies across
+    //   restarts; the injected document.cookie script is kept as a best-effort fallback.
+    // - macOS: WKWebView drops session cookies on exit and JS injection cannot set
+    //   them (opaque origin / cross-domain / httpOnly), so saved cookies are written
+    //   natively into WKHTTPCookieStore before navigating to DMM (see spawn below).
+    #[cfg(not(target_os = "macos"))]
+    let final_init_script = {
+        let restore_script = crate::cookie::build_cookie_restore_script(&app).await;
+        format!("{}\n{}", GAME_INIT_SCRIPT, restore_script)
+    };
+    #[cfg(target_os = "macos")]
+    let final_init_script = GAME_INIT_SCRIPT.to_string();
 
     let win_width = GAME_WIDTH;
     let win_height = GAME_HEIGHT + CONTROL_BAR_HEIGHT + MACOS_TITLEBAR_HEIGHT;
@@ -275,9 +285,14 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
         }
     });
 
-    // Give the Cookie Manager time to process injected cookies, then navigate to DMM
+    // Restore cookies (macOS: natively into WKHTTPCookieStore), give the Cookie
+    // Manager time to settle, then navigate to DMM.
     let game_wv_clone = game_webview.clone();
+    #[cfg(target_os = "macos")]
+    let restore_app = app.clone();
     tauri::async_runtime::spawn(async move {
+        #[cfg(target_os = "macos")]
+        crate::cookie::restore_cookies_native(&restore_app, &game_wv_clone).await;
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         let actual_url: Url = "https://play.games.dmm.com/game/kancolle".parse().unwrap();
         if let Err(e) = game_wv_clone.navigate(actual_url) {

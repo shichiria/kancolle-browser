@@ -7,8 +7,9 @@
 use serde::Serialize;
 
 /// Known game screens.
+// GetScreen intentionally ends with "Screen" — it names the in-game "GET画面".
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
-#[allow(dead_code)]
+#[allow(dead_code, clippy::enum_variant_names)]
 pub enum Screen {
     /// 母港 — main hub with navigation buttons
     Homeport,
@@ -188,21 +189,21 @@ fn check_side_menu(x: i32, y: i32) -> Option<UiEvent> {
 }
 
 fn check_top_menu(x: i32, y: i32) -> Option<UiEvent> {
-    if y < 55 || y > 70 {
+    if !(55..=70).contains(&y) {
         return None;
     }
     // Top menu items are roughly evenly spaced
-    let target = if x >= 200 && x <= 280 {
+    let target = if (200..=280).contains(&x) {
         "戦績表示"
-    } else if x >= 310 && x <= 390 {
+    } else if (310..=390).contains(&x) {
         "友軍艦隊"
-    } else if x >= 420 && x <= 500 {
+    } else if (420..=500).contains(&x) {
         "図鑑表示"
-    } else if x >= 530 && x <= 590 {
+    } else if (530..=590).contains(&x) {
         "アイテム"
-    } else if x >= 620 && x <= 700 {
+    } else if (620..=700).contains(&x) {
         "模様替え"
-    } else if x >= 730 && x <= 790 {
+    } else if (730..=790).contains(&x) {
         "任務"
     } else {
         return None;
@@ -264,13 +265,13 @@ fn detect_expedition_select(x: i32, y: i32) -> UiEvent {
     // Right-panel buttons checked FIRST so they aren't shadowed by the
     // bottom area-tab branch (which spans y≥690 across narrow x).
     // 決定 (right-bottom) advances to ExpeditionFleetSelect via screen tracker.
-    if x >= 900 && x <= 1160 {
-        if y >= 200 && y <= 230 {
+    if (900..=1160).contains(&x) {
+        if (200..=230).contains(&y) {
             return UiEvent::ExpeditionAction {
                 action: "開始".to_string(),
             };
         }
-        if y >= 650 && y <= 720 {
+        if (650..=720).contains(&y) {
             return UiEvent::ExpeditionAction {
                 action: "決定".to_string(),
             };
@@ -279,19 +280,19 @@ fn detect_expedition_select(x: i32, y: i32) -> UiEvent {
 
     // Area tabs at bottom (y≈695-720, x≈170-620)
     if y >= 690 && x < 700 {
-        let area = if x >= 170 && x < 250 {
+        let area = if (170..250).contains(&x) {
             "鎮守府海域"
-        } else if x >= 250 && x < 320 {
+        } else if (250..320).contains(&x) {
             "南西諸島海域"
-        } else if x >= 320 && x < 380 {
+        } else if (320..380).contains(&x) {
             "北方海域"
-        } else if x >= 380 && x < 440 {
+        } else if (380..440).contains(&x) {
             "西方海域"
-        } else if x >= 440 && x < 510 {
+        } else if (440..510).contains(&x) {
             "南方海域"
-        } else if x >= 510 && x < 560 {
+        } else if (510..560).contains(&x) {
             "トラック泊地沖"
-        } else if x >= 560 && x < 620 {
+        } else if (560..620).contains(&x) {
             "中部海域"
         } else {
             return UiEvent::UnknownClick { x, y };
@@ -302,7 +303,7 @@ fn detect_expedition_select(x: i32, y: i32) -> UiEvent {
     }
 
     // Expedition list rows (y≈170..530, 8 rows, ~45px each)
-    if x >= 100 && x <= 850 && y >= 170 && y <= 530 {
+    if (100..=850).contains(&x) && (170..=530).contains(&y) {
         let row = ((y - 170) / 45) as u32 + 1;
         return UiEvent::ExpeditionSelect { row: row.min(8) };
     }
@@ -317,17 +318,17 @@ fn detect_expedition_fleet_select(x: i32, y: i32) -> UiEvent {
     //   第2 cluster: 495, 544, 590
     //   第3 cluster: 633, 639, 642
     //   第4 cluster: 689, 693
-    if y >= 175 && y <= 225 {
-        if x >= 480 && x < 615 {
+    if (175..=225).contains(&y) {
+        if (480..615).contains(&x) {
             return UiEvent::FleetSelect { fleet: 2 };
-        } else if x >= 615 && x < 665 {
+        } else if (615..665).contains(&x) {
             return UiEvent::FleetSelect { fleet: 3 };
-        } else if x >= 665 && x < 720 {
+        } else if (665..720).contains(&x) {
             return UiEvent::FleetSelect { fleet: 4 };
         }
     }
     // 「遠征開始！」ボタン (right-bottom of fleet-select sub-screen)
-    if x >= 950 && x <= 1160 && y >= 700 && y <= 720 {
+    if (950..=1160).contains(&x) && (700..=720).contains(&y) {
         return UiEvent::ExpeditionAction {
             action: "遠征開始".to_string(),
         };
@@ -339,14 +340,14 @@ fn detect_fleet_composition(x: i32, y: i32) -> UiEvent {
     // Fleet tabs — calibrated from user clicks (2026-05-05):
     //   第2 (244, 208), 第3 (291, 202), 第4 (336, 204).
     // Tab spacing ≈ 47px starting around x=197 for 第1.
-    if y >= 180 && y <= 235 {
-        if x >= 170 && x < 220 {
+    if (180..=235).contains(&y) {
+        if (170..220).contains(&x) {
             return UiEvent::FleetSelect { fleet: 1 };
-        } else if x >= 220 && x < 270 {
+        } else if (220..270).contains(&x) {
             return UiEvent::FleetSelect { fleet: 2 };
-        } else if x >= 270 && x < 315 {
+        } else if (270..315).contains(&x) {
             return UiEvent::FleetSelect { fleet: 3 };
-        } else if x >= 315 && x < 365 {
+        } else if (315..365).contains(&x) {
             return UiEvent::FleetSelect { fleet: 4 };
         }
     }
@@ -354,18 +355,18 @@ fn detect_fleet_composition(x: i32, y: i32) -> UiEvent {
     // Ship slots: 2 columns x 3 rows
     // Left: x≈80-530, Right: x≈540-1000
     // Row1: y≈160-290, Row2: y≈300-430, Row3: y≈440-570
-    let col = if x >= 80 && x <= 530 {
+    let col = if (80..=530).contains(&x) {
         Some(0)
-    } else if x >= 540 && x <= 1000 {
+    } else if (540..=1000).contains(&x) {
         Some(1)
     } else {
         None
     };
-    let row = if y >= 160 && y <= 290 {
+    let row = if (160..=290).contains(&y) {
         Some(0)
-    } else if y >= 300 && y <= 430 {
+    } else if (300..=430).contains(&y) {
         Some(1)
-    } else if y >= 440 && y <= 570 {
+    } else if (440..=570).contains(&y) {
         Some(2)
     } else {
         None
@@ -384,12 +385,12 @@ fn detect_fleet_composition(x: i32, y: i32) -> UiEvent {
     }
 
     // Empty slot "変更" button (right edge)
-    if x >= 1060 && x <= 1140 {
-        let slot = if y >= 160 && y <= 290 {
+    if (1060..=1140).contains(&x) {
+        let slot = if (160..=290).contains(&y) {
             Some(2)
-        } else if y >= 300 && y <= 430 {
+        } else if (300..=430).contains(&y) {
             Some(4)
-        } else if y >= 440 && y <= 570 {
+        } else if (440..=570).contains(&y) {
             Some(6)
         } else {
             None
@@ -404,30 +405,30 @@ fn detect_fleet_composition(x: i32, y: i32) -> UiEvent {
 
 fn detect_ship_selection(x: i32, y: i32) -> UiEvent {
     // Ship type filter tab (right side, x≈1100-1160, y≈170-210)
-    if x >= 1100 && y >= 150 && y <= 220 {
+    if x >= 1100 && (150..=220).contains(&y) {
         return UiEvent::ShipFilterChange;
     }
 
     // Sort tabs in list header (x≈530-1100, y≈120-140)
-    if x >= 530 && x <= 1100 && y >= 120 && y <= 140 {
+    if (530..=1100).contains(&x) && (120..=140).contains(&y) {
         return UiEvent::ShipSort;
     }
 
     // Ship list rows (x≈530-1100, y≈140-680, ~30px per row)
-    if x >= 530 && x <= 1100 && y >= 140 && y <= 680 {
+    if (530..=1100).contains(&x) && (140..=680).contains(&y) {
         let row = ((y - 140) / 30) as u32 + 1;
         return UiEvent::ShipSelect { row };
     }
 
     // Page navigation (y≈700, x≈700-850)
-    if y >= 690 && x >= 600 && x <= 900 {
+    if y >= 690 && (600..=900).contains(&x) {
         // Rough page number detection
         let page = ((x - 600) / 30) as u32 + 1;
         return UiEvent::ShipListPage { page };
     }
 
     // "変更" button on right side (x≈1060-1160, y≈340-380)
-    if x >= 1060 && y >= 320 && y <= 400 {
+    if x >= 1060 && (320..=400).contains(&y) {
         return UiEvent::FleetChangeConfirm;
     }
 
@@ -448,16 +449,16 @@ fn detect_remodel(x: i32, y: i32) -> UiEvent {
     //   第2 (271, 214), 第3 (313, 216), 第4 (369, 192), 他 (399, 201)
     // Tabs spread over x≈200-420 at ~42px each.
     // 他 is encoded as fleet=5.
-    if y >= 180 && y <= 235 {
-        if x >= 200 && x < 242 {
+    if (180..=235).contains(&y) {
+        if (200..242).contains(&x) {
             return UiEvent::FleetSelect { fleet: 1 };
-        } else if x >= 242 && x < 285 {
+        } else if (242..285).contains(&x) {
             return UiEvent::FleetSelect { fleet: 2 };
-        } else if x >= 285 && x < 330 {
+        } else if (285..330).contains(&x) {
             return UiEvent::FleetSelect { fleet: 3 };
-        } else if x >= 330 && x < 380 {
+        } else if (330..380).contains(&x) {
             return UiEvent::FleetSelect { fleet: 4 };
-        } else if x >= 380 && x < 425 {
+        } else if (380..425).contains(&x) {
             return UiEvent::FleetSelect { fleet: 5 };
         }
     }
@@ -466,14 +467,14 @@ fn detect_remodel(x: i32, y: i32) -> UiEvent {
 
 fn detect_resupply(x: i32, y: i32) -> UiEvent {
     // Fleet tabs (y≈100-120)
-    if y >= 95 && y <= 125 {
-        let fleet = if x >= 80 && x < 110 {
+    if (95..=125).contains(&y) {
+        let fleet = if (80..110).contains(&x) {
             1
-        } else if x >= 110 && x < 140 {
+        } else if (110..140).contains(&x) {
             2
-        } else if x >= 140 && x < 170 {
+        } else if (140..170).contains(&x) {
             3
-        } else if x >= 170 && x < 200 {
+        } else if (170..200).contains(&x) {
             4
         } else {
             return UiEvent::UnknownClick { x, y };
@@ -487,7 +488,7 @@ fn detect_resupply(x: i32, y: i32) -> UiEvent {
     }
 
     // Ship rows (x≈100-800, y≈140-600, ~80px per row)
-    if x >= 100 && x <= 800 && y >= 140 && y <= 600 {
+    if (100..=800).contains(&x) && (140..=600).contains(&y) {
         let row = ((y - 140) / 80) as u32 + 1;
         return UiEvent::SupplyShipToggle { row };
     }
@@ -497,7 +498,7 @@ fn detect_resupply(x: i32, y: i32) -> UiEvent {
 
 fn detect_repair_dock(x: i32, y: i32) -> UiEvent {
     // 4 docks (y≈130..690, ~140px each)
-    if x >= 100 && x <= 1100 && y >= 130 && y <= 690 {
+    if (100..=1100).contains(&x) && (130..=690).contains(&y) {
         let dock = ((y - 130) / 140) as u32 + 1;
         return UiEvent::RepairDockSelect {
             dock: dock.min(4),
@@ -508,14 +509,14 @@ fn detect_repair_dock(x: i32, y: i32) -> UiEvent {
 
 fn detect_factory(x: i32, y: i32) -> UiEvent {
     // Left menu
-    if x >= 100 && x <= 350 {
-        let mode = if y >= 130 && y <= 200 {
+    if (100..=350).contains(&x) {
+        let mode = if (130..=200).contains(&y) {
             "建造"
-        } else if y >= 210 && y <= 280 {
+        } else if (210..=280).contains(&y) {
             "解体"
-        } else if y >= 290 && y <= 360 {
+        } else if (290..=360).contains(&y) {
             "開発"
-        } else if y >= 370 && y <= 440 {
+        } else if (370..=440).contains(&y) {
             "廃棄"
         } else {
             return UiEvent::UnknownClick { x, y };
@@ -527,13 +528,13 @@ fn detect_factory(x: i32, y: i32) -> UiEvent {
 
     // Right panel - dock instant build buttons (x≈900-1100)
     if x >= 900 {
-        let dock = if y >= 130 && y <= 250 {
+        let dock = if (130..=250).contains(&y) {
             1
-        } else if y >= 260 && y <= 380 {
+        } else if (260..=380).contains(&y) {
             2
-        } else if y >= 390 && y <= 510 {
+        } else if (390..=510).contains(&y) {
             3
-        } else if y >= 520 && y <= 640 {
+        } else if (520..=640).contains(&y) {
             4
         } else {
             return UiEvent::UnknownClick { x, y };
@@ -557,22 +558,22 @@ fn detect_quest_list(x: i32, y: i32) -> UiEvent {
     //   全 y≈247, 遂行中 y≈282, Daily y≈330, Weekly y≈374,
     //   Monthly y≈412, 単 y≈455, 他 y≈497, Others y≈540 (estimated).
     // ~40-45px spacing per row.
-    if x >= 60 && x <= 160 {
-        let filter = if y >= 225 && y < 270 {
+    if (60..=160).contains(&x) {
+        let filter = if (225..270).contains(&y) {
             "全"
-        } else if y >= 270 && y < 310 {
+        } else if (270..310).contains(&y) {
             "遂行中"
-        } else if y >= 310 && y < 355 {
+        } else if (310..355).contains(&y) {
             "Daily"
-        } else if y >= 355 && y < 395 {
+        } else if (355..395).contains(&y) {
             "Weekly"
-        } else if y >= 395 && y < 435 {
+        } else if (395..435).contains(&y) {
             "Monthly"
-        } else if y >= 435 && y < 475 {
+        } else if (435..475).contains(&y) {
             "単"
-        } else if y >= 475 && y < 520 {
+        } else if (475..520).contains(&y) {
             "他"
-        } else if y >= 520 && y < 565 {
+        } else if (520..565).contains(&y) {
             "Others"
         } else {
             return UiEvent::UnknownClick { x, y };
@@ -584,16 +585,16 @@ fn detect_quest_list(x: i32, y: i32) -> UiEvent {
 
     // Top category filter row (y≈145-175) calibrated from user clicks 2026-05-05:
     //   出撃 ≈743, 演習 ≈807, 遠征 ≈947-955, 編成 ≈1022, その他 ≈1129-1130
-    if y >= 140 && y <= 180 {
-        let category = if x >= 700 && x < 780 {
+    if (140..=180).contains(&y) {
+        let category = if (700..780).contains(&x) {
             "出撃"
-        } else if x >= 780 && x < 880 {
+        } else if (780..880).contains(&x) {
             "演習"
-        } else if x >= 880 && x < 1000 {
+        } else if (880..1000).contains(&x) {
             "遠征"
-        } else if x >= 1000 && x < 1080 {
+        } else if (1000..1080).contains(&x) {
             "編成"
-        } else if x >= 1080 && x < 1170 {
+        } else if (1080..1170).contains(&x) {
             "その他"
         } else {
             ""
@@ -606,7 +607,7 @@ fn detect_quest_list(x: i32, y: i32) -> UiEvent {
     }
 
     // Quest rows (x≈200-1100, y≈120-680, ~100px per row)
-    if x >= 200 && x <= 1100 && y >= 120 && y <= 680 {
+    if (200..=1100).contains(&x) && (120..=680).contains(&y) {
         let row = ((y - 120) / 100) as u32 + 1;
         return UiEvent::QuestSelect { row };
     }

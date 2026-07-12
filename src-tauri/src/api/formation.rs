@@ -95,8 +95,8 @@ pub(crate) fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: u
 
     // Control bar is 28 CSS pixels, scaled by zoom and DPI
     // Game coordinates are also scaled by zoom
-    let mut dx = (bx * zoom * scale) as i32;
-    let mut dy = ((28.0 + by) * zoom * scale) as i32;
+    let dx = (bx * zoom * scale) as i32;
+    let dy = ((28.0 + by) * zoom * scale) as i32;
 
     // macOS: adjust for platform-specific coordinate offset
     #[cfg(target_os = "macos")]

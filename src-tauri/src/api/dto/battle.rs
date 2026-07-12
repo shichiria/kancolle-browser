@@ -1,5 +1,8 @@
 use serde::Deserialize;
 
+// Unused fields in the DTOs below are kept for API schema completeness
+// (damage-phase analysis may use them later).
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApiBattleResponse {
     pub api_formation: Option<Vec<i32>>,
@@ -28,6 +31,7 @@ pub struct ApiKouku {
     pub api_stage1: Option<ApiKoukuStage1>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApiKoukuStage1 {
     pub api_disp_seiku: Option<i32>,
@@ -37,6 +41,7 @@ pub struct ApiKoukuStage1 {
     pub api_e_lostcount: Option<i32>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApiHougeki {
     pub api_at_eflag: Option<Vec<i32>>,
@@ -44,6 +49,7 @@ pub struct ApiHougeki {
     pub api_damage: Option<Vec<serde_json::Value>>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApiRaigeki {
     pub api_fdam: Option<Vec<f64>>,
