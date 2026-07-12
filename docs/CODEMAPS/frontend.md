@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-05 | Files scanned: 65 | Token estimate: ~1100 -->
+<!-- Generated: 2026-05-05 | Updated: 2026-07-11 | Token estimate: ~1150 -->
 # Frontend (React/TS)
 
 ## Multi-window, single bundle
@@ -8,15 +8,18 @@ the App component branches on `getCurrentWindow().label` to pick the view:
 | Window label | Visible by | Renders | Notes |
 |--------------|-----------|---------|-------|
 | `management` | 📊 button on game control bar | Full SPA (toolbar + tabs) | hide-on-close |
-| `kantai` | ⚓ button on game control bar | `<KantaiView/>` (fleet-only) | hide-on-close, own UI zoom |
+| `kantai` | ⚓ button on game control bar | `<KantaiView/>` (fleet + 🛩 air base) | hide-on-close, own UI zoom |
+| `quests` | 📜 button on game control bar | `<QuestTab/>` (quest-only) | hide-on-close |
 
 `VIEW_MODE` is decided once at startup (immutable for the window's lifetime).
 
 ## Component Hierarchy
 ```
-App (~530L) — state, event listeners, view-mode dispatch
-├── KantaiView (~140L) — fleet tab + FleetPanel + UI zoom slider
-│   └── FleetPanel (homeport, reused)
+App (~440L) — state, event listeners, view-mode dispatch
+├── KantaiView (~180L) — fleet tabs + 🛩 AirBaseTab + FleetPanel + UI zoom slider
+│   ├── FleetPanel (homeport, reused)
+│   └── AirBaseTab (~270L) — 基地航空隊 (get_air_bases + air-base-updated)
+├── QuestTab (~290L) — quests window view (カテゴリ/海域別、ピン留め pinned_quests)
 └── (management mode)
     ├── HomeportTab
     │   ├── FleetPanel
@@ -51,6 +54,7 @@ drive-sync-status, drive-data-updated, kancolle-api
 
 ### KantaiView additionally listens
 - fleet-view-changed (number | null) — auto-switches selected fleet (1-4)
+- air-base-updated (AirBase[]) — refreshes 🛩 AirBaseTab
 
 ### DebugTab additionally listens
 - screen-changed (string)
@@ -70,6 +74,7 @@ ship.ts — ShipListItem, ShipListResponse, ShipSortKey
 equipment.ts — EquipListItem, EquipListResponse
 improvement.ts — ImprovementItem, ImprovementListResponse
 senka.ts — SenkaSummary
+airbase.ts — AirBase, AirBasePlane, AirBaseAttackWave, AirBaseDistance
 
 ## Component modules
 - common/ — HpBar, BattleHpBar, ClearButton, DateRangePicker, ListTable
@@ -79,7 +84,8 @@ senka.ts — SenkaSummary
 - equips/ — EquipListTab
 - improvement/ — ImprovementTab
 - settings/ — SettingsTab
-- **kantai/** — KantaiView (fleet tabs + FleetPanel + zoom slider, persisted via localStorage `kc-kantai-fleet-id` / `kc-kantai-ui-zoom`)
+- **kantai/** — KantaiView (fleet tabs + FleetPanel + zoom slider, persisted via localStorage `kc-kantai-fleet-id` / `kc-kantai-ui-zoom`) + AirBaseTab
+- **quests/** — QuestTab (quests window view; カテゴリ/海域別表示 + pinned_quests)
 - **debug/** — DebugTab (current_screen card + clicks table with crops + API table; pause + clear)
 
 ## Utils (src/utils/, 4 modules + 2 test files)

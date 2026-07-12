@@ -19,6 +19,7 @@
 | [sortie-quest.md](./sortie-quest.md) | 出撃任務条件チェッカー・海域ルート推奨 |
 | [improvement.md](./improvement.md) | 装備改修データ・曜日別表示・改修履歴 |
 | [senka.md](./senka.md) | 戦果計算・ランキング復号・チェックポイント |
+| [air-corps.md](./air-corps.md) | 基地航空隊追跡・攻撃波記録・損失比例配分 |
 | [drive-sync.md](./drive-sync.md) | Google Drive同期・OAuth2認証・競合解決 |
 | [overlay.md](./overlay.md) | オーバーレイ（ミニマップ・陣形・大破警告・遠征通知） |
 | [frontend.md](./frontend.md) | Reactコンポーネント階層・状態管理・型定義・CSS設計 |

@@ -121,7 +121,7 @@ pub struct BattleLogger {
 1. リクエストボディから `api_maparea_id`, `api_mapinfo_no`, `api_deck_id` を解析
 2. 指定艦隊の艦娘情報をスナップショット（名前、レベル、艦種、装備のマスターID・改修・熟練度）
 3. レスポンスから最初のマス番号（`api_no`）、イベント種別（`api_color_no`）、イベントID（`api_event_id`）を取得
-4. マルチゲージマップの場合、`api_eventmap.api_gauge_num` を記録
+4. マルチゲージマップの場合、`api_eventmap.api_gauge_num` を記録（無い場合は `mapinfo_gauges` キャッシュ＝通常海域ゲージから補完）
 5. `SortieRecord` を生成し、最初の `BattleNode` を追加
 6. ディスクに即時保存（クラッシュリカバリ用）
 7. `active_sortie` にセット
@@ -378,7 +378,7 @@ pub struct BattleLogger {
 ### 4.6 中断レコード修復 (`fix_interrupted_records`)
 
 - `end_time == None` かつ `active_sortie` でないレコードを検出
-- `end_time = start_time` を設定して再保存
+- `end_time` にファイルの最終更新時刻 (`metadata().modified()`) を設定して再保存（取得失敗時は `start_time` にフォールバック）
 - アプリクラッシュ等で帰投前に終了した場合の救済
 
 ### 4.7 GDrive同期
@@ -500,7 +500,7 @@ struct PendingBattle {
 主な差異:
 - `start_time` / `end_time` は `DateTime<Local>` → `string`（`%Y-%m-%d %H:%M:%S` フォーマット）
 - `map_area`, `map_no`, `is_combined`, `gauge_num` はサマリーに含まれない
-- `raw_battle`, `raw_result` はフロントエンドに送信されない
+- `raw_battle`, `raw_result` はフロントエンドに送信されない（`SortieRecordSummary::from` が `BattleNode::without_raw` で除去。ディスク上の battle_logs には保存される）
 
 ### 5.3 レガシーフォーマットのマイグレーション
 
@@ -532,7 +532,7 @@ struct PendingBattle {
 | 夜→昼戦 | `api_req_sortie/night_to_day` | `on_battle` |
 | 通常夜戦 | `api_req_battle_midnight/battle` | `on_midnight_battle` |
 | 開幕夜戦 | `api_req_battle_midnight/sp_midnight` | `on_midnight_battle` |
-| 連合昼戦 | `api_req_combined_battle/*` (6種) | `on_battle` |
+| 連合昼戦 | `api_req_combined_battle/*` (7種: battle / battle_water / each_battle / each_battle_water / ec_battle / ld_airbattle / ld_shooting) | `on_battle` |
 | 連合夜戦 | `api_req_combined_battle/*_midnight*` (4種) | `on_midnight_battle` |
 | 戦闘結果 | `api_req_sortie/battleresult` | `on_battle_result` |
 | 連合結果 | `api_req_combined_battle/battleresult` | `on_battle_result` |
@@ -545,7 +545,7 @@ struct PendingBattle {
 2. **任務進捗更新:** マップ/ランク/ボス判定から出撃任務の進捗を更新
 3. **撃沈敵艦種判定:** 敵HP≦0の艦の艦種を抽出し、撃沈系任務に反映
 4. **戦果記録:** `api_get_exp`（HQ経験値）と `api_get_exmap_rate`（EO戦果ボーナス）を戦果トラッカーに記録
-5. **陣形記憶:** 選択陣形を `{area}-{no}-{cell}` キーで保存し、次回同マスでヒント表示
+5. **陣形記憶:** 選択陣形を `{area}-{no}-{cell}` キーで保存し、次回同マスでヒント表示（保存タイミングは battleresult 後ではなく昼戦 `on_battle` 処理内）
 
 ### 6.4 大破進撃警告（api_req_map/next）
 

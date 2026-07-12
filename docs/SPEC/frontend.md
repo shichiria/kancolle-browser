@@ -4,7 +4,7 @@
 
 ## 概要
 
-React + TypeScript によるSPA。Tauri v2 の `invoke` / `listen` API を通じてRustバックエンドと通信する。メインウィンドウ (情報パネル) とゲームウィンドウ (別ウィンドウ) の2画面構成。
+React + TypeScript によるSPA。Tauri v2 の `invoke` / `listen` API を通じてRustバックエンドと通信する。フロントエンドウィンドウは3つ — `management` (フルSPA・情報パネル) / `kantai` (艦隊専用ビュー `KantaiView`) / `quests` (任務ビュー `QuestTab`) — で、同一Reactバンドルを `getCurrentWindow().label` (`VIEW_MODE`, App.tsx) で分岐する。これにゲームウィンドウ (`game`) が加わる。
 
 ---
 
@@ -19,7 +19,7 @@ App (src/App.tsx)
 |     +-- [Status Indicators]
 |
 +-- TabBar
-|     +-- TabButton x 6 (母港/戦闘/改修/艦娘/装備/設定)
+|     +-- TabButton x 7 (母港/戦闘/改修/艦娘/装備/Debug/設定)
 |
 +-- MainContent
       |
@@ -182,7 +182,7 @@ App.tsx マウント時に以下のコマンドを並列呼び出し:
 - 戦闘タブ選択時は `refreshBattleLogs` も呼出
 
 ```typescript
-type TabId = "homeport" | "battle" | "improvement" | "ships" | "equips" | "options";
+type TabId = "homeport" | "battle" | "improvement" | "ships" | "equips" | "options" | "debug";
 ```
 
 | タブ名 | TabId | コンポーネント |
@@ -192,7 +192,32 @@ type TabId = "homeport" | "battle" | "improvement" | "ships" | "equips" | "optio
 | 改修 | `improvement` | `ImprovementTab` |
 | 艦娘 | `ships` | `ShipListTab` |
 | 装備 | `equips` | `EquipListTab` |
+| Debug | `debug` | `DebugTab` |
 | 設定 | `options` | `SettingsTab` |
+
+> タブは management ウィンドウのみ。kantai / quests ウィンドウはタブではなく `VIEW_MODE` (ウィンドウラベル) で `KantaiView` / `QuestTab` を直接レンダリングする。
+
+### ウィンドウ別ビュー / 追加コンポーネント
+
+| コンポーネント | ウィンドウ | 概要 |
+|---------------|-----------|------|
+| `QuestTab` (`components/quests/`) | quests | 任務ビュー。カテゴリ/海域別表示、ピン留め (localStorage `pinned_quests`)、同時達成編成条件計算 |
+| `KantaiView` (`components/kantai/`) | kantai | 艦隊専用ビュー。艦隊タブ (localStorage `kc-kantai-fleet-id`) + UIズーム (`kc-kantai-ui-zoom`)、`fleet-view-changed` で自動追従 |
+| `AirBaseTab` (`components/kantai/`) | kantai (🛩タブ) | 基地航空隊表示。`get_air_bases` + `air-base-updated` |
+| `DebugTab` (`components/debug/`) | management (🐛タブ) | current_screen / クリック履歴 (スクリーンショット付) / API 監視 |
+
+### 追加の型定義
+
+- `types/airbase.ts` — `AirBase` / `AirBasePlane` / `AirBaseAttackWave` / `AirBaseDistance`
+- `types/quest.ts` — `SortieQuestCondition` (8種の判別可能ユニオン) と `SortieQuestDef.conditions`
+
+### 追加のイベントリスナー (listen ↔ backend emit 対応済み)
+
+`fleet-view-changed` (KantaiView/DebugTab)、`air-base-updated` (KantaiView)、`screen-changed` / `quest-filters-changed` / `click-event` / `click-screenshot` (DebugTab)
+
+### 追加の invoke
+
+`show_expedition_notification` / `hide_expedition_notification` (App.tsx 遠征通知)、`get_cached_resource` (App.tsx)、`get_air_bases` (KantaiView)、`get_current_screen` / `get_current_fleet` / `get_quest_filters` (DebugTab)
 
 ---
 

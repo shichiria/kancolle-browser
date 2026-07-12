@@ -8,5 +8,5 @@
 
 ## Rules (禁止)
 - 艦これの自動化 (BOT規約違反のため)
-- `Progress{SpecialBattle,Practice}.cs` 以外のファイルでの任務条件推測・追加
-- `additional_browser_args` の使用 (プロキシ無効化回避のため)
+- 任務条件の独自推測。`Progress{SpecialBattle,Practice}.cs` を第一次ソースとし、未収録任務のみ wiki/任務名からの補完可 (出所コメント必須。詳細: docs/SPEC/sortie-quest.md)
+- `--proxy-server` を自前指定しない `additional_browser_args` の使用 (wry は本引数指定時に proxy_url を無視する。使用時は必ずプロキシ引数を含めること。現行の使用例: game_window.rs)

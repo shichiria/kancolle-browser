@@ -9,7 +9,7 @@
 
 ## 現在の状態
 
-- **53テスト全パス** (0.19秒)
+- **Rust: 135テスト全パス** (lib 全体, ~0.25秒) / **Frontend: vitest 45テスト全パス** (2026-07-11 時点)
 - A群37エンドポイント + B群23エンドポイント = **60エンドポイント処理済み**
 - DTO整理完了: `dto/battle.rs`(戦闘系), `dto/member.rs`(艦船/装備/任務系), `dto/ranking.rs`(ランキング)
 - 全75エンドポイントのサンプルfixture取得済み（最新版、サニタイズ済み）
@@ -36,14 +36,15 @@ APIレスポンス解析        ゲーム自動操作(規約違反)
 │                                                         │
 │  Layer 1: Deserialization (APIレスポンス→構造体)     ✅   │
 │  ───────────────────────────────────────────────         │
-│  53テスト実装済み (A群36 + B群14 + 横断3)               │
+│  api::tests 実装済み (初期53 = A群36 + B群14 + 横断3、    │
+│  以降 ui_event/senka/battle_info/expedition 等に拡大)     │
 │                                                         │
 │  Layer 2: Transformation (構造体→ゲーム状態)     未実装   │
 │  ───────────────────────────────────────────────         │
 │  入力: パース済み構造体 + マスターデータ                  │
 │  検証: ShipInfo, FleetSummary, PortSummary等の生成       │
 │                                                         │
-│  Layer 3: Logic (判定・計算)                      未実装   │
+│  Layer 3: Logic (判定・計算)                    部分実装   │
 │  ───────────────────────────────────────────────         │
 │  入力: ゲーム状態                                        │
 │  検証: 遠征条件判定、任務条件判定、戦果計算、             │
@@ -54,7 +55,7 @@ APIレスポンス解析        ゲーム自動操作(規約違反)
 │  入力: 生APIログ列(出撃1回分等)                         │
 │  検証: 一連の状態遷移が正しいか                          │
 │                                                         │
-│  Layer 5: Frontend Utils (TS ユーティリティ)     未実装   │
+│  Layer 5: Frontend Utils (TS ユーティリティ)     ✅実装   │
 │  ───────────────────────────────────────────────         │
 │  入力: 各関数の引数                                      │
 │  検証: フォーマット、色判定、predeck URL生成              │
@@ -359,16 +360,19 @@ src-tauri/tests/fixtures/
 ## テスト実行
 
 ```bash
-# 全テスト (53テスト, ~0.2秒)
-cargo test --lib api::tests
+# 全テスト (Rust 135 + vitest 45) — npm test に統合済み
+npm test          # = vitest run && cargo check && cargo test
+
+# Rust のみ
+cargo test --lib
 
 # 特定グループのみ
 cargo test --lib api::tests::a01    # マスターデータ
 cargo test --lib api::tests::b01    # 補給
 cargo test --lib api::tests::cross  # 横断テスト
 
-# 将来: フロントエンドテスト
-npx vitest run src/utils/
+# フロントエンドのみ
+npx vitest run
 ```
 
 ---

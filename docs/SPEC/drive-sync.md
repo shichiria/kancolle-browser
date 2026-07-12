@@ -92,9 +92,6 @@ pub async fn try_restore_auth(
 
 /// ログアウト（トークンファイル削除）
 pub fn logout(data_dir: &Path)
-
-/// トークンファイルの存在チェック
-pub fn has_token(data_dir: &Path) -> bool
 ```
 
 ### 起動時の自動復元（lib.rs）
@@ -310,7 +307,7 @@ pub async fn list_files(
     folder_id: &str,
 ) -> Result<Vec<RemoteFile>, String>
 
-/// ファイル削除
+/// ファイル削除（削除同期は未実装 — エンジンは upload/download のみ。将来用APIラッパー）
 pub async fn delete_file(hub: &Hub, file_id: &str) -> Result<(), String>
 ```
 

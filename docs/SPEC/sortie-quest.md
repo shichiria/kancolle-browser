@@ -12,7 +12,7 @@
 
 - **パス**: `src-tauri/data/sortie_quests.json`
 - **読み込み**: `include_str!` でバイナリに埋め込み
-- **件数**: 200件以上（daily/weekly/monthly/quarterly/yearly/once）
+- **件数**: 329件（reset 内訳: once 233 / yearly 32 / quarterly 17 / weekly 14 / monthly 12 / limited 11 / daily 10）
 
 ### 2.2 SortieQuestDef 構造
 
@@ -76,7 +76,18 @@ pub struct SortieQuestDef {
 | `monthly` | 毎月1日リセット | 6+ |
 | `quarterly` | 3/6/9/12月1日リセット | 10+ |
 | `yearly` | 4月1日リセット | 10+ |
-| `once` | 単発（リセットなし） | 100+ |
+| `once` | 単発（リセットなし） | 233 |
+| `limited` | 期間限定（リセットなし・once と同扱い） | 11 |
+
+> `limited` は `quest_progress` のリセット判定で `once` と同じく「リセットなし」(`None`) として処理される。
+
+### 2.4.1 条件データの出所ポリシー
+
+任務条件 (`conditions`) の出所は以下のルールに従う:
+
+1. **第一次ソース**: ElectronicObserver の `Progress{SpecialBattle,Practice}.cs`。ここに収録された任務の条件は変更しない。
+2. **補完**: 第一次ソースに未収録の任務のみ、KanColle wiki または任務名からの補完を認める。**補完時はスクリプト/データに出所コメントを必須とする。**
+3. 既存の補完スクリプト: `scripts/update_sortie_conditions.py`（例: 任務237/B138 は任務名由来）、`scripts/update_from_wiki.py`（空条件のみ wiki から補完、第一次ソース由来の条件は不変）。
 
 ### 2.5 SubGoal（複合サブゴール）
 

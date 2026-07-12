@@ -258,7 +258,7 @@ process_api() 内の非同期タスク:
 |-----------|-------------|--------------|--------|
 | `proxy-ready` | `u16` (port) | プロキシ起動完了 | lib.rs setup |
 | `port-data` | `PortSummary` | 母港画面表示 / 戦闘後HP更新 | process_port / battleresult |
-| `fleet-updated` | `Vec<FleetSummary>` | 編成変更 | process_hensei_change |
+| `fleet-updated` | `Vec<FleetSummary>` | 編成・艦船状態変更 | process_hensei_change ほか emit_fleet_update 経由 (ship3 / preset_select / powerup / getship / destroyship / deck 等) |
 | `master-data-loaded` | JSON | api_start2 処理完了 | process_start2 |
 | `kancolle-api` | `ApiEvent` | 全 API レスポンス | proxy handle_api_response |
 | `sortie-start` | JSON | 出撃開始 | battle::process_battle (map/start) |
@@ -418,7 +418,7 @@ Frontend (React)                  Tauri IPC                  Backend (Rust)
   |     +-- minimap_enabled          ... ミニマップ有効フラグ
   |     +-- minimap_position.json    ... ミニマップ位置
   |     +-- minimap_size.json        ... ミニマップサイズ
-  |     +-- cookies.json             ... DMM ログインクッキー
+  |     +-- dmm_cookies.json         ... DMM ログインクッキー
   |
   +-- sync_manifest.json             ... GDrive 同期メタデータ
 ```
@@ -433,7 +433,7 @@ Frontend (React)                  Tauri IPC                  Backend (Rust)
 | 改修履歴 | `sync/improved_equipment.json` | 改修成功時 | アプリ起動時 / 同期後 |
 | 戦果ログ | `sync/senka_log.json` | 経験値変動時 / EO クリア時 | アプリ起動時 |
 | 陣形記憶 | `sync/formation_memory.json` | 戦闘開始時 (陣形確定) | アプリ起動時 / 同期後 |
-| クッキー | `local/cookies.json` | 画面遷移時 / アプリ終了時 | ゲーム画面起動時 |
+| クッキー | `local/dmm_cookies.json` | 画面遷移時 / アプリ終了時 | ゲーム画面起動時 |
 
 ### 永続化シーケンス (改修成功の例)
 
@@ -537,7 +537,7 @@ Sync Engine         GameState          Frontend
 | `src-tauri/src/commands.rs` | Tauri コマンド (フロントエンド API) |
 | `src-tauri/src/improvement/mod.rs` | 改修データ・永続化 |
 | `src-tauri/src/quest_progress/mod.rs` | 任務進捗追跡・永続化 |
-| `src-tauri/src/senka.rs` | 戦果トラッカー |
+| `src-tauri/src/senka/mod.rs` | 戦果トラッカー |
 | `src-tauri/src/drive_sync/` | Google Drive 同期エンジン |
 | `src-tauri/src/game_window.rs` | ゲーム画面 WebView 管理 |
 | `src/App.tsx` | フロントエンド: イベントリスナー + Tauri コマンド呼出 |

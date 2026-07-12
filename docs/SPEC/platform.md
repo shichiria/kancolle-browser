@@ -56,6 +56,8 @@ KanColle Browser における macOS / Windows のプラットフォーム差異�
 | ブラウザキャッシュ場所 | `~/Library/Caches/<app>/WebKit/` | `local/game-webview/EBWebView/Default/Cache` 等 |
 | 陣形ヒント座標補正 | `dx += 6*scale`, `dy += 30*scale` | 補正なし |
 | DOM 初期化 | 即時注入可能 | `MutationObserver` で DOM 出現を待機 |
+| プロキシバイパス | なし (全通信が hudsucker 経由) | DMM 系ドメインをバイパス (`--proxy-bypass-list`, ログインループ回避) |
+| Cookie 復元 | ネイティブ `set_cookie` (WKHTTPCookieStore) | `data_directory` プロファイルの実質永続化 + JS注入フォールバック |
 | platform 固有依存 | `objc2 0.6`, `objc2-foundation 0.3` | `webview2-com 0.38`, `windows-core 0.61` |
 
 ---
@@ -153,19 +155,27 @@ core8.SetIsMuted(muted);
 
 ## 5. Cookie 管理 (`cookie.rs`)
 
-### 共通方式
+### 保存（両プラットフォーム共通）
 
-両プラットフォームとも同一のフロー:
+`save_game_cookies` / `ExitRequested` ハンドラは `cookie::collect_dmm_cookies` を使用:
 
-1. **保存**: `save_game_cookies` — `cookies_for_url()` で DMM 関連ドメインの Cookie を取得し、JSON ファイルに永続化
-2. **復元**: `build_cookie_restore_script` — 保存した Cookie を `document.cookie` で注入する JavaScript を生成
-3. **注入タイミング**: `about:blank` → `initialization_script` で注入 → 500ms 待機 → DMM へ遷移
+1. `cookies()` で **全 Cookie を列挙**し、DMM ドメイン（`dmm.com` / `dmm.co.jp`）の後方一致フィルタで抽出
+2. `local/dmm_cookies.json` に永続化（`name`/`value`/`domain`/`path`/`http_only`/`secure`）
+
+> **`cookies_for_url()` を使わない理由**: wry 0.54 の WKWebView 実装はドメインを**完全一致**でフィルタするため、`.dmm.com` スコープのログインセッション Cookie が `www.dmm.com` 等の URL 照会から漏れる（macOS 自動ログイン不能の根本原因だった）。
+
+### 復元（プラットフォーム別）
+
+| OS | 方式 |
+|----|------|
+| Windows | WebView2 の `data_directory` プロファイルがセッション Cookie を再起動間で実質保持するため、これが主経路。`build_cookie_restore_script`（`about:blank` で `document.cookie` 注入）はベストエフォートのフォールバックとして維持 |
+| macOS | WKWebView はセッション Cookie を再起動間で保持せず、`document.cookie` 注入は `about:blank`（不透明オリジン）では無効・クロスドメイン/httpOnly 不可。そのため `restore_cookies_native` が **ネイティブ `set_cookie`（WKHTTPCookieStore）** で保存 Cookie を +365日期限に書き換えて DMM 遷移前に注入する |
 
 ### プラットフォーム固有の注意点
 
 | 問題 | 説明 |
 |------|------|
-| WebView2 SameSite 制約 | ネイティブ `set_cookie` API は `SameSite=None` のドット付きドメイン Cookie を拒否する。`document.cookie` 直接注入で回避 |
+| WebView2 SameSite 制約 | ネイティブ `set_cookie` API は `SameSite=None` のドット付きドメイン Cookie を拒否する（Windows で native 注入を使わない理由） |
 | macOS ポート固定 | WKWebView はポート変更でオリジン不一致と判定し Cookie が消失するため、19080 に固定 |
 | アプリ終了時保存 | `RunEvent::ExitRequested` ハンドラで Cookie を同期保存 (async 不可のためブロッキング) |
 
@@ -320,9 +330,13 @@ WebView2 では `initialization_script` 実行時に DOM が未構築の場合�
 
 `with_webview()` を同期コマンド内で呼ぶとデッドロックする。setup ハンドラや async コンテキストから使用すること。
 
-### `additional_browser_args` 使用禁止
+### `additional_browser_args` の使用条件
 
-`additional_browser_args` を使用するとプロキシ設定が上書きされ、API 傍受が無効化される。スクロールバー消去等は CSS で対応すること。
+wry は `additional_browser_args` 指定時に `proxy_url` を**無視する**。使用する場合は必ず `--proxy-server` を自前で含めること。
+
+現行実装 (Windows, `game_window.rs`): `--proxy-server=http://127.0.0.1:{port}` に加え `--proxy-bypass-list=*.dmm.com;*.dmm-corp.com;*.dmm.co.jp;*.dmmgames.com` を指定。DMM ドメインをプロキシバイパスすることで WebView2 の DMM ログインループを回避し、`kancolle-server.com` は引き続き傍受する。macOS はバイパスなし（全通信が hudsucker 経由）。
+
+`--proxy-server` を含めない `additional_browser_args` の使用は禁止（プロキシが無効化され API 傍受が停止する）。スクロールバー消去等の見た目調整は CSS で対応すること。
 
 ### macOS ポート固定の必要性
 

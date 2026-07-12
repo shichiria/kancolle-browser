@@ -51,7 +51,7 @@ pub struct SenkaData {
 ```rust
 pub struct SenkaLogEntry {
     pub timestamp: String,       // ISO8601
-    pub entry_type: String,      // "exp" | "eo" | "quest" | "checkpoint" | "ranking_confirmed" | "eo_cutoff" | "quest_late"
+    pub entry_type: String,      // "exp" | "eo" | "quest" | "checkpoint" | "ranking_confirmed" | "eo_cutoff" | "quest_late" — JSONキーは #[serde(rename = "type")] で "type"
     pub exp_gain: Option<i64>,   // 経験値型の場合
     pub bonus: Option<i64>,      // ボーナス型の場合
     pub detail: Option<String>,  // 説明テキスト
@@ -238,9 +238,11 @@ pub fn senka_item_bonus(api_id: i64) -> i64 {
 
 | API | 呼び出し | 説明 |
 |-----|---------|------|
-| `api_port/port` | `update_experience(hq_exp)` | 母港帰投時のHQ経験値で月間差分を更新 |
-| `api_req_sortie/battleresult` | `add_battle_exp(api_get_exp)` | 出撃戦闘結果の個別経験値を記録 |
-| `api_req_practice/battle_result` | `add_battle_exp(api_get_exp, "演習")` | 演習結果の経験値を記録 |
+| `api_port/port` | `update_experience(hq_exp)` | 母港帰投時のHQ経験値で月間差分を更新。加えて `pending_battle_exp`（戦闘・演習で記録済みの exp 累計）と port 差分を照合し、非戦闘分（遠征・任務報酬等）を「非戦闘 提督exp+N」の `"exp"` エントリとして補完記録する |
+| `api_req_sortie/battleresult` | `add_battle_exp(api_get_exp)` | 出撃戦闘結果の個別経験値を記録（`pending_battle_exp` に加算） |
+| `api_req_practice/battle_result` | `add_battle_exp(api_get_exp, "演習")` | 演習結果の経験値を記録（`pending_battle_exp` に加算） |
+
+> 補完の整合性: `pending_battle_exp` は月境界・月初基準設定時に 0 リセット。port 差分が pending を下回る異常時は警告ログのみでエントリは追加しない。これにより `gains_after_cutoff()` の exp 合算が戦闘外の提督経験値も含む正確な値になる。
 
 ### EOボーナスの記録（2箇所）
 

@@ -35,11 +35,14 @@ proxy ready (event)
   │            └─ Cancel  → app.exit(0)
   └─ game window 生成 + show
        └─ 子window(formation-hint/battle-info/expedition-notify)も生成 (hidden)
+  ※ 静的window: management(1400x900) / kantai(600x900) / quests(800x800) — いずれも hidden 起動
   ↓
 ユーザー操作
   ├─ control bar「📊 管理」 → toggle_management_window
-  ├─ game window 閉じる    → save cookies → app.exit(0)
-  └─ management window 閉じる → prevent + hide()
+  ├─ control bar「⚓ 艦隊」 → toggle_kantai_window
+  ├─ control bar「📜 任務」 → toggle_quests_window
+  ├─ game window 閉じる    → app.exit(0) → ExitRequested で cookies 保存 (lib.rs run handler に集約)
+  └─ management/kantai/quests window 閉じる → prevent + hide()
 ```
 
 ### 主要変更点

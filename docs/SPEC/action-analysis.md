@@ -24,12 +24,15 @@ action_logs (`actions_YYYYMMDD.jsonl`) と screenshots からゲーム画面と�
 | `Event` | 内部イベント発行 | `fleet-updated`, `port-data`, `sortie-complete` |
 | `State` | ゲーム状態遷移 | `process_port`, `sortie_start` |
 | `Command` | Tauri invoke | `open_game_window` |
+| `Screen` | 画面遷移検知 | `Homeport -> FleetComposition` |
+| `Fleet` | 艦隊タブ選択検知 | `fleet=2` |
+| `Quest` | 任務フィルタ変更検知 | `period=..`, `category=..` |
 
-### 現状の制約 (重要)
+### 画面追跡の現状 (2026-07 更新)
 
-`src-tauri/src/mouse_hook.rs:199` の `current_screen` は常に `Screen::Unknown`。画面判定 (ヘッダーピクセル一致) は未実装のため、全 Click の `event` フィールドは `UnknownClick` / `SideMenuClick` / `TopMenuClick` のいずれか (画面依存の判定は機能していない)。
+`current_screen` は**実装済み**: クリック検知 (`mouse_hook.rs` の `screen_from_event` — Navigate / SideMenuClick で更新) と API (`api/mod.rs` の `update_screen_from_api`) の両方から更新される。`detect_event` (`ui_event/`) は画面別ディスパッチで `FleetSelect` / `QuestFilter` / `QuestSelect` 等も返す。
 
-したがって解析時は **API から画面を逆算する** 必要がある。
+なお「ヘッダーピクセル一致」による画面判定という当初想定の手法は未実装のまま (クリック/API ベースで代替)。API からの画面逆算は、クリック追跡が取れない場合の補助手段として引き続き有効。
 
 ## 2. 解析フロー
 
@@ -148,7 +151,7 @@ API → 画面のマッピング (主要なもの):
 - `detect_{screen}` 関数を追加
 - テスト (`ui_event/tests.rs`) に既知ケースを追加
 
-ただし `current_screen` が常に `Unknown` である限り、`TopMenu` / `SideMenu` 以外の検出は実運用に乗らない。画面判定機能 (`mouse_hook.rs:199` の TODO) 実装が先行条件。
+画面追跡 (クリック + API ベース) は実装済みのため、`detect_{screen}` の拡張は追加した時点で実運用に乗る (2026-07 更新)。
 
 ## 関連ドキュメント
 

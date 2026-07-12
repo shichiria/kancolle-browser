@@ -9,7 +9,7 @@ KanColle Browser は、ブラウザゲーム「艦隊これくしょん」専用
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                  KanColle Browser v0.3.0                │
+│                  KanColle Browser v0.4.0                │
 │                                                         │
 │  ┌──────────────┐   IPC (invoke/emit)   ┌────────────┐ │
 │  │  Rust Backend │◄────────────────────►│  React UI  │ │
@@ -43,7 +43,7 @@ KanColle Browser は、ブラウザゲーム「艦隊これくしょん」専用
 | クレート           | バージョン | 用途                                    |
 |-------------------|-----------|----------------------------------------|
 | tauri             | 2        | アプリケーションコア (tray-icon, macos-proxy, macos-private-api) |
-| hudsucker         | 0.24     | MITM HTTP/HTTPS プロキシ (rcgen-ca, rustls-client)             |
+| ideamans-hudsucker | 0.25    | MITM HTTP/HTTPS プロキシ (hudsucker フォーク; rcgen-ca, rustls-client) |
 | tokio             | 1        | 非同期ランタイム (full features)                                |
 | serde / serde_json| 1        | JSON シリアライズ/デシリアライズ                                 |
 | google-drive3     | 7.0      | Google Drive API v3 クライアント                                |
@@ -220,7 +220,7 @@ src/
                    ▼                     │
           ┌─────────────────┐            │
           │handle_response()│            │
-          │ gzip/brotli解凍  │            │
+          │ gzip解凍         │            │
           │ "svdata=" 除去   │            │
           └────────┬────────┘            │
                    │                     │
@@ -277,8 +277,8 @@ Rust (emit)                        React (listen)
 "quest-started" / "stopped"   ───► 個別任務の開始/停止
 "senka-updated"               ───► 戦果データ更新
 "sortie-complete"             ───► 出撃完了 (戦闘ログ追加)
-"battle-state"                ───► 戦闘中の状態更新
-"drive-status-updated"        ───► GDrive 同期ステータス変更
+"sortie-update"               ───► 戦闘中の状態更新
+"drive-sync-status"           ───► GDrive 同期ステータス変更
 "drive-data-updated"          ───► GDrive 同期完了 (データリロード)
 ```
 
@@ -347,7 +347,7 @@ App.tsx (useState)
 ├── apiLog             ← kancolle-api イベント (デバッグ用)
 ├── gameOpen           ← ウィンドウ開閉状態
 ├── caInstalled        ← CA証明書インストール状態
-├── driveStatus        ← drive-status-updated イベント
+├── driveStatus        ← drive-sync-status イベント
 ├── activeTab          ← 現在のタブ選択
 ├── uiZoom             ← UI ズーム倍率 (localStorage 永続化)
 └── weaponIconSheet    ← 装備アイコンスプライトシート
@@ -372,7 +372,7 @@ App.tsx (useState)
 │   ├── battle_logs/               出撃記録 (JSON/戦闘ごと)
 │   │   └── {id}.json
 │   └── raw_api/                   生APIダンプ (デバッグ用)
-│       └── {seq}_{endpoint}.json
+│       └── {YYYYMMDD_HHMMSS}_{seq:03}_{endpoint}.json
 │
 ├── local/                         ──── ローカル専用 ────
 │   ├── dmm_cookies.json           DMM ログインCookie
@@ -489,14 +489,25 @@ App.tsx (useState)
 
 ```
 ┌─────────────────────────────┐
-│  Main Window ("main")       │  1400x900 (min: 800x600)
-│  React SPA (管理UI)         │
+│  Management Window          │  1400x900 (min: 800x600), label "management"
+│  React SPA (管理UI)         │  hide-on-close (コントロールバー📊で開閉)
 │  ├ 母港タブ                  │
 │  ├ 戦闘ログタブ              │
 │  ├ 艦船一覧タブ              │
 │  ├ 装備一覧タブ              │
 │  ├ 改修タブ                  │
+│  ├ Debugタブ                 │
 │  └ 設定タブ                  │
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│  Kantai Window ("kantai")   │  600x900, hide-on-close (⚓で開閉)
+│  艦隊パネル + 🛩基地航空隊    │  同一Reactバンドル (window label で分岐)
+└─────────────────────────────┘
+
+┌─────────────────────────────┐
+│  Quests Window ("quests")   │  800x800, hide-on-close (📜で開閉)
+│  任務ビュー (QuestTab)       │  同一Reactバンドル (window label で分岐)
 └─────────────────────────────┘
 
 ┌─────────────────────────────┐
@@ -555,7 +566,7 @@ npm run tauri build
 | 項目       | 値                           |
 |-----------|------------------------------|
 | identifier| com.eo.kancolle-browser      |
-| version   | 0.3.0 (Cargo.toml, tauri.conf.json, package.json で統一) |
+| version   | 0.4.0 (Cargo.toml, tauri.conf.json, package.json で統一) |
 | license   | MIT                          |
 
 

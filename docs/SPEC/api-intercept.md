@@ -323,7 +323,9 @@ tauri::async_runtime::spawn(async move {
 
 ## 6. DTO構造
 
-### 6.1 レスポンスDTO (`api/dto/battle.rs`)
+### 6.1 レスポンスDTO (`api/dto/battle.rs`, `api/dto/member.rs`)
+
+> 注: `ApiBattleResponse` 系のみ `dto/battle.rs`。`ApiQuestListResponse` / `ApiRemodelSlotResponse` / `ApiAfterSlot` / `ApiHenseiPresetSelectResponse` ほか member 系 DTO は `dto/member.rs` にある。
 
 | 構造体 | 用途 | 主要フィールド |
 |---|---|---|
@@ -410,7 +412,7 @@ GameState (Arc<RwLock<GameStateInner>>)
 | `formation_memory.json` | 戦闘開始時(陣形記録) | `models::save_formation_memory()` |
 | `battle_logs/*.json` | 出撃完了時 | `BattleLogger::on_port()` |
 | `raw_api/*.json` | 全API受信時 | `battle_log::save_raw_api_to_disk()` |
-| `senka.json` | 戦果変動時 | `SenkaTracker` 内部 |
+| `senka_log.json` | 戦果変動時 | `SenkaTracker` 内部 |
 
 ## 8. イベント発行パターン (`app.emit`)
 
@@ -419,7 +421,7 @@ GameState (Arc<RwLock<GameStateInner>>)
 | イベント名 | ペイロード型 | 発行元 | 発行タイミング |
 |---|---|---|---|
 | `kancolle-api` | `ApiEvent` | `proxy/mod.rs` | 全API受信時(生データ) |
-| `master-data-loaded` | `{ shipCount, stypeCount, ... }` | `process_start2` | マスタデータ読み込み完了 |
+| `master-data-loaded` | `{ shipCount, stypeCount, ... }` | `process_start2` | マスタデータ読み込み完了 (現在フロントエンドにリスナーなし・将来用) |
 | `port-data` | `PortSummary` | `process_port`, 戦闘結果後 | 母港帰還、戦闘後HP更新 |
 | `fleet-updated` | `Vec<FleetSummary>` | `emit_fleet_update()` | 編成変更、装備変更、プリセット読み込み |
 | `sortie-start` | `{ in_sortie: true }` | `process_battle` (map/start) | 出撃開始 |

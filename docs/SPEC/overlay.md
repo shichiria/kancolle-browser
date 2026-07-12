@@ -16,6 +16,7 @@
 | 陣形ヒント | `formation-hint` (別ウィンドウ) | `formation-hint-content` | `formation-hint.html` | セル到達時に過去の陣形を記憶から表示 |
 | 大破警告 | `game` (子WebView) | `game-overlay` | `overlay.html` | `/api_req_map/next` で大破進撃検知 |
 | 遠征通知 | `expedition-notify` (別ウィンドウ) | `expedition-notify-content` | `expedition-notify.html` | 帰還1分前 (フロントエンドTimer) |
+| 戦闘情報 | `battle-info` (別ウィンドウ, 520x140, click-through) | `battle-info-content` | `battle-info.html` | 昼戦/夜戦開始APIで交戦形態・制空状態・基地航空隊制空波を表示 |
 
 ### ウィンドウ構成
 
@@ -72,6 +73,8 @@ expedition-notify (別ウィンドウ, always-on-top)
 | `resize_minimap` | `w: f64` | `Result<(), String>` | ミニマップのリサイズ。アスペクト比5:3で高さ自動計算 |
 | `show_expedition_notification` | `notifications: Vec<ExpeditionNotifyItem>` | `Result<(), String>` | 遠征通知ウィンドウを表示 |
 | `hide_expedition_notification` | - | `Result<(), String>` | 遠征通知ウィンドウを非表示 |
+| `set_battle_info_enabled` | `enabled: bool` | `Result<(), String>` | 戦闘情報オーバーレイの有効/無効切替 (AppState.battle_info_enabled、無効時は即非表示・有効時は last_battle_info を再表示) |
+| `get_battle_info_enabled` | - | `bool` | 現在の戦闘情報有効状態を取得 |
 
 ### ミニマップ定数
 
@@ -96,8 +99,8 @@ const MINIMAP_ASPECT: f64 = 0.68;  // h/w 比率
 
 `game_window.rs` の `on_window_event` で以下のイベントをハンドル:
 
-- **Resized**: `game-content` WebView リサイズ + 陣形ヒント再配置 + ミニマップ再配置 + 遠征通知再配置
-- **Moved**: 陣形ヒント再配置 + 遠征通知再配置
+- **Resized**: `game-content` WebView リサイズ + 陣形ヒント再配置 + ミニマップ再配置 + 遠征通知再配置 + 戦闘情報再配置 (`reposition_battle_info`)
+- **Moved**: 陣形ヒント再配置 + 遠征通知再配置 + 戦闘情報再配置
 
 ```
 reposition_formation_hint(app)  // FormationHintRect の dx/dy を使って画面座標を再計算
@@ -238,6 +241,16 @@ fn get_formation_button_rect(formation: i32, _ship_count: usize)
 - 半透明黒背景 + 赤フラッシュアニメーション (0.5秒 x 3回)
 - ダイアログ: 警告アイコン + 「大破進撃警告」タイトル + 大破艦名リスト + 確認ボタン
 - 確認ボタン押下で `dismiss_overlay` コマンドを呼出 → ミニマップ復帰 or 非表示
+
+---
+
+## 戦闘情報オーバーレイの実装
+
+- **ウィンドウ**: `battle-info` (520x140, decorations なし, transparent, always-on-top, click-through)。`open_game_window` で生成・`close_game_window` で破棄 (`game_window.rs`)
+- **データ構築**: `api/battle_info.rs` — `engagement_name` / `engagement_color` (交戦形態: 同航/反航/T字有利/T字不利)、`air_superiority_label` (制空: 劣勢/優勢/確保/均衡/喪失)、`extract_lbas_waves` (基地航空隊の波ごとの制空状態)
+- **トリガー**: 昼戦系 API (`api_req_sortie/battle` 等) と夜戦開始 API (`sp_midnight` / `ec_night_to_day`) の処理内で `BattleInfoData` を構築し `show_battle_info_overlay` (`overlay.rs`)。母港帰投 (`api_port/port`) で `hide_battle_info_overlay`
+- **状態**: `AppState.battle_info_enabled` (AtomicBool, `local/battle_info_enabled` に永続化) / `AppState.last_battle_info` (再有効化時の再表示用)
+- **注**: 演習 (`api_req_practice/battle`) は現在未対応 (LogOnly 処理)
 
 ---
 

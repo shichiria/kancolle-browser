@@ -12,7 +12,8 @@
 
 - **パス**: `src-tauri/data/expeditions.json`
 - **読み込み**: `include_str!` でバイナリに埋め込み、起動時にパース
-- **件数**: 72件（01〜46, A1〜A6, B1〜B6, D1〜D3, E1〜E2）
+- **件数**: 61件（id: 1〜32, 35〜46, 100〜105, 110〜115, 131〜133, 141〜142。display_id 33/34、id 106〜109・134〜140 は欠番）
+- **great_success_type 内訳**: Regular 36 / Level 18 / Drum 7
 
 ### 2.2 ExpeditionDef 構造
 

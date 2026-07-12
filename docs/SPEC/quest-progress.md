@@ -15,7 +15,7 @@ pub struct QuestProgressState {
     /// quest_id (API番号) -> 進捗エントリ
     pub quests: HashMap<i32, QuestProgressEntry>,
     /// 最終リセットチェック日時
-    pub last_reset_check: Option<DateTime<FixedOffset>>,
+    pub last_reset_check: Option<DateTime<FixedOffset>>, // 情報用（リセット判定には未使用。判定は各エントリの last_updated 比較）
 }
 ```
 
@@ -48,7 +48,7 @@ pub struct QuestProgressEntry {
 
 ### 3.1 保存先
 
-- **ファイル**: `quest_progress.json`（`quest_progress_path` で管理）
+- **ファイル**: `sync/quest_progress.json`（`quest_progress_path` で管理）
 - **フォーマット**: JSON（`serde_json::to_string_pretty`）
 
 ### 3.2 保存タイミング
@@ -121,6 +121,7 @@ check_resets(state, quest_defs, path):
 
 ### 4.5 実行タイミング
 
+- **起動時**（`GameState::new` 内で初回リセットチェックとして `check_resets` を呼び出し）
 - **母港帰還時**（`api_port/port` レスポンス処理内で `check_resets` を呼び出し）
 
 ## 5. 戦闘結果処理
@@ -200,7 +201,7 @@ pub async fn update_quest_progress(
 | 引数パターン | 動作 |
 |-------------|------|
 | `area=Some, count=Some` | 指定海域のカウントを設定値に変更 |
-| `area=Some, count=None` | トグル: count_max<=1 なら 0↔1、それ以外はインクリメント（max超えたら0） |
+| `area=Some, count=None` | トグル: 閾値<=1 なら 0↔1、それ以外はインクリメント（max超えたら0）。閾値は area/counter 任務では count_max、sub_goals 任務ではサブゴール個別の count (key_max) |
 | `area=None, count=Some` | カウンタ値を設定値に変更 |
 
 ### 6.3 イベント通知

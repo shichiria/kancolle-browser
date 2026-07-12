@@ -1,10 +1,13 @@
-<!-- Generated: 2026-05-05 | Files scanned: 38 | Token estimate: ~1100 -->
+<!-- Generated: 2026-05-05 | Updated: 2026-07-11 | Token estimate: ~1150 -->
 # Backend (Rust/Tauri)
 
-## Modules (lib.rs → 19 modules)
+## Modules (lib.rs → 20 modules)
 action_log, api, battle_log, ca, commands, cookie, drive_sync, expedition,
 game_window, improvement, kantai, management, migration, mouse_hook,
-overlay, proxy, quest_progress, senka, sortie_quest, ui_event
+overlay, proxy, quest_progress, quests, senka, sortie_quest, ui_event
+
+api/ サブモジュール: mod, models, battle, ship, fleet, formation, minimap,
+air_corps (基地航空隊), battle_info (戦闘情報オーバーレイ), dto/, tests
 
 ## Tauri Commands (lib.rs → invoke_handler)
 ### Game Window (game_window.rs)
@@ -16,6 +19,9 @@ show_management_window, hide_management_window, toggle_management_window
 ### Kantai Window (kantai.rs) — Fleet panel hide/show
 show_kantai_window, hide_kantai_window, toggle_kantai_window
 
+### Quests Window (quests.rs) — Quest view hide/show
+show_quests_window, hide_quests_window, toggle_quests_window
+
 ### Proxy/Cert (commands.rs, ca.rs)
 get_proxy_port, is_ca_installed, install_ca_cert
 
@@ -23,7 +29,7 @@ get_proxy_port, is_ca_installed, install_ca_cert
 get_action_log, get_current_screen, get_current_fleet, get_quest_filters
 
 ### Fleet/Ship Data (commands.rs)
-get_ship_list, get_equipment_list
+get_ship_list, get_equipment_list, get_air_bases
 
 ### Expedition (commands.rs)
 get_expeditions → expedition::get_all_expeditions()
@@ -113,7 +119,7 @@ Other key endpoints:
 port-data, fleet-updated, quest-list-updated, quest-progress-updated
 sortie-complete, sortie-update, senka-updated, kancolle-api
 proxy-ready, drive-sync-status, drive-data-updated
-quest-started, quest-stopped
+quest-started, quest-stopped, air-base-updated
 
 ### Click / Screen tracking
 screen-changed (payload: `"Homeport"` etc.)

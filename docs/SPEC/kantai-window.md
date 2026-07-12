@@ -28,7 +28,8 @@ api/process_api ──URL──────┤    current_fleet  ──emit─�
 ### Frontend
 - `tauri.conf.json` — `kantai` ラベルの window 追加(`visible:false`、600x900、リサイズ可)
 - `App.tsx` — `getCurrentWindow().label === "kantai"` で `<KantaiView/>` を返す
-- `components/kantai/KantaiView.tsx` — 第1〜第4 タブ + FleetPanel + 下部 UI ズーム slider
+- `components/kantai/KantaiView.tsx` — 第1〜第4 タブ + 🛩 陣形タブ (AirBaseTab) + FleetPanel + 下部 UI ズーム slider
+- `components/kantai/AirBaseTab.tsx` — 基地航空隊の状態表示 (制空/機数/疲労/出撃結果波)。`get_air_bases` で取得し `air-base-updated` を購読
 - `components/debug/DebugTab.tsx` — current_screen + 直近クリック(crop screenshot 付) + 直近 API
 - `game_init.js` — control bar に ⚓艦隊 / 📊管理 ボタン追加
 
@@ -43,7 +44,7 @@ api/process_api ──URL──────┤    current_fleet  ──emit─�
 `api_start2/getData` (ゲーム再ロード)で必ず Unknown にリセット。
 
 ### `current_fleet` (`Mutex<Option<u32>>`)
-艦隊持ち画面 (FleetComposition / Resupply / Remodel) における選択艦隊。
+艦隊持ち画面 (FleetComposition / Resupply / Remodel / ExpeditionFleetSelect) における選択艦隊。
 - 1〜4: 第N艦隊
 - 5: 「他」(改装の追加タブ等)
 - None: 艦隊持ち画面外
