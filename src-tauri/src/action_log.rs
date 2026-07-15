@@ -1,10 +1,9 @@
-//! Dev-only action log — records timestamped actions like a web access log.
+//! Persistent action log — records timestamped actions like a web access log.
 //!
-//! All public items are gated behind `cfg(debug_assertions)` so the module
-//! compiles to nothing in release builds.  Format: JSON Lines (one JSON
-//! object per line) for easy parsing with `jq` or VS Code extensions.
+//! Format: JSON Lines (one JSON object per line) for easy parsing with `jq` or
+//! VS Code extensions. This is enabled in release builds as well so field
+//! reports can be correlated with a diagnostic session.
 
-#[cfg(debug_assertions)]
 mod inner {
     use chrono::Local;
     use serde::Serialize;
@@ -18,13 +17,15 @@ mod inner {
     const MAX_ENTRIES: usize = 500;
 
     /// Log files older than this many days are auto-deleted on startup.
-    const RETENTION_DAYS: i64 = 7;
+    const RETENTION_DAYS: i64 = 90;
 
     /// A single action log entry.
     #[derive(Debug, Clone, Serialize)]
     pub struct ActionEntry {
         /// ISO-8601 local timestamp
         pub timestamp: String,
+        /// Per-launch ID shared with the diagnostic session log.
+        pub session_id: String,
         /// Category: API, Event, Command, State
         pub category: String,
         /// Short action identifier (e.g. endpoint path, event name)
@@ -34,17 +35,12 @@ mod inner {
         pub detail: Option<String>,
     }
 
-    /// Flush the BufWriter every N writes instead of every write.
-    const FLUSH_INTERVAL: usize = 20;
-
     /// Global action log state.
     struct ActionLogState {
         entries: VecDeque<ActionEntry>,
         log_dir: Option<PathBuf>,
         current_date: String,
         writer: Option<BufWriter<std::fs::File>>,
-        /// Counter for periodic flushing.
-        writes_since_flush: usize,
     }
 
     static ACTION_LOG: std::sync::LazyLock<Mutex<ActionLogState>> =
@@ -54,7 +50,6 @@ mod inner {
                 log_dir: None,
                 current_date: String::new(),
                 writer: None,
-                writes_since_flush: 0,
             })
         });
 
@@ -96,7 +91,6 @@ mod inner {
             {
                 state.writer = Some(BufWriter::new(file));
                 state.current_date = date_str.to_string();
-                state.writes_since_flush = 0;
             }
         }
     }
@@ -113,7 +107,7 @@ mod inner {
             state.log_dir = Some(log_dir);
             open_writer(&mut state, &date_str);
         }
-        log::info!("[ActionLog] Initialised (dev mode)");
+        log::info!("[ActionLog] Initialised");
     }
 
     /// Record an action.
@@ -124,6 +118,7 @@ mod inner {
 
         let entry = ActionEntry {
             timestamp,
+            session_id: crate::diagnostics::session_id(),
             category: category.to_string(),
             action: action.to_string(),
             detail: detail.map(|s| s.to_string()),
@@ -141,21 +136,12 @@ mod inner {
                 open_writer(&mut state, &date_str);
             }
 
-            // Write JSON line, flush every FLUSH_INTERVAL writes
-            let needs_flush = if let Some(ref mut writer) = state.writer {
+            // Flush every line so the final actions survive a crash.
+            if let Some(ref mut writer) = state.writer {
                 if let Ok(json) = serde_json::to_string(&entry) {
                     let _ = writeln!(writer, "{}", json);
                 }
-                state.writes_since_flush += 1;
-                state.writes_since_flush >= FLUSH_INTERVAL
-            } else {
-                false
-            };
-            if needs_flush {
-                if let Some(ref mut writer) = state.writer {
-                    let _ = writer.flush();
-                }
-                state.writes_since_flush = 0;
+                let _ = writer.flush();
             }
         }
     }
@@ -171,20 +157,9 @@ mod inner {
     }
 }
 
-// ── Public re-exports (dev only) ──────────────────────────────────────
+// ── Public re-exports ─────────────────────────────────────────────────
 
-#[cfg(debug_assertions)]
 pub use inner::{get_recent, init, record};
-
-// ── No-op stubs for release builds ────────────────────────────────────
-
-#[cfg(not(debug_assertions))]
-#[inline(always)]
-pub fn init(_data_dir: &std::path::Path) {}
-
-#[cfg(not(debug_assertions))]
-#[inline(always)]
-pub fn record(_category: &str, _action: &str, _detail: Option<&str>) {}
 
 // ── Convenience wrapper ───────────────────────────────────────────────
 

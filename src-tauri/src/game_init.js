@@ -150,6 +150,97 @@
     var isTop = false;
     try { isTop = (window.self === window.top); } catch(e) {}
 
+    // Persist a compact DOM/layout snapshot in the session log. DMM changes
+    // its wrapper markup periodically, and this makes a blank/incorrect game
+    // surface diagnosable without asking the player to open DevTools.
+    function reportLayout(stage) {
+        if (!isTop || !window.__TAURI_INTERNALS__) return;
+        try {
+            function describe(el) {
+                var rect = el.getBoundingClientRect();
+                return {
+                    tag: el.tagName,
+                    id: el.id || '',
+                    className: typeof el.className === 'string' ? el.className : '',
+                    src: el.getAttribute && (el.getAttribute('src') || ''),
+                    rect: [Math.round(rect.x), Math.round(rect.y), Math.round(rect.width), Math.round(rect.height)]
+                };
+            }
+            var frames = Array.from(document.querySelectorAll('iframe')).map(describe);
+            var candidates = Array.from(document.querySelectorAll('[id*="game" i], [class*="game" i]'))
+                .slice(0, 40).map(describe);
+            var children = document.body
+                ? Array.from(document.body.children).slice(0, 40).map(describe)
+                : [];
+            window.__TAURI_INTERNALS__.invoke('log_frontend_event', {
+                level: 'info',
+                source: 'game-content:layout',
+                message: JSON.stringify({
+                    stage: stage,
+                    url: location.href,
+                    viewport: [window.innerWidth, window.innerHeight],
+                    frames: frames,
+                    candidates: candidates,
+                    bodyChildren: children
+                })
+            });
+        } catch(e) {}
+    }
+
+    if (isTop) {
+        document.addEventListener('DOMContentLoaded', function() { reportLayout('dom-content-loaded'); });
+        setTimeout(function() { reportLayout('after-3s'); }, 3000);
+        setTimeout(function() { reportLayout('after-10s'); }, 10000);
+    }
+
+    // The current DMM React layout puts the game iframe inside several nested
+    // stacking contexts. A fixed z-index on the iframe alone can still leave
+    // recommendation/video panels painted above it. Hide only the siblings on
+    // the iframe's ancestor path, keeping the iframe and control bar alive.
+    function isolateGameFrame() {
+        if (!isTop) return false;
+        var frame = document.getElementById('game_frame');
+        if (!frame || !document.body) return false;
+
+        var node = frame;
+        while (node.parentElement && node.parentElement !== document.body) {
+            var parent = node.parentElement;
+            Array.from(parent.children).forEach(function(sibling) {
+                if (sibling !== node) sibling.style.setProperty('display', 'none', 'important');
+            });
+            parent.style.setProperty('position', 'static', 'important');
+            parent.style.setProperty('transform', 'none', 'important');
+            parent.style.setProperty('z-index', 'auto', 'important');
+            parent.style.setProperty('overflow', 'visible', 'important');
+            node = parent;
+        }
+        frame.style.setProperty('display', 'block', 'important');
+        frame.style.setProperty('visibility', 'visible', 'important');
+        frame.style.setProperty('opacity', '1', 'important');
+        frame.style.setProperty('position', 'fixed', 'important');
+        frame.style.setProperty('top', '28px', 'important');
+        frame.style.setProperty('left', '0', 'important');
+        frame.style.setProperty('width', '1200px', 'important');
+        frame.style.setProperty('height', '720px', 'important');
+        frame.style.setProperty('z-index', '10000', 'important');
+        return true;
+    }
+
+    if (isTop) {
+        var layoutObserver = new MutationObserver(function() { isolateGameFrame(); });
+        layoutObserver.observe(document, { childList: true, subtree: true });
+        document.addEventListener('DOMContentLoaded', isolateGameFrame);
+        var layoutChecks = 0;
+        var layoutTimer = setInterval(function() {
+            isolateGameFrame();
+            layoutChecks += 1;
+            if (layoutChecks >= 15) {
+                clearInterval(layoutTimer);
+                layoutObserver.disconnect();
+            }
+        }, 2000);
+    }
+
     var cssText = isTop ? (COMMON_CSS + TOP_CSS) : COMMON_CSS;
 
     // Inject style — use MutationObserver on document for WebView2 compatibility

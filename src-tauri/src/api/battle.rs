@@ -1,4 +1,5 @@
 use log::{error, info, warn};
+use std::collections::HashSet;
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::air_corps;
@@ -7,6 +8,67 @@ use super::formation::{formation_name, show_formation_hint, hide_formation_hint}
 use super::minimap::update_minimap_overlay;
 use super::battle_info;
 use super::notify_sync;
+
+/// Resolve the 1-based fleet positions returned in battleresult.api_escape to
+/// player ship instance IDs. For combined fleets, `fleet_indices` supplies the
+/// main and escort fleets in API order.
+fn escape_ship_ids(
+    fleets: &[Vec<i32>],
+    fleet_indices: &[usize],
+    api_data: &serde_json::Value,
+) -> HashSet<i32> {
+    let ordered_ship_ids: Vec<Option<i32>> = if fleet_indices.len() > 1 {
+        // Combined-fleet API positions reserve six slots per fleet even when a
+        // fleet has fewer than six ships.
+        fleet_indices
+            .iter()
+            .flat_map(|&index| {
+                fleets
+                    .get(index)
+                    .into_iter()
+                    .flatten()
+                    .copied()
+                    .map(Some)
+                    .chain(std::iter::repeat(None))
+                    .take(6)
+            })
+            .collect()
+    } else {
+        fleet_indices
+            .iter()
+            .filter_map(|&index| fleets.get(index))
+            .flatten()
+            .copied()
+            .map(Some)
+            .collect()
+    };
+
+    let mut ship_ids = HashSet::new();
+    let Some(escape) = api_data.get("api_escape") else {
+        return ship_ids;
+    };
+
+    for field in ["api_escape_idx", "api_tow_idx"] {
+        let Some(indices) = escape.get(field).and_then(|value| value.as_array()) else {
+            continue;
+        };
+        for index in indices {
+            let Some(position) = index.as_u64().and_then(|value| usize::try_from(value).ok())
+            else {
+                continue;
+            };
+            if let Some(&ship_id) = position
+                .checked_sub(1)
+                .and_then(|index| ordered_ship_ids.get(index))
+                .and_then(Option::as_ref)
+            {
+                ship_ids.insert(ship_id);
+            }
+        }
+    }
+
+    ship_ids
+}
 
 /// Check if an endpoint is a battle-related API
 pub(super) fn is_battle_endpoint(ep: &str) -> bool {
@@ -33,6 +95,8 @@ pub(super) fn process_battle(
     match endpoint {
         "/kcsapi/api_req_map/start" => {
             crate::action_log::record("State", "sortie_start", None);
+            state.sortie.pending_escape_ship_ids.clear();
+            state.sortie.escaped_ship_ids.clear();
             // Clear LBAS attack history at the start of every new sortie so the
             // 陣形 tab only shows results from the current outing.
             if air_corps::clear_recent_attacks(state) {
@@ -104,6 +168,10 @@ pub(super) fn process_battle(
                         if fi < state.profile.fleets.len() {
                             let ship_ids = &state.profile.fleets[fi];
                             for (i, &ship_id) in ship_ids.iter().enumerate() {
+                                if state.sortie.escaped_ship_ids.contains(&ship_id) {
+                                    info!("Ship {} ({}) has retreated — skipping warning", ship_id, i);
+                                    continue;
+                                }
                                 if let Some(ship) = state.profile.ships.get(&ship_id) {
                                     if ship.maxhp > 0 && ship.hp as f64 / ship.maxhp as f64 <= 0.25 && ship.hp > 0 {
                                         let has_damecon = ship.slot.iter()
@@ -141,6 +209,10 @@ pub(super) fn process_battle(
                     }
                 }
             } // taiha_enabled
+
+            // Reaching map/next without goback_port means the player declined
+            // the retreat offered by the previous battle result.
+            state.sortie.pending_escape_ship_ids.clear();
 
             match serde_json::from_value::<
                 models::ApiResponse<crate::api::dto::battle::ApiMapNextResponse>,
@@ -326,6 +398,19 @@ pub(super) fn process_battle(
                 Err(e) => error!("Failed to parse midnight battle response: {}", e),
             }
         }
+        // The game sends this only after the player accepts the retreat prompt.
+        // ship_deck still contains retreated ships, so remember them separately
+        // for the rest of the sortie's taiha checks.
+        "/kcsapi/api_req_sortie/goback_port"
+        | "/kcsapi/api_req_combined_battle/goback_port" => {
+            let confirmed = std::mem::take(&mut state.sortie.pending_escape_ship_ids);
+            if confirmed.is_empty() {
+                warn!("Retreat confirmed without pending escape ships");
+            } else {
+                info!("Retreat confirmed for ship IDs: {:?}", confirmed);
+                state.sortie.escaped_ship_ids.extend(confirmed);
+            }
+        }
         // Battle results
         "/kcsapi/api_req_sortie/battleresult" | "/kcsapi/api_req_combined_battle/battleresult" => {
             let master_ships = state.master.ships.clone();
@@ -342,6 +427,29 @@ pub(super) fn process_battle(
                     }
                 }
                 Err(e) => error!("Failed to parse battleresult response: {}", e),
+            }
+
+            let fleet_indices = state
+                .sortie
+                .battle_logger
+                .active_sortie_ref()
+                .map(|sortie| {
+                    if sortie.is_combined {
+                        vec![0, 1]
+                    } else {
+                        vec![(sortie.fleet_id as usize).saturating_sub(1)]
+                    }
+                })
+                .unwrap_or_default();
+            state.sortie.pending_escape_ship_ids = json
+                .get("api_data")
+                .map(|api_data| escape_ship_ids(&state.profile.fleets, &fleet_indices, api_data))
+                .unwrap_or_default();
+            if !state.sortie.pending_escape_ship_ids.is_empty() {
+                info!(
+                    "Retreat offered for ship IDs: {:?}",
+                    state.sortie.pending_escape_ship_ids
+                );
             }
 
             // Update player ships HP from battle result and re-emit port-data
@@ -546,6 +654,62 @@ pub(super) fn process_battle(
         _ => {
             info!("Unhandled battle endpoint: {}", endpoint);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escape_ship_ids;
+    use serde_json::json;
+    use std::collections::HashSet;
+
+    #[test]
+    fn resolves_retreat_ship_from_recorded_sortie_result() {
+        let fleets = vec![
+            vec![],
+            vec![],
+            vec![79689, 101, 138361, 44105, 7310, 8906, 21292],
+        ];
+        let api_data = json!({
+            "api_escape": {
+                "api_escape_idx": [4],
+                "api_escape_type": 1
+            }
+        });
+
+        assert_eq!(
+            escape_ship_ids(&fleets, &[2], &api_data),
+            HashSet::from([44105])
+        );
+    }
+
+    #[test]
+    fn resolves_escape_and_tow_positions_across_combined_fleets() {
+        let fleets = vec![vec![11, 12, 13], vec![21, 22, 23]];
+        let api_data = json!({
+            "api_escape": {
+                "api_escape_idx": [2],
+                "api_tow_idx": [8]
+            }
+        });
+
+        assert_eq!(
+            escape_ship_ids(&fleets, &[0, 1], &api_data),
+            HashSet::from([12, 22])
+        );
+    }
+
+    #[test]
+    fn ignores_missing_and_out_of_range_escape_positions() {
+        let fleets = vec![vec![11, 12]];
+        let api_data = json!({
+            "api_escape": {
+                "api_escape_idx": [0, 3]
+            }
+        });
+
+        assert!(escape_ship_ids(&fleets, &[0], &api_data).is_empty());
+        assert!(escape_ship_ids(&fleets, &[0], &json!({})).is_empty());
     }
 }
 

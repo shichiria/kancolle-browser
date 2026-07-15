@@ -76,9 +76,7 @@ function App() {
   const [showApiLog, setShowApiLog] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEYS.SHOW_API_LOG) === "true";
   });
-  const [rawApiEnabled, setRawApiEnabled] = useState<boolean>(() => {
-    return localStorage.getItem(STORAGE_KEYS.RAW_API_ENABLED) === "true";
-  });
+  const [rawApiEnabled, setRawApiEnabled] = useState(true);
 
   // Weapon icon sprite sheet for damecon indicator
   const [weaponIconSheet, setWeaponIconSheet] = useState<string | null>(null);
@@ -273,11 +271,14 @@ function App() {
     // Load Google Drive sync status
     invoke<DriveStatus>("get_drive_status").then(setDriveStatus).catch(console.error);
 
-    // Restore raw API enabled state from localStorage to backend
-    const savedRawApi = localStorage.getItem(STORAGE_KEYS.RAW_API_ENABLED) === "true";
-    if (savedRawApi) {
-      invoke("set_raw_api_enabled", { enabled: true }).catch(console.error);
-    }
+    // Backend enables complete API diagnostics at the start of every launch.
+    // Read its actual state instead of allowing stale localStorage to disable it.
+    invoke<boolean>("get_raw_api_enabled")
+      .then((enabled) => {
+        setRawApiEnabled(enabled);
+        localStorage.setItem(STORAGE_KEYS.RAW_API_ENABLED, String(enabled));
+      })
+      .catch(console.error);
 
     return () => {
       unlistenProxy.then((f) => f());

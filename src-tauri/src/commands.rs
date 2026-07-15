@@ -12,6 +12,13 @@ use crate::sortie_quest;
 
 use api::models::GameState;
 
+/// Persist a browser-side console message or unhandled JavaScript error in the
+/// same per-launch diagnostic log as the Rust backend.
+#[tauri::command]
+pub(crate) fn log_frontend_event(level: String, message: String, source: Option<String>) {
+    crate::diagnostics::frontend_event(&level, &message, source.as_deref());
+}
+
 /// Get all expedition definitions for the frontend
 #[tauri::command]
 pub(crate) fn get_expeditions() -> Vec<expedition::ExpeditionDef> {

@@ -90,6 +90,17 @@ npm run tauri dev
 npm run tauri build
 ```
 
+## 診断ログ
+
+不具合を後から再現・修正できるよう、起動のたびに次のログを自動保存します。
+
+- `local/logs/session_YYYYMMDD_HHMMSS_mmm_PID.log` — Rust、WebView console、未処理例外、起動・終了、プロキシの起動単位ログ
+- `local/action_logs/actions_YYYYMMDD.jsonl` — API、画面遷移、クリック、コマンドの時系列ログ（各行にセッションIDを付与）
+- `sync/raw_api/*.json` — 傍受した艦これAPIのリクエスト/レスポンス（毎起動時に自動ON）
+- `sync/battle_logs/*.json` — 出撃・戦闘の構造化ログ
+
+基準ディレクトリは Windows では `%LOCALAPPDATA%\com.eo.kancolle-browser`、macOS では `~/Library/Application Support/com.eo.kancolle-browser` です。診断ログと操作ログは90日（診断ログは最大200起動）保持します。`api_token`、OAuthトークン、Cookie等の認証値は保存前にマスクします。
+
 ## アーキテクチャ
 
 ```
@@ -97,6 +108,7 @@ src/                    # React フロントエンド
   App.tsx               # タブ切替・イベントリスナー
   App.css               # ルートレイアウト
   constants.ts          # ストレージキー定数
+  diagnostics.ts        # console・未処理例外の永続ログ転送
   components/
     homeport/           # 艦隊パネル・遠征/任務チェッカー
     battle/             # 戦闘ログ・マップルート・ノード詳細
@@ -108,6 +120,7 @@ src/                    # React フロントエンド
 
 src-tauri/src/          # Rust バックエンド
   lib.rs                # Tauri セットアップ・プロキシ起動
+  diagnostics.rs        # 起動単位ログ・ローテーション・秘密値マスク
   commands.rs           # Tauri コマンド（データ取得・キャッシュ・同期）
   game_window.rs        # ゲームウィンドウ管理（開閉・ズーム・ミュート）
   overlay.rs            # オーバーレイ（ミニマップ・陣形・大破警告・遠征通知）

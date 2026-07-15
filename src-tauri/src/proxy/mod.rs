@@ -23,8 +23,6 @@ use crate::api;
 #[derive(Clone, serde::Serialize)]
 pub struct ApiEvent {
     pub endpoint: String,
-    pub request_body: String,
-    pub response_body: String,
 }
 
 /// Per-connection request data (URI and request body) keyed by client address.
@@ -182,11 +180,10 @@ impl KanColleHandler {
         // Process the API data
         api::process_api(&self.app_handle, &endpoint, &json_str, &req_body);
 
-        // Emit raw event to frontend
+        // The frontend only needs the endpoint. Raw payloads stay in the
+        // protected app-data log instead of being duplicated into WebViews.
         let event = ApiEvent {
             endpoint: endpoint.clone(),
-            request_body: req_body,
-            response_body: json_str,
         };
 
         if let Err(e) = self.app_handle.emit("kancolle-api", &event) {

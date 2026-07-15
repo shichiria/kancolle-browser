@@ -134,6 +134,12 @@ pub struct SortieState {
     pub battle_logger: BattleLogger,
     /// Cached last port summary for re-emitting during sortie
     pub last_port_summary: Option<PortSummary>,
+    /// Ship instance IDs offered for retreat by the latest battle result.
+    /// These are only promoted to `escaped_ship_ids` when goback_port confirms
+    /// that the player accepted the retreat.
+    pub pending_escape_ship_ids: HashSet<i32>,
+    /// Ship instance IDs that have retreated during the active sortie.
+    pub escaped_ship_ids: HashSet<i32>,
 }
 
 /// Player's accumulated activity records and quest tracking

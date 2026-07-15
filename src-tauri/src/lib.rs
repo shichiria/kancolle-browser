@@ -5,6 +5,7 @@ mod ca;
 mod commands;
 mod cookie;
 mod drive_sync;
+mod diagnostics;
 mod expedition;
 mod game_window;
 mod improvement;
@@ -166,7 +167,27 @@ async fn ensure_ca_installed(_app: &tauri::AppHandle) -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    diagnostics::init();
+
+    // Static Tauri windows begin loading their React apps while `build()` is
+    // running, before the setup hook. Resolve the same app-local-data path as
+    // Tauri and register GameState first so startup invokes cannot race it.
+    let context = tauri::generate_context!();
+    let startup_data_dir = dirs::data_local_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(&context.config().identifier);
+
+    if let Err(e) = diagnostics::attach(&startup_data_dir) {
+        eprintln!("Failed to attach persistent session log: {e}");
+    }
+    migration::migrate_data_dir(&startup_data_dir);
+    action_log::init(&startup_data_dir);
+    action_log::log(
+        "Session",
+        "start",
+        &format!("session_id={}", diagnostics::session_id()),
+    );
+    let game_state = GameState::new(startup_data_dir.clone());
 
     // Install rustls CryptoProvider globally (needed by hyper-rustls for Drive API)
     let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
@@ -174,6 +195,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(game_state)
         .manage(AppState {
             proxy_port: Mutex::new(0),
             game_muted: AtomicBool::new(false),
@@ -261,24 +283,25 @@ pub fn run() {
             commands::get_current_screen,
             commands::get_current_fleet,
             commands::get_quest_filters,
-            commands::get_air_bases
+            commands::get_air_bases,
+            commands::log_frontend_event
         ])
-        .setup(|app| {
+        .setup(move |app| {
             let data_dir = app
                 .path()
                 .app_local_data_dir()
                 .unwrap_or_else(|_| PathBuf::from("."));
 
-            // Migrate old flat layout to sync/ + local/ structure
-            migration::migrate_data_dir(&data_dir);
+            if data_dir != startup_data_dir {
+                log::warn!(
+                    "Pre-resolved app data dir differs from Tauri: startup={} tauri={}",
+                    startup_data_dir.display(),
+                    data_dir.display()
+                );
+            }
 
-            // Initialise dev-only action log (no-op in release)
-            action_log::init(&data_dir);
-
-            // Initialize GameState
             let sync_dir = data_dir.join("sync");
             info!("Sync dir: {}", sync_dir.display());
-            app.manage(GameState::new(data_dir.clone()));
 
             // Restore mute state from disk (new local/ path)
             let mute_file = data_dir.join("local").join("game_muted");
@@ -455,10 +478,11 @@ pub fn run() {
 
             Ok(())
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             if let tauri::RunEvent::ExitRequested { .. } = &event {
+                crate::action_log::log("Session", "exit-requested", "");
                 // Uninstall mouse hook before exit
                 mouse_hook::uninstall();
 
@@ -472,6 +496,7 @@ pub fn run() {
                         }
                     }
                 }
+                diagnostics::shutdown();
             }
         });
 }
