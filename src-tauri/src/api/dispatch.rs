@@ -63,7 +63,7 @@ pub(super) fn apply(
     );
     crate::action_log::log(
         "API_PARSED",
-        &endpoint,
+        endpoint,
         &format!("variant={}", variant_name),
     );
 
@@ -72,7 +72,7 @@ pub(super) fn apply(
             port::process_start2(state, &api_data);
         }
         ParsedApi::Port(api_data) => {
-            port::process_port(state, &api_data, &app);
+            port::process_port(state, &api_data, app);
         }
         ParsedApi::SlotItem(items) => {
             let count = items.len();
@@ -92,23 +92,23 @@ pub(super) fn apply(
             info!("GameState updated: {} player slot items", count);
         }
         ParsedApi::QuestList(json) => {
-            quest::process_questlist(state, &json, &app);
+            quest::process_questlist(state, &json, app);
         }
         ParsedApi::Battle(json) => {
-            battle::process_battle(state, &endpoint, &request_body, &json, &app);
+            battle::process_battle(state, endpoint, request_body, &json, app);
         }
         ParsedApi::ExerciseResult(api_data) => {
-            battle::process_exercise_result(state, &api_data, &app);
+            battle::process_exercise_result(state, &api_data, app);
         }
         ParsedApi::HenseiChange {
             fleet_id,
             ship_idx,
             ship_id,
         } => {
-            fleet::process_hensei_change(state, fleet_id, ship_idx, ship_id, &app);
+            fleet::process_hensei_change(state, fleet_id, ship_idx, ship_id, app);
         }
         ParsedApi::HenseiPresetSelect(json) => {
-            fleet::process_hensei_preset_select(state, &json, &app);
+            fleet::process_hensei_preset_select(state, &json, app);
         }
         ParsedApi::RemodelSlot {
             slot_id,
@@ -193,18 +193,18 @@ pub(super) fn apply(
                     state.senka.add_quest_bonus(senka_bonus, quest_id);
                     let summary = state.senka.summary();
                     let _ = app.emit(crate::events::SENKA_UPDATED, &summary);
-                    super::notify_sync(&state, vec![crate::senka::SenkaTracker::sync_path()]);
+                    super::notify_sync(state, vec![crate::senka::SenkaTracker::sync_path()]);
                 }
             }
         }
         ParsedApi::Charge(api_data) => {
-            ship::process_charge(state, &api_data, &app);
+            ship::process_charge(state, &api_data, app);
         }
         ParsedApi::Ship3(api_data) => {
-            ship::process_ship3(state, &api_data, &app);
+            ship::process_ship3(state, &api_data, app);
         }
         ParsedApi::SlotDeprive(api_data) => {
-            ship::process_slot_deprive(state, &api_data, &app);
+            ship::process_slot_deprive(state, &api_data, app);
         }
         ParsedApi::Ranking(ranking_data) => {
             // Get admiral name from cached port data
@@ -225,7 +225,7 @@ pub(super) fn apply(
                     state.senka.confirm_ranking(senka);
                     let summary = state.senka.summary();
                     let _ = app.emit(crate::events::SENKA_UPDATED, &summary);
-                    super::notify_sync(&state, vec![crate::senka::SenkaTracker::sync_path()]);
+                    super::notify_sync(state, vec![crate::senka::SenkaTracker::sync_path()]);
                 } else if !entries.is_empty() {
                     info!(
                         "Ranking: decoded {} entries but own admiral '{}' not found in this page",
@@ -237,13 +237,13 @@ pub(super) fn apply(
         }
         // --- Category B handlers ---
         ParsedApi::Powerup(api_data) => {
-            ship::process_powerup(state, &api_data, &app);
+            ship::process_powerup(state, &api_data, app);
         }
         ParsedApi::SlotExchange(api_data) => {
-            ship::process_slot_exchange(state, &api_data, &app);
+            ship::process_slot_exchange(state, &api_data, app);
         }
         ParsedApi::GetShip(api_data) => {
-            ship::process_getship(state, &api_data, &app);
+            ship::process_getship(state, &api_data, app);
         }
         ParsedApi::DestroyItem2 { item_ids } => {
             for &id in &item_ids {
@@ -259,7 +259,7 @@ pub(super) fn apply(
                 }
                 info!("destroyship: removed ship {}", ship_id);
             }
-            fleet::emit_fleet_update(state, &app);
+            fleet::emit_fleet_update(state, app);
         }
         ParsedApi::CreateItem(api_data) => {
             if api_data.api_create_flag == 1 {
@@ -352,7 +352,7 @@ pub(super) fn apply(
                 }
             }
             info!("deck: updated {} fleets", decks.len());
-            fleet::emit_fleet_update(state, &app);
+            fleet::emit_fleet_update(state, app);
         }
         ParsedApi::MissionResult(api_data) => {
             info!(
@@ -375,7 +375,7 @@ pub(super) fn apply(
             if !bases.is_empty() {
                 state.air_bases = bases;
                 info!("mapinfo: parsed {} air-base entries", state.air_bases.len());
-                air_corps::emit_air_base_update(state, &app);
+                air_corps::emit_air_base_update(state, app);
             }
         }
         ParsedApi::AirCorpsSetPlane {
@@ -383,12 +383,12 @@ pub(super) fn apply(
             api_data,
         } => {
             if air_corps::apply_set_plane(state, &request_body, &api_data) {
-                air_corps::emit_air_base_update(state, &app);
+                air_corps::emit_air_base_update(state, app);
             }
         }
         ParsedApi::AirCorpsSetAction { request_body } => {
             if air_corps::apply_set_action(state, &request_body) {
-                air_corps::emit_air_base_update(state, &app);
+                air_corps::emit_air_base_update(state, app);
             }
         }
         ParsedApi::AirCorpsSupply {
@@ -396,7 +396,7 @@ pub(super) fn apply(
             api_data,
         } => {
             if air_corps::apply_supply(state, &request_body, &api_data) {
-                air_corps::emit_air_base_update(state, &app);
+                air_corps::emit_air_base_update(state, app);
             }
         }
         ParsedApi::BaseAirCorps(api_data) => {
@@ -412,12 +412,12 @@ pub(super) fn apply(
                     "base_air_corps: parsed {} air-base entries",
                     state.air_bases.len()
                 );
-                air_corps::emit_air_base_update(state, &app);
+                air_corps::emit_air_base_update(state, app);
             }
         }
         ParsedApi::AirCorpsChangeName { request_body } => {
             if air_corps::apply_change_name(state, &request_body) {
-                air_corps::emit_air_base_update(state, &app);
+                air_corps::emit_air_base_update(state, app);
             }
         }
         ParsedApi::AirCorpsChangeDeployment {
@@ -425,7 +425,7 @@ pub(super) fn apply(
             api_data,
         } => {
             if air_corps::apply_change_deployment(state, &request_body, &api_data) {
-                air_corps::emit_air_base_update(state, &app);
+                air_corps::emit_air_base_update(state, app);
             }
         }
         ParsedApi::AirCorpsCondRecovery {
@@ -433,7 +433,7 @@ pub(super) fn apply(
             api_data,
         } => {
             if air_corps::apply_supply(state, &request_body, &api_data) {
-                air_corps::emit_air_base_update(state, &app);
+                air_corps::emit_air_base_update(state, app);
             }
         }
         ParsedApi::LogOnly => {}
