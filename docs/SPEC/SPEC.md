@@ -28,3 +28,9 @@
 | [kantai-window.md](./kantai-window.md) | 艦隊 window + クリック/API ベース画面状態追跡 + Debug タブ |
 | [test-strategy.md](./test-strategy.md) | テスト方針・カバレッジ・リアル click ログ検証 |
 
+## 改善計画
+
+| ドキュメント | 概要 |
+|-------------|------|
+| [refactor-design-cleanup.md](./refactor-design-cleanup.md) | 設計クリーンアップ計画 (2026-07-15策定、Phase 1-7 / 30項目)。監査: `.reports/design-audit-2026-07-15.md` |
+
