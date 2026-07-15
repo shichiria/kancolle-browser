@@ -21,11 +21,7 @@ pub(super) fn get_material(materials: &[models::Material], id: i32) -> i32 {
         .unwrap_or(0)
 }
 
-pub(super) fn process_start2(
-    state: &mut models::GameStateInner,
-    api_data: &models::ApiStart2,
-    app: &AppHandle,
-) {
+pub(super) fn process_start2(state: &mut models::GameStateInner, api_data: &models::ApiStart2) {
     // Populate master ships (name + stype)
     state.master.ships.clear();
     for s in &api_data.api_mst_ship {
@@ -103,16 +99,6 @@ pub(super) fn process_start2(
         state.master.missions.len(),
         state.master.slotitems.len(),
         state.master.equip_types.len(),
-    );
-
-    let _ = app.emit(
-        "master-data-loaded",
-        serde_json::json!({
-            "shipCount": state.master.ships.len(),
-            "stypeCount": state.master.stypes.len(),
-            "missionCount": state.master.missions.len(),
-            "equipCount": state.master.slotitems.len(),
-        }),
     );
 }
 

@@ -8,7 +8,7 @@ KanColle Browserは `game-content` WebViewのDMMトップフレームへ、
 - クロスオリジンのKanColle iframe文書にはアクセスしない
 - ゲーム操作の自動化、入力イベント生成、ゲーム状態の読取りを行わない
 
-ゲーム幅・高さ・操作バー高さは `game_window.rs` の定数を唯一の情報源とし、
+ゲーム幅・高さ・操作バー高さは `game_window/mod.rs` の定数を唯一の情報源とし、
 script生成時にプレースホルダーを展開する。DMM DOMのレイアウトスナップショットは
 debug buildでのみ診断ログへ送信し、release buildでは無効化する。
 

@@ -26,7 +26,7 @@ src-tauri/src/
 ├── main.rs              (6L)   Entry point
 ├── lib.rs             (480L)   Tauri setup, invoke_handler registration, proxy launch, ExitRequested cookie save
 ├── commands.rs       (1030L)   Tauri commands: data queries, cache, drive sync, raw API, air bases
-├── game_window.rs     (460L)   Game window open/close, zoom, mute, cookie restore
+├── game_window/                Game window common flow + Windows/macOS WebView integration
 ├── overlay.rs         (441L)   Overlay: minimap, formation hint, taiha alert, expedition notif, battle info
 ├── cookie.rs          (240L)   DMM cookie collect/save/restore (macOS: native set_cookie)
 ├── ca.rs              (126L)   CA certificate install/check

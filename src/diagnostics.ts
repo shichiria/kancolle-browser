@@ -3,6 +3,16 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import sensitiveKeys from "./sensitive-keys.json";
 
 type LogLevel = "info" | "warn" | "error" | "debug";
+type FrontendLogEntry = {
+  level: LogLevel;
+  message: string;
+  source: string;
+};
+
+const FLUSH_DELAY_MS = 100;
+const MAX_BATCH_ENTRIES = 64;
+const pending: FrontendLogEntry[] = [];
+let flushTimer: ReturnType<typeof setTimeout> | undefined;
 
 const originals = {
   log: console.log.bind(console),
@@ -17,7 +27,10 @@ function redact(value: string): string {
     .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
   return value.replace(
-    new RegExp(`((?:${alternatives})["']?\\s*[:=]\\s*["']?)[^&,"'}\\]\\s]+`, "gi"),
+    new RegExp(
+      `((?:${alternatives})["']?\\s*[:=]\\s*["']?)[^&,"'}\\]\\s]+`,
+      "gi",
+    ),
     "$1<redacted>",
   );
 }
@@ -28,7 +41,8 @@ function describe(value: unknown, seen = new WeakSet<object>()): string {
   }
   if (typeof value === "string") return value;
   if (typeof value === "bigint") return `${value}n`;
-  if (typeof value === "function") return `[Function ${value.name || "anonymous"}]`;
+  if (typeof value === "function")
+    return `[Function ${value.name || "anonymous"}]`;
   if (typeof value === "object" && value !== null) {
     if (seen.has(value)) return "[Circular]";
     seen.add(value);
@@ -48,13 +62,31 @@ function describe(value: unknown, seen = new WeakSet<object>()): string {
   return String(value);
 }
 
+function flush(): void {
+  if (flushTimer !== undefined) {
+    clearTimeout(flushTimer);
+    flushTimer = undefined;
+  }
+  if (pending.length === 0) return;
+
+  const entries = pending.splice(0, MAX_BATCH_ENTRIES);
+  void invoke("log_frontend_events", { entries }).catch((error) =>
+    originals.error("Failed to persist frontend logs", error),
+  );
+  if (pending.length > 0) flushTimer = setTimeout(flush, FLUSH_DELAY_MS);
+}
+
 function persist(level: LogLevel, args: unknown[], source = "console"): void {
-  const message = redact(args.map((arg) => describe(arg)).join(" "));
-  void invoke("log_frontend_event", {
+  pending.push({
     level,
-    message,
+    message: redact(args.map((arg) => describe(arg)).join(" ")),
     source: `${getCurrentWindow().label}:${source}`,
-  }).catch((error) => originals.error("Failed to persist frontend log", error));
+  });
+  if (level === "error" || pending.length >= MAX_BATCH_ENTRIES) {
+    flush();
+  } else if (flushTimer === undefined) {
+    flushTimer = setTimeout(flush, FLUSH_DELAY_MS);
+  }
 }
 
 console.log = (...args: unknown[]) => {
@@ -79,9 +111,18 @@ console.debug = (...args: unknown[]) => {
 };
 
 window.addEventListener("error", (event) => {
-  persist("error", [event.error ?? event.message], `${event.filename}:${event.lineno}:${event.colno}`);
+  persist(
+    "error",
+    [event.error ?? event.message],
+    `${event.filename}:${event.lineno}:${event.colno}`,
+  );
 });
 
 window.addEventListener("unhandledrejection", (event) => {
   persist("error", [event.reason], "unhandledrejection");
+});
+
+window.addEventListener("beforeunload", () => {
+  // invoke is asynchronous; this is best-effort and crash-critical errors are flushed immediately.
+  flush();
 });

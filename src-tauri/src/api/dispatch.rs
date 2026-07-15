@@ -69,7 +69,7 @@ pub(super) fn apply(
 
     match parsed {
         ParsedApi::Start2(api_data) => {
-            port::process_start2(state, &api_data, &app);
+            port::process_start2(state, &api_data);
         }
         ParsedApi::Port(api_data) => {
             port::process_port(state, &api_data, &app);

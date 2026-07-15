@@ -65,7 +65,8 @@ HTTP/1.1の接続単位で `SocketAddr` をキーとし、`(URI, リクエスト
 | macOS | WKWebView + `proxy_url` | Tauri WebviewBuilder の `proxy_url()` で hudsucker プロキシを指定 |
 | Windows | WebView2 + `proxy_url` | 同上。WebView2もTauriの `proxy_url()` を使用 |
 
-両プラットフォームとも `game_window.rs` で `WebviewBuilder::proxy_url()` を設定し、同一の hudsucker プロキシに接続する。
+`game_window/windows.rs` は WebView2 の browser args、`game_window/macos.rs` は
+`WebviewBuilder::proxy_url()` で同一の hudsucker プロキシに接続する。
 
 ## 3. ディスパッチテーブル (`process_api`)
 
@@ -165,8 +166,6 @@ tauri::async_runtime::spawn(async move {
 | `master.missions` | `api_mst_mission` | 遠征ID → 名前・時間 |
 | `master.slotitems` | `api_mst_slotitem` | 装備ID → 名前・種別・アイコン・ステータス |
 | `master.equip_types` | `api_mst_slotitem_equiptype` | 装備種別ID → 名前 |
-
-- **イベント**: `master-data-loaded` (各種マスタデータ件数)
 
 ### 5.2 `process_port` — 母港データ更新
 
@@ -421,7 +420,6 @@ GameState (Arc<RwLock<GameStateInner>>)
 | イベント名 | ペイロード型 | 発行元 | 発行タイミング |
 |---|---|---|---|
 | `kancolle-api` | `ApiEvent` | `proxy/mod.rs` | 全API受信時(生データ) |
-| `master-data-loaded` | `{ shipCount, stypeCount, ... }` | `process_start2` | マスタデータ読み込み完了 (現在フロントエンドにリスナーなし・将来用) |
 | `port-data` | `PortSummary` | `process_port`, 戦闘結果後 | 母港帰還、戦闘後HP更新 |
 | `fleet-updated` | `Vec<FleetSummary>` | `emit_fleet_update()` | 編成変更、装備変更、プリセット読み込み |
 | `sortie-start` | `{ in_sortie: true }` | `process_battle` (map/start) | 出撃開始 |

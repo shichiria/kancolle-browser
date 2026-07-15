@@ -95,7 +95,7 @@ KanColle Browser における macOS / Windows のプラットフォーム差異�
 
 ---
 
-## 4. ゲームウィンドウ管理 (`game_window.rs`)
+## 4. ゲームウィンドウ管理 (`game_window/`)
 
 ### 4.1 ウィンドウサイズ計算
 
@@ -334,7 +334,7 @@ WebView2 では `initialization_script` 実行時に DOM が未構築の場合�
 
 wry は `additional_browser_args` 指定時に `proxy_url` を**無視する**。使用する場合は必ず `--proxy-server` を自前で含めること。
 
-現行実装 (Windows, `game_window.rs`): `--proxy-server=http://127.0.0.1:{port}` に加え `--proxy-bypass-list=*.dmm.com;*.dmm-corp.com;*.dmm.co.jp;*.dmmgames.com` を指定。DMM ドメインをプロキシバイパスすることで WebView2 の DMM ログインループを回避し、`kancolle-server.com` は引き続き傍受する。macOS はバイパスなし（全通信が hudsucker 経由）。
+現行実装 (Windows, `game_window/windows.rs`): `--proxy-server=http://127.0.0.1:{port}` に加え `--proxy-bypass-list=*.dmm.com;*.dmm-corp.com;*.dmm.co.jp;*.dmmgames.com` を指定。DMM ドメインをプロキシバイパスすることで WebView2 の DMM ログインループを回避し、`kancolle-server.com` は引き続き傍受する。macOS はバイパスなし（全通信が hudsucker 経由）。
 
 `--proxy-server` を含めない `additional_browser_args` の使用は禁止（プロキシが無効化され API 傍受が停止する）。スクロールバー消去等の見た目調整は CSS で対応すること。
 
@@ -361,7 +361,7 @@ WebView2 の `EBWebView/` ディレクトリはプロセス起動中はロック
 | ファイル | 用途 |
 |---------|------|
 | `ca.rs` | CA 証明書の確認・インストール (security / certutil) |
-| `game_window.rs` | タイトルバー高さ定数、データ永続化方式、ミュート API |
+| `game_window/{windows,macos}.rs` | タイトルバー高さ定数、データ永続化方式、ミュート API |
 | `commands.rs` | ブラウザデータリセット、ブラウザキャッシュ削除 |
 | `api/formation.rs` | 陣形ヒント座標の macOS 補正 |
 | `Cargo.toml` | objc2 (macOS) / webview2-com (Windows) 依存 |

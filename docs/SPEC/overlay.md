@@ -97,7 +97,7 @@ const MINIMAP_ASPECT: f64 = 0.68;  // h/w 比率
 
 ### ウィンドウ追従ロジック
 
-`game_window.rs` の `on_window_event` で以下のイベントをハンドル:
+`game_window/mod.rs` の `on_window_event` で以下のイベントをハンドル:
 
 - **Resized**: `game-content` WebView リサイズ + 陣形ヒント再配置 + ミニマップ再配置 + 遠征通知再配置 + 戦闘情報再配置 (`reposition_battle_info`)
 - **Moved**: 陣形ヒント再配置 + 遠征通知再配置 + 戦闘情報再配置
@@ -246,7 +246,7 @@ fn get_formation_button_rect(formation: i32, _ship_count: usize)
 
 ## 戦闘情報オーバーレイの実装
 
-- **ウィンドウ**: `battle-info` (520x140, decorations なし, transparent, always-on-top, click-through)。`open_game_window` で生成・`close_game_window` で破棄 (`game_window.rs`)
+- **ウィンドウ**: `battle-info` (520x140, decorations なし, transparent, always-on-top, click-through)。`open_game_window` で生成・`close_game_window` で破棄 (`game_window/mod.rs`)
 - **データ構築**: `api/battle_info.rs` — `engagement_name` / `engagement_color` (交戦形態: 同航/反航/T字有利/T字不利)、`air_superiority_label` (制空: 劣勢/優勢/確保/均衡/喪失)、`extract_lbas_waves` (基地航空隊の波ごとの制空状態)
 - **トリガー**: 昼戦系 API (`api_req_sortie/battle` 等) と夜戦開始 API (`sp_midnight` / `ec_night_to_day`) の処理内で `BattleInfoData` を構築し `show_battle_info_overlay` (`overlay.rs`)。母港帰投 (`api_port/port`) で `hide_battle_info_overlay`
 - **状態**: `AppState.battle_info_enabled` (AtomicBool, `local/battle_info_enabled` に永続化) / `AppState.last_battle_info` (再有効化時の再表示用)
@@ -277,9 +277,9 @@ fn get_formation_button_rect(formation: i32, _ship_count: usize)
 
 ---
 
-## ゲームウィンドウとの連携 (game_window.rs)
+## ゲームウィンドウとの連携 (`game_window/mod.rs`)
 
-**ファイル**: `src-tauri/src/game_window.rs`
+**ファイル**: `src-tauri/src/game_window/mod.rs`
 
 ### ウィンドウ構成定数
 

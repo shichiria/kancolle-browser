@@ -6,20 +6,29 @@
 
 use chrono::Local;
 use log::{Level, LevelFilter, Log, Metadata, Record};
+use serde::Deserialize;
 use std::collections::VecDeque;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{LazyLock, Mutex};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 const RETENTION_DAYS: u64 = 90;
 const MAX_SESSION_FILES: usize = 200;
 const MAX_EARLY_LINES: usize = 2_000;
 const MAX_FRONTEND_MESSAGE_BYTES: usize = 16 * 1024;
+const MAX_FRONTEND_BATCH_ENTRIES: usize = 64;
+
+#[derive(Deserialize)]
+pub(crate) struct FrontendLogEntry {
+    level: String,
+    message: String,
+    source: Option<String>,
+}
 
 struct LoggerState {
-    file: Option<File>,
+    file: Option<crate::log_io::BufferedLogFile>,
     session_id: String,
     session_path: Option<PathBuf>,
     early_lines: VecDeque<String>,
@@ -66,8 +75,7 @@ impl Log for SessionLogger {
         let _ = io::stderr().write_all(line.as_bytes());
         if let Ok(mut state) = self.state.lock() {
             if let Some(file) = state.file.as_mut() {
-                let _ = file.write_all(line.as_bytes());
-                let _ = file.flush();
+                let _ = file.write_line(line.as_bytes(), record.level() == Level::Error);
             } else {
                 if state.early_lines.len() >= MAX_EARLY_LINES {
                     state.early_lines.pop_front();
@@ -91,6 +99,7 @@ pub fn init() {
     if log::set_logger(&*LOGGER).is_ok() {
         log::set_max_level(LevelFilter::Debug);
     }
+    crate::log_io::start_periodic_flush();
 
     let previous_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
@@ -124,7 +133,7 @@ pub fn attach(data_dir: &Path) -> io::Result<PathBuf> {
         file.flush()?;
         state.session_id = session_id;
         state.session_path = Some(path.clone());
-        state.file = Some(file);
+        state.file = Some(crate::log_io::BufferedLogFile::from_file(file));
     }
 
     log::info!(target: "diagnostics", "Session log attached: {}", path.display());
@@ -161,6 +170,12 @@ pub fn frontend_event(level: &str, message: &str, source: Option<&str>) {
         "warn" => log::warn!(target: "frontend", "[{}] {}", source, message),
         "debug" => log::debug!(target: "frontend", "[{}] {}", source, message),
         _ => log::info!(target: "frontend", "[{}] {}", source, message),
+    }
+}
+
+pub(crate) fn frontend_events(entries: Vec<FrontendLogEntry>) {
+    for entry in entries.into_iter().take(MAX_FRONTEND_BATCH_ENTRIES) {
+        frontend_event(&entry.level, &entry.message, entry.source.as_deref());
     }
 }
 
@@ -226,40 +241,17 @@ pub fn redact_sensitive(input: &str) -> String {
 }
 
 fn cleanup_old_session_logs(log_dir: &Path) {
-    let cutoff = SystemTime::now()
-        .checked_sub(Duration::from_secs(RETENTION_DAYS * 24 * 60 * 60))
-        .unwrap_or(SystemTime::UNIX_EPOCH);
-    let mut files = Vec::new();
-
-    let Ok(entries) = fs::read_dir(log_dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let is_session_log = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .map(|name| name.starts_with("session_") && name.ends_with(".log"))
-            .unwrap_or(false);
-        if !is_session_log {
-            continue;
-        }
-        let modified = entry
-            .metadata()
-            .and_then(|metadata| metadata.modified())
-            .unwrap_or(SystemTime::UNIX_EPOCH);
-        if modified < cutoff {
-            let _ = fs::remove_file(&path);
-        } else {
-            files.push((modified, path));
-        }
-    }
-
-    files.sort_by_key(|(modified, _)| *modified);
-    let excess = files.len().saturating_sub(MAX_SESSION_FILES - 1);
-    for (_, path) in files.into_iter().take(excess) {
-        let _ = fs::remove_file(path);
-    }
+    crate::log_io::cleanup_files(
+        log_dir,
+        Duration::from_secs(RETENTION_DAYS * 24 * 60 * 60),
+        MAX_SESSION_FILES - 1,
+        |path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.starts_with("session_") && name.ends_with(".log"))
+                .unwrap_or(false)
+        },
+    );
 }
 
 #[cfg(test)]

@@ -76,6 +76,8 @@ Phase 3 と Phase 4 は依存edge以外は並行可能。Phase内の他項目は
 - **検証**: 標準3点
 
 ### W1-3 diagnostics.ts のIPCバッチング
+
+**実施済み (2026-07-15)**: 100ms/64件バッチ、エラー即時送信、`beforeunload` best-effort flushを実装。
 - **目的**: console呼び出し毎に個別 `invoke("log_frontend_event")` が飛ぶ構造を、バッファリングでIPC増幅を抑止
 - **対象**: `src/diagnostics.ts`、必要なら `src-tauri/src/commands.rs` の `log_frontend_event` / `src-tauri/src/diagnostics.rs` の `frontend_event`
 - **手順**:
@@ -213,6 +215,8 @@ Phase 3 と Phase 4 は依存edge以外は並行可能。Phase内の他項目は
 - **検証**: 標準3点 + 手動smoke: オーバーレイ設定トグル (📺)
 
 ### W3-9 game_window.rs 分割 + 座標定数の一元化 📺
+
+**実施済み (2026-07-15)**: `game_window/{mod,platform,windows,macos}.rs` に分割し、`open_game_window` を20行の共通フローへ縮小。
 - **目的**: `open_game_window` ~300行 (:25-328) の解体と、game_init.js に二重管理されている座標 (top:28px / 1200 / 720) のRust定数一元化
 - **対象**: `src-tauri/src/game_window.rs` → `game_window/{mod.rs, windows.rs, macos.rs}`、`src-tauri/src/game_init.js`
 - **手順**:

@@ -1,6 +1,7 @@
 use super::{battle, dto, models};
 use dto::request::{HenseiChangeReq, QuestReq, RemodelSlotReq};
 use log::{error, info, warn};
+use serde::de::DeserializeOwned;
 
 /// Pre-parsed API data to pass into the single async task
 // One transient instance exists at a time; stack size is not a concern here.
@@ -90,48 +91,42 @@ pub(super) enum ParsedApi {
     Other,
 }
 
+fn parse_typed<T, F>(
+    json_str: &str,
+    endpoint_name: &str,
+    missing_data: ParsedApi,
+    constructor: F,
+) -> ParsedApi
+where
+    T: DeserializeOwned,
+    F: FnOnce(T) -> ParsedApi,
+{
+    match serde_json::from_str::<models::ApiResponse<T>>(json_str) {
+        Ok(response) => response.api_data.map(constructor).unwrap_or(missing_data),
+        Err(error) => {
+            error!("Failed to parse {endpoint_name}: {error}");
+            ParsedApi::Other
+        }
+    }
+}
+
 pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> ParsedApi {
     let parsed = match endpoint {
         "/kcsapi/api_start2/getData" => {
             info!("Processing api_start2/getData (master data)");
-            match serde_json::from_str::<models::ApiResponse<models::ApiStart2>>(json_str) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::Start2(Box::new(api_data)),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse api_start2: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "api_start2", ParsedApi::Other, |data| {
+                ParsedApi::Start2(Box::new(data))
+            })
         }
         "/kcsapi/api_port/port" => {
             info!("Processing api_port/port (home screen)");
-            match serde_json::from_str::<models::ApiResponse<models::ApiPort>>(json_str) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::Port(Box::new(api_data)),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse api_port: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "api_port", ParsedApi::Other, |data| {
+                ParsedApi::Port(Box::new(data))
+            })
         }
         "/kcsapi/api_get_member/slot_item" => {
             info!("Processing api_get_member/slot_item (player equipment)");
-            match serde_json::from_str::<models::ApiResponse<Vec<models::PlayerSlotItemApi>>>(
-                json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(items) => ParsedApi::SlotItem(items),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse slot_item: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "slot_item", ParsedApi::Other, ParsedApi::SlotItem)
         }
         "/kcsapi/api_get_member/require_info" => {
             info!("Processing api_get_member/require_info (includes slot_item)");
@@ -164,18 +159,12 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
         }
         "/kcsapi/api_get_member/questlist" => {
             info!("Processing api_get_member/questlist");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiQuestListResponse>>(
+            parse_typed(
                 json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::QuestList(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse questlist: {}", e);
-                    ParsedApi::Other
-                }
-            }
+                "questlist",
+                ParsedApi::Other,
+                ParsedApi::QuestList,
+            )
         }
         "/kcsapi/api_req_hensei/change" => {
             info!("Processing api_req_hensei/change (fleet composition change)");
@@ -193,19 +182,12 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
         }
         "/kcsapi/api_req_hensei/preset_select" => {
             info!("Processing api_req_hensei/preset_select (preset fleet load)");
-            match serde_json::from_str::<
-                models::ApiResponse<dto::member::ApiHenseiPresetSelectResponse>,
-            >(json_str)
-            {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::HenseiPresetSelect(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse preset_select: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(
+                json_str,
+                "preset_select",
+                ParsedApi::Other,
+                ParsedApi::HenseiPresetSelect,
+            )
         }
         "/kcsapi/api_req_kousyou/remodel_slot" => {
             info!("Processing api_req_kousyou/remodel_slot (equipment improvement)");
@@ -273,140 +255,61 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
         }
         "/kcsapi/api_req_practice/battle_result" => {
             info!("Processing api_req_practice/battle_result (exercise result)");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiExerciseResultResponse>>(
+            parse_typed(
                 json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::ExerciseResult(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse exercise battle_result: {}", e);
-                    ParsedApi::Other
-                }
-            }
+                "exercise battle_result",
+                ParsedApi::Other,
+                ParsedApi::ExerciseResult,
+            )
         }
         "/kcsapi/api_get_member/ship3" => {
             info!("Processing api_get_member/ship3 (ship data after equipment change)");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiShip3Response>>(
-                json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::Ship3(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse ship3: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "ship3", ParsedApi::Other, ParsedApi::Ship3)
         }
         "/kcsapi/api_req_kaisou/slot_deprive" => {
             info!("Processing api_req_kaisou/slot_deprive (equipment transfer between ships)");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiSlotDepriveResponse>>(
+            parse_typed(
                 json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::SlotDeprive(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse slot_deprive: {}", e);
-                    ParsedApi::Other
-                }
-            }
+                "slot_deprive",
+                ParsedApi::Other,
+                ParsedApi::SlotDeprive,
+            )
         }
         "/kcsapi/api_req_hokyu/charge" => {
             info!("Processing api_req_hokyu/charge (resupply)");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiChargeResponse>>(
+            parse_typed(
                 json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::Charge(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse hokyu/charge: {}", e);
-                    ParsedApi::Other
-                }
-            }
+                "hokyu/charge",
+                ParsedApi::Other,
+                ParsedApi::Charge,
+            )
         }
         "/kcsapi/api_req_ranking/mxltvkpyuklh" => {
             info!("Processing api_req_ranking/mxltvkpyuklh (ranking data)");
-            match serde_json::from_str::<models::ApiResponse<dto::ranking::ApiRankingResponse>>(
-                json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::Ranking(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse ranking: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "ranking", ParsedApi::Other, ParsedApi::Ranking)
         }
         // --- Category B: Ship/Equipment updates ---
         "/kcsapi/api_get_member/ship_deck" => {
             info!("Processing api_get_member/ship_deck");
             // Same structure as ship3
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiShip3Response>>(
-                json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::Ship3(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse ship_deck: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "ship_deck", ParsedApi::Other, ParsedApi::Ship3)
         }
         "/kcsapi/api_req_kaisou/powerup" => {
             info!("Processing api_req_kaisou/powerup (modernization)");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiPowerupResponse>>(
-                json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::Powerup(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse powerup: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "powerup", ParsedApi::Other, ParsedApi::Powerup)
         }
         "/kcsapi/api_req_kaisou/slot_exchange_index" => {
             info!("Processing api_req_kaisou/slot_exchange_index (swap equipment slots)");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiSlotExchangeResponse>>(
+            parse_typed(
                 json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::SlotExchange(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse slot_exchange_index: {}", e);
-                    ParsedApi::Other
-                }
-            }
+                "slot_exchange_index",
+                ParsedApi::Other,
+                ParsedApi::SlotExchange,
+            )
         }
         "/kcsapi/api_req_kousyou/getship" => {
             info!("Processing api_req_kousyou/getship (construction complete)");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiGetShipResponse>>(
-                json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::GetShip(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse getship: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "getship", ParsedApi::Other, ParsedApi::GetShip)
         }
         // --- Category B: Removal operations ---
         "/kcsapi/api_req_kousyou/destroyitem2" => {
@@ -437,74 +340,40 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
         }
         "/kcsapi/api_req_kousyou/createitem" => {
             info!("Processing api_req_kousyou/createitem (develop equipment)");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiCreateItemResponse>>(
+            parse_typed(
                 json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::CreateItem(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse createitem: {}", e);
-                    ParsedApi::Other
-                }
-            }
+                "createitem",
+                ParsedApi::Other,
+                ParsedApi::CreateItem,
+            )
         }
         // --- Category B: Resource/Info refreshes ---
         "/kcsapi/api_get_member/material" => {
             info!("Processing api_get_member/material");
-            match serde_json::from_str::<models::ApiResponse<Vec<models::Material>>>(json_str) {
-                Ok(data) => match data.api_data {
-                    Some(materials) => ParsedApi::MemberMaterial(materials),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse material: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(
+                json_str,
+                "material",
+                ParsedApi::Other,
+                ParsedApi::MemberMaterial,
+            )
         }
         "/kcsapi/api_get_member/ndock" => {
             info!("Processing api_get_member/ndock");
-            match serde_json::from_str::<models::ApiResponse<Vec<models::RepairDock>>>(json_str) {
-                Ok(data) => match data.api_data {
-                    Some(ndock) => ParsedApi::MemberNDock(ndock),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse ndock: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "ndock", ParsedApi::Other, ParsedApi::MemberNDock)
         }
         "/kcsapi/api_get_member/deck" => {
             info!("Processing api_get_member/deck");
-            match serde_json::from_str::<models::ApiResponse<Vec<models::Fleet>>>(json_str) {
-                Ok(data) => match data.api_data {
-                    Some(decks) => ParsedApi::MemberDeck(decks),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse deck: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            parse_typed(json_str, "deck", ParsedApi::Other, ParsedApi::MemberDeck)
         }
         // --- Category B: Mission ---
         "/kcsapi/api_req_mission/result" => {
             info!("Processing api_req_mission/result (expedition result)");
-            match serde_json::from_str::<models::ApiResponse<dto::member::ApiMissionResultResponse>>(
+            parse_typed(
                 json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::MissionResult(api_data),
-                    None => ParsedApi::Other,
-                },
-                Err(e) => {
-                    error!("Failed to parse mission/result: {}", e);
-                    ParsedApi::Other
-                }
-            }
+                "mission/result",
+                ParsedApi::Other,
+                ParsedApi::MissionResult,
+            )
         }
         // --- Category B: mapinfo (gauge cache + 基地航空隊 state) ---
         "/kcsapi/api_get_member/mapinfo" => {
@@ -540,20 +409,15 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
         }
         "/kcsapi/api_req_air_corps/set_plane" => {
             info!("Processing api_req_air_corps/set_plane");
-            match serde_json::from_str::<models::ApiResponse<dto::air_corps::PlaneUpdate>>(json_str)
-            {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::AirCorpsSetPlane {
-                        request_body: request_body.to_string(),
-                        api_data,
-                    },
-                    None => ParsedApi::LogOnly,
+            parse_typed(
+                json_str,
+                "air_corps/set_plane",
+                ParsedApi::LogOnly,
+                |api_data| ParsedApi::AirCorpsSetPlane {
+                    request_body: request_body.to_string(),
+                    api_data,
                 },
-                Err(e) => {
-                    error!("Failed to parse air_corps/set_plane: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            )
         }
         "/kcsapi/api_req_air_corps/set_action" => {
             info!("Processing api_req_air_corps/set_action");
@@ -563,35 +427,24 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
         }
         "/kcsapi/api_req_air_corps/supply" => {
             info!("Processing api_req_air_corps/supply");
-            match serde_json::from_str::<models::ApiResponse<dto::air_corps::PlaneUpdate>>(json_str)
-            {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::AirCorpsSupply {
-                        request_body: request_body.to_string(),
-                        api_data,
-                    },
-                    None => ParsedApi::LogOnly,
+            parse_typed(
+                json_str,
+                "air_corps/supply",
+                ParsedApi::LogOnly,
+                |api_data| ParsedApi::AirCorpsSupply {
+                    request_body: request_body.to_string(),
+                    api_data,
                 },
-                Err(e) => {
-                    error!("Failed to parse air_corps/supply: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            )
         }
         "/kcsapi/api_get_member/base_air_corps" => {
             info!("Processing api_get_member/base_air_corps");
-            match serde_json::from_str::<models::ApiResponse<Vec<dto::air_corps::AirBase>>>(
+            parse_typed(
                 json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::BaseAirCorps(api_data),
-                    None => ParsedApi::LogOnly,
-                },
-                Err(e) => {
-                    error!("Failed to parse base_air_corps: {}", e);
-                    ParsedApi::Other
-                }
-            }
+                "base_air_corps",
+                ParsedApi::LogOnly,
+                ParsedApi::BaseAirCorps,
+            )
         }
         "/kcsapi/api_req_air_corps/change_name" => {
             info!("Processing api_req_air_corps/change_name");
@@ -601,38 +454,27 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
         }
         "/kcsapi/api_req_air_corps/change_deployment_base" => {
             info!("Processing api_req_air_corps/change_deployment_base");
-            match serde_json::from_str::<models::ApiResponse<dto::air_corps::DeploymentUpdate>>(
+            parse_typed(
                 json_str,
-            ) {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::AirCorpsChangeDeployment {
-                        request_body: request_body.to_string(),
-                        api_data,
-                    },
-                    None => ParsedApi::LogOnly,
+                "change_deployment_base",
+                ParsedApi::LogOnly,
+                |api_data| ParsedApi::AirCorpsChangeDeployment {
+                    request_body: request_body.to_string(),
+                    api_data,
                 },
-                Err(e) => {
-                    error!("Failed to parse change_deployment_base: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            )
         }
         "/kcsapi/api_port/airCorpsCondRecoveryWithTimer" => {
             info!("Processing api_port/airCorpsCondRecoveryWithTimer");
-            match serde_json::from_str::<models::ApiResponse<dto::air_corps::PlaneUpdate>>(json_str)
-            {
-                Ok(data) => match data.api_data {
-                    Some(api_data) => ParsedApi::AirCorpsCondRecovery {
-                        request_body: request_body.to_string(),
-                        api_data,
-                    },
-                    None => ParsedApi::LogOnly,
+            parse_typed(
+                json_str,
+                "airCorpsCondRecoveryWithTimer",
+                ParsedApi::LogOnly,
+                |api_data| ParsedApi::AirCorpsCondRecovery {
+                    request_body: request_body.to_string(),
+                    api_data,
                 },
-                Err(e) => {
-                    error!("Failed to parse airCorpsCondRecoveryWithTimer: {}", e);
-                    ParsedApi::Other
-                }
-            }
+            )
         }
         "/kcsapi/api_req_kaisou/slotset"
         | "/kcsapi/api_req_kaisou/slotset_ex"

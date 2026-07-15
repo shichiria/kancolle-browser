@@ -7,6 +7,7 @@
 | [architecture.md](./architecture.md) | システム構成・技術スタック・モジュール構成・通信フロー・デプロイ構成 |
 | [data-flow.md](./data-flow.md) | API傍受→パース→GameState→UI表示の全体データフロー |
 | [platform.md](./platform.md) | macOS/Windows プラットフォーム差異・CA証明書・既知の制約 |
+| [diagnostics.md](./diagnostics.md) | セッション/action/raw APIログの責務・保持・I/O・redaction |
 
 ## 詳細設計
 
@@ -33,4 +34,3 @@
 | ドキュメント | 概要 |
 |-------------|------|
 | [refactor-design-cleanup.md](./refactor-design-cleanup.md) | 設計クリーンアップ計画 (2026-07-15策定、Phase 1-7 / 30項目)。監査: `.reports/design-audit-2026-07-15.md` |
-

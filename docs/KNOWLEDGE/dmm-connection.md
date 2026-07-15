@@ -36,5 +36,5 @@ macOS (WKWebView) は `proxy_url` のままで問題ないため、`additional_b
 ## 関連コード
 
 - `src-tauri/src/game_init.js` — userAgentData 偽装
-- `src-tauri/src/game_window.rs` — user_agent / additional_browser_args 設定
+- `src-tauri/src/game_window/` — user_agent / OS別proxy・browser args設定
 - `src-tauri/src/proxy/mod.rs` — `should_intercept` で kancolle-server.com のみ MITM

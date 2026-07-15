@@ -1,14 +1,16 @@
 mod parser;
+mod raw;
 mod storage;
 
 use chrono::{DateTime, Local};
-use log::{error, info};
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 
 use crate::api::models::{PlayerSlotItem, ShipInfo};
+
+pub(crate) use raw::save_to_disk as save_raw_api_to_disk;
 
 // =============================================================================
 // Data structures
@@ -343,65 +345,6 @@ pub(super) struct PendingBattle {
     pub(super) raw_midnight_json: Option<serde_json::Value>,
 }
 
-/// Write a raw API dump to disk. This function performs file I/O and should be
-/// called OUTSIDE of any GameState lock to avoid blocking state updates.
-pub fn save_raw_api_to_disk(
-    dir: &PathBuf,
-    filename: &str,
-    endpoint: &str,
-    request_body: &str,
-    response_body: &str,
-) -> bool {
-    if let Err(e) = fs::create_dir_all(dir) {
-        error!("Failed to create raw API dir: {}", e);
-        return false;
-    }
-
-    let path = dir.join(filename);
-    let safe_request_body = redact_request_body(request_body);
-    let dump = serde_json::json!({
-        "endpoint": endpoint,
-        "timestamp": Local::now().to_rfc3339(),
-        "request_body": safe_request_body,
-        "response_body_length": response_body.len(),
-        "response_body": serde_json::from_str::<serde_json::Value>(response_body)
-            .unwrap_or_else(|_| serde_json::Value::String(response_body.to_string())),
-    });
-
-    match serde_json::to_string_pretty(&dump) {
-        Ok(json) => {
-            if let Err(e) = fs::write(&path, json) {
-                error!("Failed to write raw API dump {}: {}", filename, e);
-                false
-            } else {
-                info!("Raw API saved: {}", filename);
-                true
-            }
-        }
-        Err(e) => {
-            error!("Failed to serialize raw API dump: {}", e);
-            false
-        }
-    }
-}
-
-/// Keep request parameters useful for replay/debugging while removing values
-/// that can be used to authenticate as the player.
-fn redact_request_body(request_body: &str) -> String {
-    match serde_urlencoded::from_str::<Vec<(String, String)>>(request_body) {
-        Ok(mut fields) => {
-            for (key, value) in &mut fields {
-                if crate::sensitive::is_sensitive_key(key) {
-                    *value = "<redacted>".to_string();
-                }
-            }
-            serde_urlencoded::to_string(fields)
-                .unwrap_or_else(|_| crate::diagnostics::redact_sensitive(request_body))
-        }
-        Err(_) => crate::diagnostics::redact_sensitive(request_body),
-    }
-}
-
 // =============================================================================
 // BattleLogger - tracks active sortie and saves completed ones
 // =============================================================================
@@ -428,6 +371,7 @@ impl BattleLogger {
     pub fn new(save_dir: PathBuf, raw_dir: PathBuf) -> Self {
         // Load existing records from disk
         let completed = Self::load_from_disk(&save_dir);
+        raw::cleanup(&raw_dir);
         info!(
             "BattleLogger initialized with {} saved records",
             completed.len()
@@ -728,23 +672,4 @@ fn parse_form_body(body: &str) -> HashMap<String, String> {
             Some((key.to_string(), value.to_string()))
         })
         .collect()
-}
-
-#[cfg(test)]
-mod logging_tests {
-    use super::*;
-
-    #[test]
-    fn raw_api_request_redaction_keeps_non_secret_parameters() {
-        let body = "api_token=super-secret&rpctoken=rpc-secret&st=session-secret&api_verno=1&api_deck_id=2";
-        let safe = redact_request_body(body);
-        let fields: HashMap<String, String> = serde_urlencoded::from_str(&safe).unwrap();
-
-        assert_eq!(fields.get("api_token").map(String::as_str), Some("<redacted>"));
-        assert_eq!(fields.get("api_verno").map(String::as_str), Some("1"));
-        assert_eq!(fields.get("api_deck_id").map(String::as_str), Some("2"));
-        assert!(!safe.contains("super-secret"));
-        assert!(!safe.contains("rpc-secret"));
-        assert!(!safe.contains("session-secret"));
-    }
 }

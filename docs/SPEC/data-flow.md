@@ -259,7 +259,6 @@ process_api() 内の非同期タスク:
 | `proxy-ready` | `u16` (port) | プロキシ起動完了 | lib.rs setup |
 | `port-data` | `PortSummary` | 母港画面表示 / 戦闘後HP更新 | process_port / battleresult |
 | `fleet-updated` | `Vec<FleetSummary>` | 編成・艦船状態変更 | process_hensei_change ほか emit_fleet_update 経由 (ship3 / preset_select / powerup / getship / destroyship / deck 等) |
-| `master-data-loaded` | JSON | api_start2 処理完了 | process_start2 |
 | `kancolle-api` | `ApiEvent` | 全 API レスポンス | proxy handle_api_response |
 | `sortie-start` | JSON | 出撃開始 | battle::process_battle (map/start) |
 | `sortie-update` | `SortieRecordSummary` | 戦闘進行中リアルタイム | battle::process_battle |
@@ -539,5 +538,5 @@ Sync Engine         GameState          Frontend
 | `src-tauri/src/quest_progress/mod.rs` | 任務進捗追跡・永続化 |
 | `src-tauri/src/senka/mod.rs` | 戦果トラッカー |
 | `src-tauri/src/drive_sync/` | Google Drive 同期エンジン |
-| `src-tauri/src/game_window.rs` | ゲーム画面 WebView 管理 |
+| `src-tauri/src/game_window/` | ゲーム画面 WebView 管理（共通flow + OS固有設定） |
 | `src/App.tsx` | フロントエンド: イベントリスナー + Tauri コマンド呼出 |

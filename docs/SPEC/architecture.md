@@ -114,7 +114,7 @@ src-tauri/src/
 │                             MITM傍受、リソースキャッシュ、CA証明書管理
 │
 ├── commands.rs               Tauri コマンドハンドラ (フロントエンドAPI)
-├── game_window.rs            ゲームウィンドウ管理 (Multi-WebView, ズーム, ミュート)
+├── game_window/              ゲームウィンドウ管理 (共通flow + Windows/macOS固有実装)
 ├── overlay.rs                オーバーレイUI (ミニマップ, 陣形ヒント, 大破警告, 遠征通知)
 ├── cookie.rs                 Cookie 永続化 (DMM ログイン維持)
 ├── ca.rs                     CA証明書インストール (macOS Keychain / Windows certutil)
@@ -272,7 +272,6 @@ Rust (emit)                        React (listen)
 "proxy-ready"                 ───► プロキシポート番号取得
 "port-data"                   ───► 母港データ全体更新 (艦隊/資源/入渠)
 "kancolle-api"                ───► 生APIデータ (デバッグログ用)
-"master-data-loaded"          ───► マスターデータ読込完了通知
 "quest-list-updated"          ───► 受注任務一覧更新
 "quest-started" / "stopped"   ───► 個別任務の開始/停止
 "senka-updated"               ───► 戦果データ更新

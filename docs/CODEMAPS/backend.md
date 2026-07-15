@@ -10,7 +10,7 @@ api/ サブモジュール: mod, models, battle, ship, fleet, formation, minimap
 air_corps (基地航空隊), battle_info (戦闘情報オーバーレイ), dto/, tests
 
 ## Tauri Commands (lib.rs → invoke_handler)
-### Game Window (game_window.rs)
+### Game Window (`game_window/{mod,windows,macos}.rs`)
 open_game_window, close_game_window, set_game_zoom, toggle_game_mute, get_game_mute
 
 ### Management Window (management.rs) — React SPA hide/show

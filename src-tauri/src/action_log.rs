@@ -8,16 +8,17 @@ mod inner {
     use chrono::Local;
     use serde::Serialize;
     use std::collections::VecDeque;
-    use std::fs::{self, OpenOptions};
-    use std::io::{BufWriter, Write};
+    use std::fs;
     use std::path::PathBuf;
     use std::sync::Mutex;
+    use std::time::Duration;
 
     /// Maximum entries kept in the in-memory ring buffer.
     const MAX_ENTRIES: usize = 500;
 
     /// Log files older than this many days are auto-deleted on startup.
     const RETENTION_DAYS: i64 = 90;
+    const MAX_LOG_FILES: usize = 200;
 
     /// A single action log entry.
     #[derive(Debug, Clone, Serialize)]
@@ -40,7 +41,7 @@ mod inner {
         entries: VecDeque<ActionEntry>,
         log_dir: Option<PathBuf>,
         current_date: String,
-        writer: Option<BufWriter<std::fs::File>>,
+        writer: Option<crate::log_io::BufferedLogFile>,
     }
 
     static ACTION_LOG: std::sync::LazyLock<Mutex<ActionLogState>> =
@@ -55,25 +56,17 @@ mod inner {
 
     /// Delete log files older than RETENTION_DAYS.
     fn cleanup_old_logs(log_dir: &std::path::Path) {
-        let cutoff = Local::now() - chrono::Duration::days(RETENTION_DAYS);
-        let cutoff_str = cutoff.format("%Y%m%d").to_string();
-
-        if let Ok(entries) = fs::read_dir(log_dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                // Format: actions_YYYYMMDD.jsonl
-                if let Some(date_part) = name_str
-                    .strip_prefix("actions_")
-                    .and_then(|s| s.strip_suffix(".jsonl"))
-                {
-                    if date_part < cutoff_str.as_str() {
-                        let _ = fs::remove_file(entry.path());
-                        log::info!("[ActionLog] Cleaned up old log: {}", name_str);
-                    }
-                }
-            }
-        }
+        crate::log_io::cleanup_files(
+            log_dir,
+            Duration::from_secs(RETENTION_DAYS as u64 * 24 * 60 * 60),
+            MAX_LOG_FILES,
+            |path| {
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .map(|name| name.starts_with("actions_") && name.ends_with(".jsonl"))
+                    .unwrap_or(false)
+            },
+        );
     }
 
     /// Open (or rotate) the BufWriter for today's log file.
@@ -84,12 +77,8 @@ mod inner {
                 let _ = w.flush();
             }
             let file_path = log_dir.join(format!("actions_{}.jsonl", date_str));
-            if let Ok(file) = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&file_path)
-            {
-                state.writer = Some(BufWriter::new(file));
+            if let Ok(writer) = crate::log_io::BufferedLogFile::open_append(&file_path) {
+                state.writer = Some(writer);
                 state.current_date = date_str.to_string();
             }
         }
@@ -136,11 +125,17 @@ mod inner {
                 open_writer(&mut state, &date_str);
             }
 
-            // Flush every line so the final actions survive a crash.
             if let Some(ref mut writer) = state.writer {
                 if let Ok(json) = serde_json::to_string(&entry) {
-                    let _ = writeln!(writer, "{}", json);
+                    let _ = writer.write_line(json.as_bytes(), false);
                 }
+            }
+        }
+    }
+
+    pub fn flush() {
+        if let Ok(mut state) = ACTION_LOG.lock() {
+            if let Some(writer) = state.writer.as_mut() {
                 let _ = writer.flush();
             }
         }
@@ -159,7 +154,7 @@ mod inner {
 
 // ── Public re-exports ─────────────────────────────────────────────────
 
-pub use inner::{get_recent, init, record};
+pub use inner::{flush, get_recent, init, record};
 
 // ── Convenience wrapper ───────────────────────────────────────────────
 

@@ -1,6 +1,11 @@
 use log::{error, info, warn};
-use std::collections::HashSet;
 use tauri::{AppHandle, Emitter, Manager};
+
+mod escape;
+mod exercise;
+#[cfg(test)]
+use escape::ship_ids as escape_ship_ids;
+pub(super) use exercise::process_exercise_result;
 
 use super::air_corps;
 use super::battle_info;
@@ -8,67 +13,6 @@ use super::formation::{formation_name, hide_formation_hint, show_formation_hint}
 use super::minimap::update_minimap_overlay;
 use super::models;
 use super::notify_sync;
-
-/// Resolve the 1-based fleet positions returned in battleresult.api_escape to
-/// player ship instance IDs. For combined fleets, `fleet_indices` supplies the
-/// main and escort fleets in API order.
-fn escape_ship_ids(
-    fleets: &[Vec<i32>],
-    fleet_indices: &[usize],
-    api_data: &serde_json::Value,
-) -> HashSet<i32> {
-    let ordered_ship_ids: Vec<Option<i32>> = if fleet_indices.len() > 1 {
-        // Combined-fleet API positions reserve six slots per fleet even when a
-        // fleet has fewer than six ships.
-        fleet_indices
-            .iter()
-            .flat_map(|&index| {
-                fleets
-                    .get(index)
-                    .into_iter()
-                    .flatten()
-                    .copied()
-                    .map(Some)
-                    .chain(std::iter::repeat(None))
-                    .take(6)
-            })
-            .collect()
-    } else {
-        fleet_indices
-            .iter()
-            .filter_map(|&index| fleets.get(index))
-            .flatten()
-            .copied()
-            .map(Some)
-            .collect()
-    };
-
-    let mut ship_ids = HashSet::new();
-    let Some(escape) = api_data.get("api_escape") else {
-        return ship_ids;
-    };
-
-    for field in ["api_escape_idx", "api_tow_idx"] {
-        let Some(indices) = escape.get(field).and_then(|value| value.as_array()) else {
-            continue;
-        };
-        for index in indices {
-            let Some(position) = index.as_u64().and_then(|value| usize::try_from(value).ok())
-            else {
-                continue;
-            };
-            if let Some(&ship_id) = position
-                .checked_sub(1)
-                .and_then(|index| ordered_ship_ids.get(index))
-                .and_then(Option::as_ref)
-            {
-                ship_ids.insert(ship_id);
-            }
-        }
-    }
-
-    ship_ids
-}
 
 /// Check if an endpoint is a battle-related API
 pub(super) fn is_battle_endpoint(ep: &str) -> bool {
@@ -511,7 +455,7 @@ pub(super) fn process_battle(
                 .unwrap_or_default();
             state.sortie.pending_escape_ship_ids = json
                 .get("api_data")
-                .map(|api_data| escape_ship_ids(&state.profile.fleets, &fleet_indices, api_data))
+                .map(|api_data| escape::ship_ids(&state.profile.fleets, &fleet_indices, api_data))
                 .unwrap_or_default();
             if !state.sortie.pending_escape_ship_ids.is_empty() {
                 info!(
@@ -724,41 +668,3 @@ pub(super) fn process_battle(
 
 #[cfg(test)]
 mod tests;
-
-/// Process exercise battle result (api_req_practice/battle_result)
-pub(super) fn process_exercise_result(
-    state: &mut models::GameStateInner,
-    data: &crate::api::dto::member::ApiExerciseResultResponse,
-    app: &AppHandle,
-) {
-    info!("Exercise result: rank={}", data.api_win_rank);
-
-    // Record HQ exp from exercise
-    if data.api_get_exp > 0 {
-        state.senka.add_battle_exp(data.api_get_exp, "演習");
-        let summary = state.senka.summary();
-        let _ = app.emit(crate::events::SENKA_UPDATED, &summary);
-        notify_sync(state, vec![crate::senka::SenkaTracker::sync_path()]);
-    }
-
-    let changed = crate::quest_progress::on_exercise_result(
-        &mut state.history.quest_progress,
-        &data.api_win_rank,
-        &state.history.active_quests,
-        &state.history.sortie_quest_defs,
-        &state.quest_progress_path,
-    );
-    if changed {
-        notify_sync(state, vec!["quest_progress.json"]);
-        let path = state.quest_progress_path.clone();
-        let defs = state.history.sortie_quest_defs.clone();
-        let aq = state.history.active_quests.clone();
-        let progress = crate::quest_progress::get_active_progress(
-            &mut state.history.quest_progress,
-            &aq,
-            &defs,
-            &path,
-        );
-        let _ = app.emit(crate::events::QUEST_PROGRESS_UPDATED, &progress);
-    }
-}

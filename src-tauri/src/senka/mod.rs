@@ -1,10 +1,15 @@
-use chrono::{Datelike, FixedOffset, TimeZone, Timelike, Utc};
+use chrono::{FixedOffset, Utc};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 mod ranking;
+mod support;
 pub use ranking::decrypt_ranking;
+use support::{
+    current_ranking_month, get_recent_checkpoints, is_eo_cutoff, is_quest_cutoff, load_senka_data,
+    next_checkpoint_iso, ranking_data_cutoff, save_senka_data,
+};
 
 /// JST offset (+09:00)
 const JST_OFFSET: i32 = 9 * 3600;
@@ -577,188 +582,6 @@ impl Default for SenkaTracker {
             path: std::path::PathBuf::new(),
         }
     }
-}
-
-/// Determine the "ranking month" at a given JST time.
-/// Experience after 22:00 on the last day counts for the NEXT month.
-fn current_ranking_month(now: &chrono::DateTime<FixedOffset>) -> String {
-    let last_day = last_day_of_month(now.year(), now.month());
-    if now.day() == last_day && now.hour() >= 22 {
-        // After 22:00 on last day → next month
-        let next = if now.month() == 12 {
-            format!("{}-01", now.year() + 1)
-        } else {
-            format!("{}-{:02}", now.year(), now.month() + 1)
-        };
-        return next;
-    }
-    format!("{}-{:02}", now.year(), now.month())
-}
-
-fn load_senka_data(path: &Path) -> SenkaData {
-    match std::fs::read_to_string(path) {
-        Ok(contents) => match serde_json::from_str::<SenkaData>(&contents) {
-            Ok(data) => {
-                let now = now_jst();
-                let current_month = current_ranking_month(&now);
-                if data.month == current_month {
-                    info!("Senka: loaded data for {}", current_month);
-                    data
-                } else {
-                    info!(
-                        "Senka: saved data for {} but current month is {}, starting fresh",
-                        data.month, current_month
-                    );
-                    SenkaData::default()
-                }
-            }
-            Err(e) => {
-                warn!("Senka: failed to parse senka_log.json: {}", e);
-                SenkaData::default()
-            }
-        },
-        Err(_) => {
-            info!("Senka: no existing senka_log.json, starting fresh");
-            SenkaData::default()
-        }
-    }
-}
-
-fn save_senka_data(path: &Path, data: &SenkaData) {
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    match serde_json::to_string_pretty(data) {
-        Ok(json) => {
-            if let Err(e) = std::fs::write(path, json) {
-                warn!("Senka: failed to write senka_log.json: {}", e);
-            }
-        }
-        Err(e) => warn!("Senka: failed to serialize senka data: {}", e),
-    }
-}
-
-fn get_recent_checkpoints(
-    now: &chrono::DateTime<FixedOffset>,
-) -> Vec<chrono::DateTime<FixedOffset>> {
-    let mut checkpoints = Vec::new();
-
-    let today_3 = jst()
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), 3, 0, 0)
-        .single();
-    let today_15 = jst()
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), 15, 0, 0)
-        .single();
-
-    if let Some(cp) = today_3 {
-        checkpoints.push(cp);
-    }
-    if let Some(cp) = today_15 {
-        checkpoints.push(cp);
-    }
-
-    // Yesterday's 15:00 for midnight crossing
-    let yesterday = *now - chrono::Duration::days(1);
-    if let Some(cp) = jst()
-        .with_ymd_and_hms(
-            yesterday.year(),
-            yesterday.month(),
-            yesterday.day(),
-            15,
-            0,
-            0,
-        )
-        .single()
-    {
-        checkpoints.push(cp);
-    }
-
-    checkpoints.sort();
-    checkpoints
-}
-
-fn next_checkpoint_iso() -> String {
-    let now = now_jst();
-    let today_3 = jst()
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), 3, 0, 0)
-        .single();
-    let today_15 = jst()
-        .with_ymd_and_hms(now.year(), now.month(), now.day(), 15, 0, 0)
-        .single();
-
-    if let Some(cp) = today_3 {
-        if now < cp {
-            return cp.to_rfc3339();
-        }
-    }
-    if let Some(cp) = today_15 {
-        if now < cp {
-            return cp.to_rfc3339();
-        }
-    }
-
-    let tomorrow = now + chrono::Duration::days(1);
-    jst()
-        .with_ymd_and_hms(tomorrow.year(), tomorrow.month(), tomorrow.day(), 3, 0, 0)
-        .single()
-        .map(|cp| cp.to_rfc3339())
-        .unwrap_or_default()
-}
-
-/// Determine the data cutoff time for the most recent ranking update.
-/// Ranking at 03:00 reflects activity up to 02:00.
-/// Ranking at 15:00 reflects activity up to 14:00.
-/// Returns the cutoff time (02:00 or 14:00 JST).
-fn ranking_data_cutoff(now: &chrono::DateTime<FixedOffset>) -> chrono::DateTime<FixedOffset> {
-    if now.hour() >= 15 {
-        // After 15:00 → ranking shows data up to today 14:00
-        jst()
-            .with_ymd_and_hms(now.year(), now.month(), now.day(), 14, 0, 0)
-            .single()
-            .unwrap()
-    } else if now.hour() >= 3 {
-        // After 03:00, before 15:00 → ranking shows data up to today 02:00
-        jst()
-            .with_ymd_and_hms(now.year(), now.month(), now.day(), 2, 0, 0)
-            .single()
-            .unwrap()
-    } else {
-        // Before 03:00 → ranking shows data up to yesterday 14:00
-        let yesterday = *now - chrono::Duration::days(1);
-        jst()
-            .with_ymd_and_hms(
-                yesterday.year(),
-                yesterday.month(),
-                yesterday.day(),
-                14,
-                0,
-                0,
-            )
-            .single()
-            .unwrap()
-    }
-}
-
-fn is_eo_cutoff(now: &chrono::DateTime<FixedOffset>) -> bool {
-    let last_day = last_day_of_month(now.year(), now.month());
-    now.day() == last_day && now.hour() >= 22
-}
-
-fn is_quest_cutoff(now: &chrono::DateTime<FixedOffset>) -> bool {
-    let last_day = last_day_of_month(now.year(), now.month());
-    now.day() == last_day && now.hour() >= 14
-}
-
-fn last_day_of_month(year: i32, month: u32) -> u32 {
-    let (next_year, next_month) = if month == 12 {
-        (year + 1, 1)
-    } else {
-        (year, month + 1)
-    };
-    chrono::NaiveDate::from_ymd_opt(next_year, next_month, 1)
-        .and_then(|d| d.pred_opt())
-        .map(|d| d.day())
-        .unwrap_or(28)
 }
 
 #[cfg(test)]

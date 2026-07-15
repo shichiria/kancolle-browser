@@ -19,6 +19,12 @@ pub(crate) fn log_frontend_event(level: String, message: String, source: Option<
     crate::diagnostics::frontend_event(&level, &message, source.as_deref());
 }
 
+/// Persist a bounded batch of browser-side log messages in one IPC call.
+#[tauri::command]
+pub(crate) fn log_frontend_events(entries: Vec<crate::diagnostics::FrontendLogEntry>) {
+    crate::diagnostics::frontend_events(entries);
+}
+
 /// Get all expedition definitions for the frontend
 #[tauri::command]
 pub(crate) fn get_expeditions() -> Vec<expedition::ExpeditionDef> {

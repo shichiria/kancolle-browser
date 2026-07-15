@@ -10,6 +10,7 @@ mod events;
 mod expedition;
 mod game_window;
 mod improvement;
+mod log_io;
 mod migration;
 mod mouse_hook;
 mod overlay;
@@ -323,7 +324,8 @@ pub fn run() {
             commands::get_current_fleet,
             commands::get_quest_filters,
             commands::get_air_bases,
-            commands::log_frontend_event
+            commands::log_frontend_event,
+            commands::log_frontend_events
         ])
         .setup(move |app| {
             let data_dir = app
@@ -454,6 +456,7 @@ pub fn run() {
                         }
                     }
                 }
+                action_log::flush();
                 diagnostics::shutdown();
             }
         });
