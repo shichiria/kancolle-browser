@@ -314,7 +314,7 @@ pub(super) fn process_battle(
                                             formation_name(friendly_formation)
                                         );
                                         state.formation_memory.insert(key, friendly_formation);
-                                        models::save_formation_memory(
+                                        super::formation::save_memory(
                                             &state.formation_memory_path,
                                             &state.formation_memory,
                                         );

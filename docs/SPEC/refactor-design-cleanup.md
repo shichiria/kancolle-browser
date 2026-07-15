@@ -408,3 +408,33 @@ Phase 3 と Phase 4 は依存edge以外は並行可能。Phase内の他項目は
 - ts-rs / specta による Rust→TS 型自動生成 (将来候補。W4-1 の api.ts が土台になる)
 - CSP null の見直し (ゲーム互換のため現状維持、SPEC/architecture.md §10 記載済み)
 - senka / quest_progress / battle_log/parser の内部分割 (凝集済み単一ドメイン)
+
+## 12. 追補 (2026-07-15 実行後の再監査フォローアップ)
+
+Phase 1/3/6 相当の実行 (`2640ab8`〜`e981c18`) 後の再監査で確定した追加項目。
+実行済み範囲: api分割 (mod 99L + parse/dispatch/port/quest/screen)、window_toggle/settings/paths/events、AppStateサブ構造体化、game_window platform分割、air_corps DTO化、OAuth option_env!化、sensitive-keys.json一元化、log_io.rs (バッファ書込+250ms周期flush+保持共通化)。品質ゲート4点 (cargo test 147 / vitest 45 / tsc / clippy -D warnings) green。
+
+### W1-5 flush_all() によるクラッシュ時のaction_log取りこぼし解消 (推奨・小)
+
+**実施済み (2026-07-15)**: 全sinkを `log_io::flush_all()` に集約し、周期/panic/shutdown経路を統一。API/API_PARSED action logもdebug限定化。
+
+- **目的**: panicフックと shutdown() が `log::logger().flush()` のみで `action_log::flush()` を呼ばず、クラッシュ直前の行動ログ (最大64KB/250ms分) が失われる
+- **対象**: `src-tauri/src/log_io.rs` (周期スレッド ~:86-97)、`src-tauri/src/diagnostics.rs` (panicフック ~:107、shutdown ~:162)
+- **手順**: `log_io::flush_all()` を新設 (`log::logger().flush()` + `action_log::flush()` を集約、将来のsinkもここへ) → 周期スレッド/panicフック/shutdown の3呼び出し元を flush_all() に統一
+- **受入基準**: panic後にセッションログと `actions_YYYYMMDD.jsonl` の双方へ直前行が残る (テスト: バッファ未満の行 → flush_all() → ファイル内容確認)。flush対象の列挙が1箇所
+- **検証**: 標準3点
+
+### W3-11 api/models.rs (728L) のカテゴリ分割 (任意)
+
+**実施済み (2026-07-15)**: `models/{mod,wire,summary,air_base}.rs` へ分割し、全型を再export。formation memory I/Oは `formation.rs` へ移動。
+
+- **目的**: ドメイン状態 / 入力DTO (Deserialize) / 出力View (Serialize) の3責務が1ファイルに同居
+- **対象**: `src-tauri/src/api/models.rs` → `api/models/{mod,wire,summary,air_base}.rs`
+- **手順** (第1段・低リスク): mod.rs = 状態コア (GameStateInner等 ~250L) + 全型の `pub use` 再公開 / wire.rs = 入力Deserialize (ApiResponse, start2系, port系 ~200L) / summary.rs = 出力Serialize (PortSummary, ShipListItem等 ~230L) / air_base.rs = AirBase系4型 (~75L)。`load/save_formation_memory` は api/formation.rs へ。**re-export により外部参照の変更ゼロ**
+- **受入基準**: `models::<型>` の外部参照がコンパイル無変更で通る。`_extra` 付き入力DTOと Serialize view型がファイル単位で分離
+- **検証**: 標準3点
+- 第2段 (wire.rs → api/dto/ への移送統一) は将来任意
+
+### 見送り (再監査で妥当性確認済み)
+- ログ3系統 (diagnostics/action_log/raw_api) のフォーマット層マージ — 用途が異なるため log_io 基盤共有まででよい
+- raw_api の per-file 方式変更 — 耐クラッシュ性良好・replayツール前提のため現行維持 (保持上限は log_io で導入済み)

@@ -95,7 +95,7 @@ src-tauri/src/
 │
 ├── api/                      ──── API 傍受・解析エンジン ────
 │   ├── mod.rs                process_api(): メインAPIディスパッチャ
-│   ├── models.rs             GameState, MasterData, UserProfile, SortieState, UserHistory
+│   ├── models/               状態コア、入力wire DTO、出力summary、基地航空隊view
 │   ├── battle.rs             戦闘API (出撃/夜戦/結果) ハンドラ
 │   ├── ship.rs               艦船データ更新 (装備変更, slot_deprive)
 │   ├── fleet.rs              編成変更 (hensei/change, preset_select)

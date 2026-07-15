@@ -1,4 +1,19 @@
+use std::collections::HashMap;
+use std::path::Path;
 use tauri::{AppHandle, Manager};
+
+pub(super) fn load_memory(path: &Path) -> HashMap<String, i32> {
+    match std::fs::read_to_string(path) {
+        Ok(contents) => serde_json::from_str(&contents).unwrap_or_default(),
+        Err(_) => HashMap::new(),
+    }
+}
+
+pub(super) fn save_memory(path: &Path, memory: &HashMap<String, i32>) {
+    if let Ok(json) = serde_json::to_string_pretty(memory) {
+        let _ = std::fs::write(path, json);
+    }
+}
 
 /// Get Japanese name for a formation ID
 pub(crate) fn formation_name(id: i32) -> &'static str {

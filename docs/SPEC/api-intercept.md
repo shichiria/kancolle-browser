@@ -350,7 +350,7 @@ tauri::async_runtime::spawn(async move {
 | `RemodelSlotReq` | 装備改修 | `api_slot_id` (装備インスタンスID), `api_id` (マスタ装備ID) |
 | `QuestReq` | 任務操作 | `api_quest_id` |
 
-### 6.3 汎用レスポンスラッパー (`api/models.rs`)
+### 6.3 汎用レスポンスラッパー (`api/models/wire.rs`)
 
 ```rust
 struct ApiResponse<T> {

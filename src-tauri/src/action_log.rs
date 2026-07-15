@@ -141,6 +141,15 @@ mod inner {
         }
     }
 
+    #[cfg(test)]
+    pub fn close_for_test() {
+        if let Ok(mut state) = ACTION_LOG.lock() {
+            state.writer.take();
+            state.log_dir = None;
+            state.current_date.clear();
+        }
+    }
+
     /// Get recent entries from the ring buffer (newest last).
     pub fn get_recent(limit: usize) -> Vec<ActionEntry> {
         if let Ok(state) = ACTION_LOG.lock() {
@@ -154,6 +163,8 @@ mod inner {
 
 // ── Public re-exports ─────────────────────────────────────────────────
 
+#[cfg(test)]
+pub use inner::close_for_test;
 pub use inner::{flush, get_recent, init, record};
 
 // ── Convenience wrapper ───────────────────────────────────────────────

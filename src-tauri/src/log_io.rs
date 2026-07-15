@@ -83,6 +83,13 @@ where
     }
 }
 
+/// Flush every buffered diagnostic sink.
+/// Add future sinks here so periodic, panic, and shutdown paths stay consistent.
+pub(crate) fn flush_all() {
+    log::logger().flush();
+    crate::action_log::flush();
+}
+
 pub(crate) fn start_periodic_flush() {
     static STARTED: OnceLock<()> = OnceLock::new();
     STARTED.get_or_init(|| {
@@ -90,8 +97,32 @@ pub(crate) fn start_periodic_flush() {
             .name("log-flush".to_string())
             .spawn(|| loop {
                 std::thread::sleep(FLUSH_INTERVAL);
-                log::logger().flush();
-                crate::action_log::flush();
+                flush_all();
             });
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn flush_all_persists_buffered_action_tail() {
+        let marker = format!("flush-all-tail-{}", std::process::id());
+        let data_dir = std::env::temp_dir().join(&marker);
+        crate::action_log::init(&data_dir);
+        crate::action_log::record("Test", &marker, None);
+
+        flush_all();
+
+        let date = chrono::Local::now().format("%Y%m%d");
+        let path = data_dir
+            .join("local")
+            .join("action_logs")
+            .join(format!("actions_{date}.jsonl"));
+        let contents = std::fs::read_to_string(path).expect("flushed action log must be readable");
+        assert!(contents.contains(&marker));
+        crate::action_log::close_for_test();
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
 }

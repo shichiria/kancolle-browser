@@ -456,7 +456,6 @@ pub fn run() {
                         }
                     }
                 }
-                action_log::flush();
                 diagnostics::shutdown();
             }
         });

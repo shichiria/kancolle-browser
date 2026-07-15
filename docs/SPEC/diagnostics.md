@@ -20,6 +20,15 @@ streams are flushed every 250 ms or at 64 KiB; error records, panic handling, an
 shutdown force an immediate flush. Raw API dumps remain one JSON file per intercepted API but
 use the shared file utility and are written outside `GameState` locks.
 
+`log_io::flush_all()` is the single list of buffered sinks and is used by the periodic thread,
+panic hook, and normal shutdown. Normal shutdown and Rust panic therefore flush both session and
+action logs. Forced process termination or power loss can still lose up to 250 ms of buffered
+non-error records.
+
+Raw API capture deliberately remains one file per API for replay tooling. It is disabled by
+default and bounded to 90 days / 5000 files at startup. High-volume `API` and `API_PARSED` action
+records are debug-only; release action logs retain semantic Command/Event/State records.
+
 Frontend console records are buffered for 100 ms (maximum 64 entries) and sent through
 `log_frontend_events`. Error and unhandled-rejection paths flush the current batch immediately.
 The legacy single-record `log_frontend_event` command remains for the DMM page shim.

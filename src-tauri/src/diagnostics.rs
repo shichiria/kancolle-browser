@@ -104,7 +104,7 @@ pub fn init() {
     let previous_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         log::error!(target: "panic", "Unhandled panic: {}", panic_info);
-        log::logger().flush();
+        crate::log_io::flush_all();
         previous_hook(panic_info);
     }));
 }
@@ -159,7 +159,7 @@ pub fn session_id() -> String {
 
 pub fn shutdown() {
     log::info!(target: "diagnostics", "Application shutdown requested");
-    log::logger().flush();
+    crate::log_io::flush_all();
 }
 
 pub fn frontend_event(level: &str, message: &str, source: Option<&str>) {

@@ -194,7 +194,7 @@ process_battle(state, endpoint, request_body, json, app)
 
 ## 4. GameState の構造と書き込み
 
-### データ構造 (src-tauri/src/api/models.rs)
+### データ構造 (`src-tauri/src/api/models/`)
 
 ```
 GameState {
@@ -527,7 +527,7 @@ Sync Engine         GameState          Frontend
 | `src-tauri/src/proxy/mod.rs` | hudsucker MITM プロキシ、API 傍受 |
 | `src-tauri/src/api/mod.rs` | process_api() メインディスパッチ |
 | `src-tauri/src/api/battle.rs` | 戦闘 API サブディスパッチ |
-| `src-tauri/src/api/models.rs` | GameState / マスターデータ / DTO 定義 |
+| `src-tauri/src/api/models/` | GameState / wire DTO / frontend summary / AirBase view定義 |
 | `src-tauri/src/api/fleet.rs` | 編成変更処理 |
 | `src-tauri/src/api/ship.rs` | 艦船データ処理 |
 | `src-tauri/src/battle_log/mod.rs` | BattleLogger、SortieRecord 定義 |

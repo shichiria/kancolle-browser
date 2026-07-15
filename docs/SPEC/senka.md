@@ -383,6 +383,6 @@ API傍受 (api_port, battleresult, clearitemget, ranking)
 | `src-tauri/src/senka/mod.rs` | 戦果計算・復号・トラッキングのコアロジック |
 | `src-tauri/src/api/mod.rs` | API傍受からの戦果記録呼び出し |
 | `src-tauri/src/api/battle.rs` | 戦闘結果からの経験値・EOボーナス記録 |
-| `src-tauri/src/api/models.rs` | GameStateInner に SenkaTracker を保持 |
+| `src-tauri/src/api/models/mod.rs` | GameStateInner に SenkaTracker を保持 |
 | `src/components/homeport/HomeportTab.tsx` | 戦果表示UI |
 | `src/types/senka.ts` | TypeScript 型定義 |

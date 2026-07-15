@@ -40,7 +40,9 @@ pub(super) fn notify_sync(state: &models::GameStateInner, paths: Vec<&str>) {
 /// Process intercepted KanColle API data.
 /// All state updates happen in a SINGLE async task to guarantee ordering.
 pub fn process_api(app_handle: &AppHandle, endpoint: &str, json_str: &str, request_body: &str) {
-    // Action log: record every API interception (dev only)
+    // Raw endpoint traces are high-volume; semantic Command/Event/State action
+    // logs remain available in release builds.
+    #[cfg(debug_assertions)]
     crate::action_log::log("API", endpoint, &format!("body_len={}", json_str.len()));
 
     // Update the tracked screen state from this API endpoint, if known.

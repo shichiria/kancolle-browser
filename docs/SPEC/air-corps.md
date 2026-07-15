@@ -7,10 +7,10 @@
 基地航空隊 (LBAS) の編成・行動・補給状態を API 傍受で追跡し、kantai ウィンドウの 🛩 タブ (AirBaseTab) に表示する。出撃中は基地航空隊攻撃の結果 (制空状態・機数損失) を波ごとに記録し、損失を各中隊へ比例配分して現在機数を推定する。
 
 - バックエンド: `src-tauri/src/api/air_corps.rs`
-- データ構造: `src-tauri/src/api/models.rs` (`AirBase` / `AirBasePlane` / `AirBaseAttackWave` / `AirBaseDistance`)
+- データ構造: `src-tauri/src/api/models/air_base.rs` (`AirBase` / `AirBasePlane` / `AirBaseAttackWave` / `AirBaseDistance`)
 - フロントエンド: `src/components/kantai/AirBaseTab.tsx` (KantaiView の 🛩 陣形タブ)
 
-## 2. データ構造 (`api/models.rs`)
+## 2. データ構造 (`api/models/air_base.rs`)
 
 | 構造体 | 役割 |
 |--------|------|

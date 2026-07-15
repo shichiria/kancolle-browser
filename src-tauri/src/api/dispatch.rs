@@ -14,58 +14,56 @@ pub(super) fn apply(
     request_body: &str,
     app: &AppHandle,
 ) {
-    // Action log: record parsed result variant (dev only)
-    macro_rules! variant_name {
+    #[cfg(debug_assertions)]
+    {
+        macro_rules! variant_name {
             ($val:expr, $($variant:ident),+ $(,)?) => {
                 match $val {
                     $(ParsedApi::$variant { .. } => stringify!($variant),)+
                 }
             };
         }
-    let variant_name = variant_name!(
-        &parsed,
-        Start2,
-        Port,
-        SlotItem,
-        QuestList,
-        Battle,
-        ExerciseResult,
-        HenseiChange,
-        HenseiPresetSelect,
-        RemodelSlot,
-        QuestStart,
-        QuestStop,
-        QuestClear,
-        Ship3,
-        SlotDeprive,
-        Charge,
-        Ranking,
-        Powerup,
-        SlotExchange,
-        GetShip,
-        DestroyItem2,
-        DestroyShip,
-        CreateItem,
-        MemberMaterial,
-        MemberNDock,
-        MemberDeck,
-        MissionResult,
-        MapInfoData,
-        BaseAirCorps,
-        AirCorpsSetPlane,
-        AirCorpsSetAction,
-        AirCorpsSupply,
-        AirCorpsChangeName,
-        AirCorpsChangeDeployment,
-        AirCorpsCondRecovery,
-        LogOnly,
-        Other,
-    );
-    crate::action_log::log(
-        "API_PARSED",
-        endpoint,
-        &format!("variant={}", variant_name),
-    );
+        let variant_name = variant_name!(
+            &parsed,
+            Start2,
+            Port,
+            SlotItem,
+            QuestList,
+            Battle,
+            ExerciseResult,
+            HenseiChange,
+            HenseiPresetSelect,
+            RemodelSlot,
+            QuestStart,
+            QuestStop,
+            QuestClear,
+            Ship3,
+            SlotDeprive,
+            Charge,
+            Ranking,
+            Powerup,
+            SlotExchange,
+            GetShip,
+            DestroyItem2,
+            DestroyShip,
+            CreateItem,
+            MemberMaterial,
+            MemberNDock,
+            MemberDeck,
+            MissionResult,
+            MapInfoData,
+            BaseAirCorps,
+            AirCorpsSetPlane,
+            AirCorpsSetAction,
+            AirCorpsSupply,
+            AirCorpsChangeName,
+            AirCorpsChangeDeployment,
+            AirCorpsCondRecovery,
+            LogOnly,
+            Other,
+        );
+        crate::action_log::log("API_PARSED", endpoint, &format!("variant={}", variant_name));
+    }
 
     match parsed {
         ParsedApi::Start2(api_data) => {

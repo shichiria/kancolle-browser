@@ -39,7 +39,7 @@ src-tauri/src/
 ├── ui_event/          (960L)   Screen enum + click coordinate → semantic event (incl. tests)
 ├── api/
 │   ├── mod.rs        (~1650L)  API interceptor — process_api(), Category A+B handlers
-│   ├── models.rs      (720L)   GameState, data structures (Ship, Fleet, Port, AirBase...)
+│   ├── models/                 State core + wire DTO + frontend summaries + AirBase views
 │   ├── battle.rs      (588L)   Battle/sortie/practice API handlers
 │   ├── air_corps.rs   (649L)   基地航空隊追跡 — parse/apply, 損失比例配分, air-base-updated
 │   ├── battle_info.rs (287L)   戦闘情報オーバーレイ — 交戦形態/制空/LBAS波ラベル
