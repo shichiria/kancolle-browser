@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
-import { STORAGE_KEYS } from "./constants";
+import { EVENTS, STORAGE_KEYS } from "./constants";
 import type {
   FleetData, PortData, ApiLogEntry,
   SenkaSummary, DriveStatus,
@@ -76,7 +76,7 @@ function App() {
   const [showApiLog, setShowApiLog] = useState<boolean>(() => {
     return localStorage.getItem(STORAGE_KEYS.SHOW_API_LOG) === "true";
   });
-  const [rawApiEnabled, setRawApiEnabled] = useState(true);
+  const [rawApiEnabled, setRawApiEnabled] = useState(false);
 
   // Weapon icon sprite sheet for damecon indicator
   const [weaponIconSheet, setWeaponIconSheet] = useState<string | null>(null);
@@ -147,11 +147,11 @@ function App() {
   }, [refreshBattleLogs]);
 
   useEffect(() => {
-    const unlistenProxy = listen<number>("proxy-ready", (event) => {
+    const unlistenProxy = listen<number>(EVENTS.PROXY_READY, (event) => {
       setProxyPort(event.payload);
     });
 
-    const unlistenPort = listen<PortData>("port-data", (event) => {
+    const unlistenPort = listen<PortData>(EVENTS.PORT_DATA, (event) => {
       setPortData(event.payload);
       setPortDataVersion((v) => v + 1);
       // Load weapon icon sprite sheet once for damecon display
@@ -165,7 +165,7 @@ function App() {
       }
     });
 
-    const unlistenSortie = listen<SortieRecord>("sortie-complete", (event) => {
+    const unlistenSortie = listen<SortieRecord>(EVENTS.SORTIE_COMPLETE, (event) => {
       // Upsert: replace in-progress record or add new
       setBattleLogs((prev) => {
         const idx = prev.findIndex((r) => r.id === event.payload.id);
@@ -180,7 +180,7 @@ function App() {
       });
     });
 
-    const unlistenSortieUpdate = listen<SortieRecord>("sortie-update", (event) => {
+    const unlistenSortieUpdate = listen<SortieRecord>(EVENTS.SORTIE_UPDATE, (event) => {
       // Upsert: update existing in-progress record or insert at top
       setBattleLogs((prev) => {
         const idx = prev.findIndex((r) => r.id === event.payload.id);
@@ -193,7 +193,7 @@ function App() {
       });
     });
 
-    const unlistenFleet = listen<FleetData[]>("fleet-updated", (event) => {
+    const unlistenFleet = listen<FleetData[]>(EVENTS.FLEET_UPDATED, (event) => {
       setPortData((prev) => {
         if (!prev) return prev;
         return { ...prev, fleets: event.payload };
@@ -201,7 +201,7 @@ function App() {
       setPortDataVersion((v) => v + 1);
     });
 
-    const unlistenQuest = listen<ActiveQuestDetail[]>("quest-list-updated", (event) => {
+    const unlistenQuest = listen<ActiveQuestDetail[]>(EVENTS.QUEST_LIST_UPDATED, (event) => {
       setActiveQuests(event.payload);
       // Refresh quest progress when active quests change
       invoke<QuestProgressSummary[]>("get_quest_progress").then((progress) => {
@@ -211,13 +211,13 @@ function App() {
       }).catch(console.error);
     });
 
-    const unlistenQuestProgress = listen<QuestProgressSummary[]>("quest-progress-updated", (event) => {
+    const unlistenQuestProgress = listen<QuestProgressSummary[]>(EVENTS.QUEST_PROGRESS_UPDATED, (event) => {
       const map = new Map<number, QuestProgressSummary>();
       for (const p of event.payload) map.set(p.quest_id, p);
       setQuestProgress(map);
     });
 
-    const unlistenSenka = listen<SenkaSummary>("senka-updated", (event) => {
+    const unlistenSenka = listen<SenkaSummary>(EVENTS.SENKA_UPDATED, (event) => {
       setSenkaData(event.payload);
       if (event.payload.checkpoint_crossed) {
         setSenkaCheckpoint(true);
@@ -225,11 +225,11 @@ function App() {
       }
     });
 
-    const unlistenDriveStatus = listen<DriveStatus>("drive-sync-status", (event) => {
+    const unlistenDriveStatus = listen<DriveStatus>(EVENTS.DRIVE_SYNC_STATUS, (event) => {
       setDriveStatus(event.payload);
     });
 
-    const unlistenDriveData = listen("drive-data-updated", () => {
+    const unlistenDriveData = listen(EVENTS.DRIVE_DATA_UPDATED, () => {
       // Reload all data that may have been updated from remote sync
       invoke<QuestProgressSummary[]>("get_quest_progress").then((progress) => {
         const map = new Map<number, QuestProgressSummary>();
@@ -241,7 +241,7 @@ function App() {
       setPortDataVersion((v) => v + 1);
     });
 
-    const unlistenApi = listen<{ endpoint: string }>("kancolle-api", (event) => {
+    const unlistenApi = listen<{ endpoint: string }>(EVENTS.KANCOLLE_API, (event) => {
       const d = new Date();
       const time = `${d.getHours().toString().padStart(2, "0")}:${d
         .getMinutes()
@@ -271,8 +271,8 @@ function App() {
     // Load Google Drive sync status
     invoke<DriveStatus>("get_drive_status").then(setDriveStatus).catch(console.error);
 
-    // Backend enables complete API diagnostics at the start of every launch.
-    // Read its actual state instead of allowing stale localStorage to disable it.
+    // Raw payload capture is opt-in for the current launch. Read the backend
+    // state so stale localStorage cannot silently re-enable it.
     invoke<boolean>("get_raw_api_enabled")
       .then((enabled) => {
         setRawApiEnabled(enabled);

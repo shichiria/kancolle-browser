@@ -388,20 +388,10 @@ pub fn save_raw_api_to_disk(
 /// Keep request parameters useful for replay/debugging while removing values
 /// that can be used to authenticate as the player.
 fn redact_request_body(request_body: &str) -> String {
-    const SECRET_KEYS: &[&str] = &[
-        "api_token",
-        "authorization",
-        "password",
-        "client_secret",
-        "access_token",
-        "refresh_token",
-        "cookie",
-    ];
-
     match serde_urlencoded::from_str::<Vec<(String, String)>>(request_body) {
         Ok(mut fields) => {
             for (key, value) in &mut fields {
-                if SECRET_KEYS.iter().any(|secret| key.eq_ignore_ascii_case(secret)) {
+                if crate::sensitive::is_sensitive_key(key) {
                     *value = "<redacted>".to_string();
                 }
             }
@@ -448,9 +438,9 @@ impl BattleLogger {
             completed,
             save_dir: Some(save_dir),
             raw_dir: Some(raw_dir),
-            // Diagnostics must be complete from the first API call of every
-            // launch. The UI may pause it for the current session if needed.
-            raw_enabled: true,
+            // Raw payload capture is an explicit developer option because it
+            // can grow without bound and may contain private gameplay data.
+            raw_enabled: false,
             raw_seq: 0,
         };
         logger.fix_interrupted_records();
@@ -746,7 +736,7 @@ mod logging_tests {
 
     #[test]
     fn raw_api_request_redaction_keeps_non_secret_parameters() {
-        let body = "api_token=super-secret&api_verno=1&api_deck_id=2";
+        let body = "api_token=super-secret&rpctoken=rpc-secret&st=session-secret&api_verno=1&api_deck_id=2";
         let safe = redact_request_body(body);
         let fields: HashMap<String, String> = serde_urlencoded::from_str(&safe).unwrap();
 
@@ -754,5 +744,7 @@ mod logging_tests {
         assert_eq!(fields.get("api_verno").map(String::as_str), Some("1"));
         assert_eq!(fields.get("api_deck_id").map(String::as_str), Some("2"));
         assert!(!safe.contains("super-secret"));
+        assert!(!safe.contains("rpc-secret"));
+        assert!(!safe.contains("session-secret"));
     }
 }

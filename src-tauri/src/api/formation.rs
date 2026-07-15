@@ -27,17 +27,17 @@ fn get_formation_button_rect(formation: i32, _ship_count: usize) -> Option<(f64,
 
     // Button center positions in game canvas coordinates
     let (cx, cy) = match formation {
-        1 => (663.0, 278.0),   // 単縦陣 col1 row1
-        2 => (858.0, 278.0),   // 複縦陣 col2 row1
-        3 => (1056.0, 278.0),  // 輪形陣 col3 row1
-        4 => (766.0, 517.0),   // 梯形陣 col1 row2
-        5 => (960.0, 517.0),   // 単横陣 col2 row2
-        6 => (1048.0, 517.0),  // 警戒陣 col3 row2
+        1 => (663.0, 278.0),  // 単縦陣 col1 row1
+        2 => (858.0, 278.0),  // 複縦陣 col2 row1
+        3 => (1056.0, 278.0), // 輪形陣 col3 row1
+        4 => (766.0, 517.0),  // 梯形陣 col1 row2
+        5 => (960.0, 517.0),  // 単横陣 col2 row2
+        6 => (1048.0, 517.0), // 警戒陣 col3 row2
         // Combined fleet formations
-        11 => (743.0, 263.0),  // 第一警戒航行序列
-        12 => (993.0, 263.0),  // 第二警戒航行序列
-        13 => (743.0, 468.0),  // 第三警戒航行序列
-        14 => (993.0, 468.0),  // 第四警戒航行序列
+        11 => (743.0, 263.0), // 第一警戒航行序列
+        12 => (993.0, 263.0), // 第二警戒航行序列
+        13 => (743.0, 468.0), // 第三警戒航行序列
+        14 => (993.0, 468.0), // 第四警戒航行序列
         _ => return None,
     };
 
@@ -46,11 +46,20 @@ fn get_formation_button_rect(formation: i32, _ship_count: usize) -> Option<(f64,
 
 /// Show formation highlight using the click-through formation-hint window
 pub(crate) fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: usize) {
-    log::info!("[FormationHint] show: formation={} ({}), ships={}", formation, formation_name(formation), ship_count);
+    log::info!(
+        "[FormationHint] show: formation={} ({}), ships={}",
+        formation,
+        formation_name(formation),
+        ship_count
+    );
 
     // Check if formation hint is enabled
     if let Some(state) = app.try_state::<crate::AppState>() {
-        if !state.formation_hint_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+        if !state
+            .prefs
+            .formation_hint_enabled
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
             log::info!("[FormationHint] disabled, skipping");
             return;
         }
@@ -89,8 +98,9 @@ pub(crate) fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: u
     let scale = game_win.scale_factor().unwrap_or(1.0);
 
     // Get current game zoom level
-    let zoom = app.try_state::<crate::AppState>()
-        .map(|s| *s.game_zoom.lock().unwrap())
+    let zoom = app
+        .try_state::<crate::AppState>()
+        .map(|s| *crate::lock_or_recover(&s.overlay.game_zoom, "game_zoom"))
         .unwrap_or(1.0);
 
     // Control bar is 28 CSS pixels, scaled by zoom and DPI
@@ -109,7 +119,10 @@ pub(crate) fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: u
 
     // Save offset in AppState for window-move tracking
     if let Some(app_state) = app.try_state::<crate::AppState>() {
-        let mut rect = app_state.formation_hint_rect.lock().unwrap();
+        let mut rect = crate::lock_or_recover(
+            &app_state.overlay.formation_hint_rect,
+            "formation_hint_rect",
+        );
         rect.dx = dx;
         rect.dy = dy;
         rect.w = phys_w;
@@ -150,7 +163,11 @@ pub(crate) fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: u
 pub fn hide_formation_hint(app: &AppHandle) {
     log::debug!("[FormationHint] hiding");
     if let Some(app_state) = app.try_state::<crate::AppState>() {
-        app_state.formation_hint_rect.lock().unwrap().visible = false;
+        crate::lock_or_recover(
+            &app_state.overlay.formation_hint_rect,
+            "formation_hint_rect",
+        )
+        .visible = false;
     }
     if let Some(hint_win) = app.get_window("formation-hint") {
         if let Err(e) = hint_win.hide() {

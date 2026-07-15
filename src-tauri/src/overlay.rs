@@ -12,16 +12,11 @@ pub(crate) fn set_formation_hint_enabled(
     enabled: bool,
 ) -> Result<(), String> {
     state
+        .prefs
         .formation_hint_enabled
         .store(enabled, Ordering::Relaxed);
 
-    // Persist to disk
-    if let Ok(dir) = app.path().app_local_data_dir() {
-        let path = dir.join("local").join("formation_hint_enabled");
-        if let Err(e) = std::fs::write(&path, if enabled { "1" } else { "0" }) {
-            log::warn!("[Overlay] failed to persist formation_hint_enabled: {}", e);
-        }
-    }
+    crate::settings::persist_flag(&app, crate::settings::FORMATION_HINT_ENABLED, enabled)?;
 
     // Hide hint window immediately when disabled
     if !enabled {
@@ -34,7 +29,7 @@ pub(crate) fn set_formation_hint_enabled(
 
 #[tauri::command]
 pub(crate) fn get_formation_hint_enabled(state: State<AppState>) -> bool {
-    state.formation_hint_enabled.load(Ordering::Relaxed)
+    state.prefs.formation_hint_enabled.load(Ordering::Relaxed)
 }
 
 #[tauri::command]
@@ -43,14 +38,9 @@ pub(crate) fn set_taiha_alert_enabled(
     state: State<AppState>,
     enabled: bool,
 ) -> Result<(), String> {
-    state.taiha_alert_enabled.store(enabled, Ordering::Relaxed);
+    state.prefs.taiha_alert_enabled.store(enabled, Ordering::Relaxed);
 
-    if let Ok(dir) = app.path().app_local_data_dir() {
-        let path = dir.join("local").join("taiha_alert_enabled");
-        if let Err(e) = std::fs::write(&path, if enabled { "1" } else { "0" }) {
-            log::warn!("[Overlay] failed to persist taiha_alert_enabled: {}", e);
-        }
-    }
+    crate::settings::persist_flag(&app, crate::settings::TAIHA_ALERT_ENABLED, enabled)?;
 
     info!("Taiha alert set to {}", if enabled { "enabled" } else { "disabled" });
     Ok(())
@@ -58,7 +48,7 @@ pub(crate) fn set_taiha_alert_enabled(
 
 #[tauri::command]
 pub(crate) fn get_taiha_alert_enabled(state: State<AppState>) -> bool {
-    state.taiha_alert_enabled.load(Ordering::Relaxed)
+    state.prefs.taiha_alert_enabled.load(Ordering::Relaxed)
 }
 
 #[tauri::command]
@@ -68,19 +58,19 @@ pub(crate) fn set_battle_info_enabled(
     enabled: bool,
 ) -> Result<(), String> {
     state
+        .prefs
         .battle_info_enabled
         .store(enabled, Ordering::Relaxed);
 
-    if let Ok(dir) = app.path().app_local_data_dir() {
-        let path = dir.join("local").join("battle_info_enabled");
-        if let Err(e) = std::fs::write(&path, if enabled { "1" } else { "0" }) {
-            log::warn!("[Overlay] failed to persist battle_info_enabled: {}", e);
-        }
-    }
+    crate::settings::persist_flag(&app, crate::settings::BATTLE_INFO_ENABLED, enabled)?;
 
     if enabled {
         // Re-show overlay with stored data if available
-        let stored = state.last_battle_info.lock().unwrap().clone();
+        let stored = crate::lock_or_recover(
+            &state.overlay.last_battle_info,
+            "last_battle_info",
+        )
+        .clone();
         if let Some(data) = stored {
             info!("Battle info re-enabled, re-showing stored data");
             crate::api::battle_info::show_battle_info_overlay(&app, &data);
@@ -98,7 +88,7 @@ pub(crate) fn set_battle_info_enabled(
 
 #[tauri::command]
 pub(crate) fn get_battle_info_enabled(state: State<AppState>) -> bool {
-    state.battle_info_enabled.load(Ordering::Relaxed)
+    state.prefs.battle_info_enabled.load(Ordering::Relaxed)
 }
 
 /// Show or hide the overlay webview.
@@ -125,7 +115,7 @@ pub(crate) fn set_overlay_visible(app: tauri::AppHandle, visible: bool) -> Resul
 /// Dismiss taiha overlay — restore minimap if active, otherwise hide overlay.
 #[tauri::command]
 pub(crate) fn dismiss_overlay(app: tauri::AppHandle, state: State<AppState>) -> Result<(), String> {
-    let minimap_on = state.minimap_enabled.load(Ordering::Relaxed);
+    let minimap_on = state.prefs.minimap_enabled.load(Ordering::Relaxed);
     if minimap_on {
         show_minimap_overlay(&app)?;
     } else {
@@ -158,11 +148,12 @@ pub fn show_minimap_overlay(app: &tauri::AppHandle) -> Result<(), String> {
     let logical = phys.to_logical::<f64>(scale);
 
     let state = app.state::<AppState>();
-    let (mw, mh) = *state.minimap_size.lock().unwrap();
-    let zoom = *state.game_zoom.lock().unwrap();
+    let (mw, mh) = *crate::lock_or_recover(&state.overlay.minimap_size, "minimap_size");
+    let zoom = *crate::lock_or_recover(&state.overlay.game_zoom, "game_zoom");
     let bar_h = CONTROL_BAR_HEIGHT * zoom;
 
-    let saved_pos = *state.minimap_position.lock().unwrap();
+    let saved_pos =
+        *crate::lock_or_recover(&state.overlay.minimap_position, "minimap_position");
     let (x, y) = match saved_pos {
         Some((sx, sy)) => {
             let x = sx.max(0.0).min(logical.width - mw);
@@ -188,15 +179,11 @@ pub(crate) async fn toggle_minimap(
     state: State<'_, AppState>,
     game_state: State<'_, crate::api::models::GameState>,
 ) -> Result<bool, String> {
-    let was_enabled = state.minimap_enabled.load(Ordering::Relaxed);
+    let was_enabled = state.prefs.minimap_enabled.load(Ordering::Relaxed);
     let enabled = !was_enabled;
-    state.minimap_enabled.store(enabled, Ordering::Relaxed);
+    state.prefs.minimap_enabled.store(enabled, Ordering::Relaxed);
 
-    // Persist to disk
-    if let Ok(dir) = app.path().app_local_data_dir() {
-        let path = dir.join("local").join("minimap_enabled");
-        let _ = std::fs::write(&path, if enabled { "1" } else { "0" });
-    }
+    crate::settings::persist_flag(&app, crate::settings::MINIMAP_ENABLED, enabled)?;
 
     let overlay = app.get_webview("game-overlay").ok_or("Overlay not found")?;
     if enabled {
@@ -215,7 +202,7 @@ pub(crate) async fn toggle_minimap(
 
 #[tauri::command]
 pub(crate) fn get_minimap_enabled(state: State<AppState>) -> bool {
-    state.minimap_enabled.load(Ordering::Relaxed)
+    state.prefs.minimap_enabled.load(Ordering::Relaxed)
 }
 
 /// Move minimap overlay by delta (called from overlay JS during drag)
@@ -227,8 +214,8 @@ pub(crate) fn move_minimap(app: tauri::AppHandle, state: State<AppState>, dx: f6
     let scale = win.scale_factor().unwrap_or(1.0);
     let logical = phys.to_logical::<f64>(scale);
 
-    let (mw, mh) = *state.minimap_size.lock().unwrap();
-    let zoom = *state.game_zoom.lock().unwrap();
+    let (mw, mh) = *crate::lock_or_recover(&state.overlay.minimap_size, "minimap_size");
+    let zoom = *crate::lock_or_recover(&state.overlay.game_zoom, "game_zoom");
     let bar_h = CONTROL_BAR_HEIGHT * zoom;
 
     let cur_pos = overlay.position().map_err(|e| e.to_string())?;
@@ -239,12 +226,9 @@ pub(crate) fn move_minimap(app: tauri::AppHandle, state: State<AppState>, dx: f6
 
     overlay.set_position(tauri::LogicalPosition::new(x, y)).map_err(|e| e.to_string())?;
 
-    *state.minimap_position.lock().unwrap() = Some((x, y));
+    *crate::lock_or_recover(&state.overlay.minimap_position, "minimap_position") = Some((x, y));
 
-    if let Ok(dir) = app.path().app_local_data_dir() {
-        let path = dir.join("local").join("minimap_position.json");
-        let _ = std::fs::write(&path, serde_json::to_string(&(x, y)).unwrap_or_default());
-    }
+    crate::settings::persist_json(&app, crate::settings::MINIMAP_POSITION, &(x, y))?;
 
     Ok(())
 }
@@ -255,13 +239,10 @@ pub(crate) fn resize_minimap(app: tauri::AppHandle, state: State<AppState>, w: f
     let new_w = w.clamp(MINIMAP_MIN_W, MINIMAP_MAX_W);
     let new_h = (new_w * MINIMAP_ASPECT).round();
 
-    *state.minimap_size.lock().unwrap() = (new_w, new_h);
+    *crate::lock_or_recover(&state.overlay.minimap_size, "minimap_size") = (new_w, new_h);
     show_minimap_overlay(&app)?;
 
-    if let Ok(dir) = app.path().app_local_data_dir() {
-        let path = dir.join("local").join("minimap_size.json");
-        let _ = std::fs::write(&path, serde_json::to_string(&(new_w, new_h)).unwrap_or_default());
-    }
+    crate::settings::persist_json(&app, crate::settings::MINIMAP_SIZE, &(new_w, new_h))?;
 
     Ok(())
 }
@@ -324,6 +305,7 @@ pub(crate) fn show_expedition_notification(
         log::warn!("[ExpeditionNotify] failed to show window: {}", e);
     }
     state
+        .overlay
         .expedition_notify_visible
         .store(true, Ordering::Relaxed);
     Ok(())
@@ -336,6 +318,7 @@ pub(crate) fn hide_expedition_notification(app: tauri::AppHandle, state: State<A
         let _ = win.hide();
     }
     state
+        .overlay
         .expedition_notify_visible
         .store(false, Ordering::Relaxed);
     Ok(())
@@ -344,7 +327,11 @@ pub(crate) fn hide_expedition_notification(app: tauri::AppHandle, state: State<A
 /// Reposition expedition notification to follow the game window
 pub(crate) fn reposition_expedition_notification(app: &tauri::AppHandle) {
     let state = app.state::<AppState>();
-    if !state.expedition_notify_visible.load(Ordering::Relaxed) {
+    if !state
+        .overlay
+        .expedition_notify_visible
+        .load(Ordering::Relaxed)
+    {
         return;
     }
     let game_win = match app.get_window("game") {
@@ -401,7 +388,7 @@ pub(crate) fn reposition_battle_info(app: &tauri::AppHandle) {
     };
     let zoom = app
         .try_state::<AppState>()
-        .map(|s| *s.game_zoom.lock().unwrap())
+        .map(|s| *crate::lock_or_recover(&s.overlay.game_zoom, "game_zoom"))
         .unwrap_or(1.0);
     let bar_h = CONTROL_BAR_HEIGHT * zoom;
     let margin = 8.0;
@@ -417,7 +404,10 @@ pub(crate) fn reposition_battle_info(app: &tauri::AppHandle) {
 /// Reposition the formation hint window to follow the game window
 pub(crate) fn reposition_formation_hint(app: &tauri::AppHandle) {
     let state = app.state::<AppState>();
-    let rect = *state.formation_hint_rect.lock().unwrap();
+    let rect = *crate::lock_or_recover(
+        &state.overlay.formation_hint_rect,
+        "formation_hint_rect",
+    );
     if !rect.visible {
         return;
     }

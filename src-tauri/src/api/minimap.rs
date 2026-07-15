@@ -4,7 +4,11 @@ use tauri::{AppHandle, Manager};
 pub(crate) fn update_minimap_overlay(app: &AppHandle, sortie: &crate::battle_log::SortieRecord) {
     let minimap_on = app
         .try_state::<crate::AppState>()
-        .map(|s| s.minimap_enabled.load(std::sync::atomic::Ordering::Relaxed))
+        .map(|s| {
+            s.prefs
+                .minimap_enabled
+                .load(std::sync::atomic::Ordering::Relaxed)
+        })
         .unwrap_or(false);
     if !minimap_on {
         return;

@@ -5,8 +5,9 @@ use url::Url;
 
 use crate::AppState;
 
-/// JavaScript injection: hide DMM UI, show game frame, add control bar overlay
-const GAME_INIT_SCRIPT: &str = include_str!("game_init.js");
+/// DMM host-page shim template: isolate the game frame and add our control bar.
+/// Placeholders are expanded from the Rust layout constants below.
+const GAME_INIT_SCRIPT_TEMPLATE: &str = include_str!("game_init.js");
 
 /// KanColle game native resolution
 pub(crate) const GAME_WIDTH: f64 = 1200.0;
@@ -18,6 +19,50 @@ pub(crate) const CONTROL_BAR_HEIGHT: f64 = 28.0;
 pub(crate) const MACOS_TITLEBAR_HEIGHT: f64 = 28.0;
 #[cfg(not(target_os = "macos"))]
 pub(crate) const MACOS_TITLEBAR_HEIGHT: f64 = 0.0;
+
+fn build_game_init_script() -> String {
+    GAME_INIT_SCRIPT_TEMPLATE
+        .replace("__KC_GAME_WIDTH__", &GAME_WIDTH.to_string())
+        .replace("__KC_GAME_HEIGHT__", &GAME_HEIGHT.to_string())
+        .replace("__KC_CONTROL_BAR_HEIGHT__", &CONTROL_BAR_HEIGHT.to_string())
+        .replace(
+            "__KC_LAYOUT_DIAGNOSTICS__",
+            if cfg!(debug_assertions) { "true" } else { "false" },
+        )
+}
+
+fn create_clickthrough_window(
+    app: &tauri::AppHandle,
+    window_label: &str,
+    webview_label: &str,
+    page: &str,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    info!("Creating {} window", window_label);
+    let window = WindowBuilder::new(app, window_label)
+        .decorations(false)
+        .transparent(true)
+        .always_on_top(true)
+        .visible(false)
+        .skip_taskbar(true)
+        .inner_size(width, height)
+        .build()
+        .map_err(|error| format!("Failed to create {window_label}: {error}"))?;
+
+    window
+        .set_ignore_cursor_events(true)
+        .map_err(|error| format!("Failed to make {window_label} click-through: {error}"))?;
+    window
+        .add_child(
+            WebviewBuilder::new(webview_label, WebviewUrl::App(page.into())).transparent(true),
+            tauri::LogicalPosition::new(0.0, 0.0),
+            tauri::LogicalSize::new(width, height),
+        )
+        .map_err(|error| format!("Failed to create {webview_label}: {error}"))?;
+    info!("{} window created", window_label);
+    Ok(())
+}
 
 /// Open the KanColle game in a separate window with proxy configured.
 /// Uses multi-webview: game-content (game) + game-overlay (transparent overlay).
@@ -34,7 +79,7 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
 
     // Get the proxy port from app state
     let state = app.state::<AppState>();
-    let proxy_port = *state.proxy_port.lock().unwrap();
+    let proxy_port = *crate::lock_or_recover(&state.runtime.proxy_port, "proxy_port");
 
     if proxy_port == 0 {
         return Err("Proxy is not ready yet. Please wait and try again.".to_string());
@@ -66,13 +111,15 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
     // - macOS: WKWebView drops session cookies on exit and JS injection cannot set
     //   them (opaque origin / cross-domain / httpOnly), so saved cookies are written
     //   natively into WKHTTPCookieStore before navigating to DMM (see spawn below).
+    let game_init_script = build_game_init_script();
+
     #[cfg(not(target_os = "macos"))]
     let final_init_script = {
         let restore_script = crate::cookie::build_cookie_restore_script(&app).await;
-        format!("{}\n{}", GAME_INIT_SCRIPT, restore_script)
+        format!("{}\n{}", game_init_script, restore_script)
     };
     #[cfg(target_os = "macos")]
-    let final_init_script = GAME_INIT_SCRIPT.to_string();
+    let final_init_script = game_init_script;
 
     let win_width = GAME_WIDTH;
     let win_height = GAME_HEIGHT + CONTROL_BAR_HEIGHT + MACOS_TITLEBAR_HEIGHT;
@@ -153,103 +200,30 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
         )
         .map_err(|e| e.to_string())?;
 
-    // Create click-through formation hint window (separate window so it doesn't block game input)
-    info!("Creating formation-hint window");
-    let hint_win = WindowBuilder::new(&app, "formation-hint")
-        .decorations(false)
-        .transparent(true)
-        .always_on_top(true)
-        .visible(false)
-        .skip_taskbar(true)
-        .inner_size(200.0, 170.0)
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    hint_win
-        .set_ignore_cursor_events(true)
-        .map_err(|e| e.to_string())?;
-
-    let _hint_wv = hint_win
-        .add_child(
-            WebviewBuilder::new(
-                "formation-hint-content",
-                WebviewUrl::App("formation-hint.html".into()),
-            )
-            .transparent(true),
-            tauri::LogicalPosition::new(0.0, 0.0),
-            tauri::LogicalSize::new(200.0, 170.0),
-        )
-        .map_err(|e| e.to_string())?;
-
-    // Create battle info window (click-through, transparent, top-left of game)
-    info!("Creating battle-info window");
-    let battle_info_win = WindowBuilder::new(&app, "battle-info")
-        .decorations(false)
-        .transparent(true)
-        .always_on_top(true)
-        .visible(false)
-        .skip_taskbar(true)
-        .inner_size(520.0, 140.0)
-        .build()
-        .map_err(|e| {
-            log::error!("Failed to create battle-info window: {}", e);
-            e.to_string()
-        })?;
-
-    battle_info_win
-        .set_ignore_cursor_events(true)
-        .map_err(|e| {
-            log::error!("Failed to set battle-info ignore cursor: {}", e);
-            e.to_string()
-        })?;
-
-    let _battle_info_wv = battle_info_win
-        .add_child(
-            WebviewBuilder::new(
-                "battle-info-content",
-                WebviewUrl::App("battle-info.html".into()),
-            )
-            .transparent(true),
-            tauri::LogicalPosition::new(0.0, 0.0),
-            tauri::LogicalSize::new(520.0, 140.0),
-        )
-        .map_err(|e| {
-            log::error!("Failed to create battle-info-content webview: {}", e);
-            e.to_string()
-        })?;
-    info!("battle-info window created successfully");
-
-    info!("formation-hint window created successfully");
-
-    // Create expedition notification window (click-through, transparent)
-    info!("Creating expedition-notify window");
-    let notify_win = WindowBuilder::new(&app, "expedition-notify")
-        .decorations(false)
-        .transparent(true)
-        .always_on_top(true)
-        .visible(false)
-        .skip_taskbar(true)
-        .inner_size(250.0, 100.0)
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    notify_win
-        .set_ignore_cursor_events(true)
-        .map_err(|e| e.to_string())?;
-
-    let _notify_wv = notify_win
-        .add_child(
-            WebviewBuilder::new(
-                "expedition-notify-content",
-                WebviewUrl::App("expedition-notify.html".into()),
-            )
-            .transparent(true),
-            tauri::LogicalPosition::new(0.0, 0.0),
-            tauri::LogicalSize::new(250.0, 100.0),
-        )
-        .map_err(|e| e.to_string())?;
-
-    info!("expedition-notify window created successfully");
+    create_clickthrough_window(
+        &app,
+        "formation-hint",
+        "formation-hint-content",
+        "formation-hint.html",
+        200.0,
+        170.0,
+    )?;
+    create_clickthrough_window(
+        &app,
+        "battle-info",
+        "battle-info-content",
+        "battle-info.html",
+        520.0,
+        140.0,
+    )?;
+    create_clickthrough_window(
+        &app,
+        "expedition-notify",
+        "expedition-notify-content",
+        "expedition-notify.html",
+        250.0,
+        100.0,
+    )?;
 
     // Sync game webview on resize, reposition formation hint on move/resize.
     // Closing the game window terminates the whole app — game window is the
@@ -264,7 +238,12 @@ pub(crate) async fn open_game_window(app: tauri::AppHandle) -> Result<(), String
                 // Reposition formation hint
                 crate::overlay::reposition_formation_hint(&resize_app);
                 // Reposition minimap if enabled
-                if resize_app.state::<AppState>().minimap_enabled.load(Ordering::Relaxed) {
+                if resize_app
+                    .state::<AppState>()
+                    .prefs
+                    .minimap_enabled
+                    .load(Ordering::Relaxed)
+                {
                     let _ = crate::overlay::show_minimap_overlay(&resize_app);
                 }
                 // Reposition expedition notification if visible
@@ -371,7 +350,7 @@ pub(crate) fn set_game_zoom(app: tauri::AppHandle, zoom: f64) -> Result<(), Stri
 
     // Save zoom level to AppState
     if let Some(state) = app.try_state::<AppState>() {
-        *state.game_zoom.lock().unwrap() = zoom;
+        *crate::lock_or_recover(&state.overlay.game_zoom, "game_zoom") = zoom;
     }
 
     // Set webview zoom
@@ -390,7 +369,12 @@ pub(crate) fn set_game_zoom(app: tauri::AppHandle, zoom: f64) -> Result<(), Stri
     let _ = game_wv.set_size(wv_size);
 
     // Reposition minimap if enabled
-    if app.state::<AppState>().minimap_enabled.load(Ordering::Relaxed) {
+    if app
+        .state::<AppState>()
+        .prefs
+        .minimap_enabled
+        .load(Ordering::Relaxed)
+    {
         let _ = crate::overlay::show_minimap_overlay(&app);
     }
 
@@ -410,15 +394,10 @@ pub(crate) fn toggle_game_mute(
     state: State<AppState>,
     muted: bool,
 ) -> Result<(), String> {
-    state.game_muted.store(muted, Ordering::Relaxed);
+    state.prefs.game_muted.store(muted, Ordering::Relaxed);
 
-    // Persist to disk so mute survives app restart
-    if let Ok(dir) = app.path().app_local_data_dir() {
-        let path = dir.join("local").join("game_muted");
-        if let Err(e) = std::fs::write(&path, if muted { "1" } else { "0" }) {
-            log::warn!("Failed to persist game_muted: {}", e);
-        }
-    }
+    crate::settings::persist_flag(&app, crate::settings::GAME_MUTED, muted)
+        .map_err(|error| format!("Failed to persist game mute setting: {error}"))?;
 
     let game_wv = app
         .get_webview("game-content")
@@ -460,5 +439,19 @@ pub(crate) fn toggle_game_mute(
 /// Get the current mute state (for init script to restore UI)
 #[tauri::command]
 pub(crate) fn get_game_mute(state: State<AppState>) -> bool {
-    state.game_muted.load(Ordering::Relaxed)
+    state.prefs.game_muted.load(Ordering::Relaxed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn game_init_script_expands_rust_layout_constants() {
+        let script = build_game_init_script();
+        assert!(!script.contains("__KC_"));
+        assert!(script.contains("width: 1200px"));
+        assert!(script.contains("height: 720px"));
+        assert!(script.contains("top: 28px"));
+    }
 }

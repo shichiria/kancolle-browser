@@ -28,10 +28,10 @@ pub fn air_superiority_label(id: i32) -> (&'static str, &'static str) {
 /// Engagement form CSS color.
 pub fn engagement_color(id: i32) -> &'static str {
     match id {
-        1 => "#b0bec5",   // 同航戦 — neutral grey
-        2 => "#ff9800",   // 反航戦 — orange
-        3 => "#4caf50",   // T字有利 — green (favorable)
-        4 => "#f44336",   // T字不利 — red (unfavorable)
+        1 => "#b0bec5", // 同航戦 — neutral grey
+        2 => "#ff9800", // 反航戦 — orange
+        3 => "#4caf50", // T字有利 — green (favorable)
+        4 => "#f44336", // T字不利 — red (unfavorable)
         _ => "#78909c",
     }
 }
@@ -60,7 +60,10 @@ pub struct LbasWaveLabel {
 /// Extract per-wave LBAS air-superiority labels from a battle response's `api_data`.
 /// Returns empty if `api_air_base_attack` is missing or empty.
 pub fn extract_lbas_waves(api_data: &serde_json::Value) -> Vec<LbasWaveLabel> {
-    let arr = match api_data.get("api_air_base_attack").and_then(|v| v.as_array()) {
+    let arr = match api_data
+        .get("api_air_base_attack")
+        .and_then(|v| v.as_array())
+    {
         Some(a) => a,
         None => return Vec::new(),
     };
@@ -109,12 +112,13 @@ pub fn show_battle_info_overlay(app: &tauri::AppHandle, data: &BattleInfoData) {
 
     // Always store the latest data for re-display on toggle re-enable
     if let Some(state) = app.try_state::<crate::AppState>() {
-        *state.last_battle_info.lock().unwrap() = Some(data.clone());
+        *crate::lock_or_recover(&state.overlay.last_battle_info, "last_battle_info") =
+            Some(data.clone());
     }
 
     let enabled = app
         .try_state::<crate::AppState>()
-        .map(|s| s.battle_info_enabled.load(Ordering::Relaxed))
+        .map(|s| s.prefs.battle_info_enabled.load(Ordering::Relaxed))
         .unwrap_or(false);
     if !enabled {
         log::info!("[BattleInfo] overlay disabled, skipping (data stored for later)");
@@ -147,7 +151,7 @@ pub fn show_battle_info_overlay(app: &tauri::AppHandle, data: &BattleInfoData) {
     };
     let zoom = app
         .try_state::<crate::AppState>()
-        .map(|s| *s.game_zoom.lock().unwrap())
+        .map(|s| *crate::lock_or_recover(&s.overlay.game_zoom, "game_zoom"))
         .unwrap_or(1.0);
     let bar_h = crate::game_window::CONTROL_BAR_HEIGHT * zoom;
     let margin = 8.0;
@@ -155,7 +159,13 @@ pub fn show_battle_info_overlay(app: &tauri::AppHandle, data: &BattleInfoData) {
     let x = inner_pos.x + (margin * scale) as i32;
     let y = inner_pos.y + ((bar_h + margin) * scale) as i32;
 
-    log::debug!("[BattleInfo] position=({}, {}), scale={}, zoom={}", x, y, scale, zoom);
+    log::debug!(
+        "[BattleInfo] position=({}, {}), scale={}, zoom={}",
+        x,
+        y,
+        scale,
+        zoom
+    );
 
     if let Err(e) = battle_info_win.set_position(tauri::PhysicalPosition::new(x, y)) {
         log::warn!("[BattleInfo] failed to set position: {}", e);
@@ -184,7 +194,7 @@ pub fn hide_battle_info_overlay(app: &tauri::AppHandle) {
     log::debug!("[BattleInfo] hiding overlay");
     // Clear stored data so re-enable won't show stale info
     if let Some(state) = app.try_state::<crate::AppState>() {
-        *state.last_battle_info.lock().unwrap() = None;
+        *crate::lock_or_recover(&state.overlay.last_battle_info, "last_battle_info") = None;
     }
     if let Some(win) = app.get_window("battle-info") {
         if let Err(e) = win.hide() {
@@ -225,5 +235,4 @@ mod tests {
         assert_eq!(air_superiority_label(4), ("制空権喪失", "#d32f2f"));
         assert_eq!(air_superiority_label(99), ("不明", "#78909c"));
     }
-
 }

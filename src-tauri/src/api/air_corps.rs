@@ -2,6 +2,7 @@ use log::{info, warn};
 use std::collections::HashMap;
 use tauri::{AppHandle, Emitter};
 
+use super::dto::air_corps as dto;
 use super::models;
 
 /// Parse the `api_air_base` array from `api_get_member/mapinfo` or
@@ -12,64 +13,52 @@ use super::models;
 /// the user expects last-sortie results to remain visible after returning to
 /// port (which fires `api_get_member/mapinfo` on the next 出撃 screen).
 pub(super) fn parse_air_bases(
-    api_data: &serde_json::Value,
+    api_data: &dto::MapInfoAirBases,
     profile_slotitems: &HashMap<i32, models::PlayerSlotItem>,
     master_slotitems: &HashMap<i32, models::MasterSlotItemInfo>,
     existing_bases: &[models::AirBase],
 ) -> Vec<models::AirBase> {
-    let arr = match api_data.get("api_air_base").and_then(|v| v.as_array()) {
-        Some(a) => a,
-        None => return Vec::new(),
-    };
-    parse_air_base_array(arr, profile_slotitems, master_slotitems, existing_bases)
+    parse_air_base_array(
+        &api_data.api_air_base,
+        profile_slotitems,
+        master_slotitems,
+        existing_bases,
+    )
 }
 
 /// Parse `api_get_member/base_air_corps` whose `api_data` is the array directly.
 pub(super) fn parse_base_air_corps(
-    api_data: &serde_json::Value,
+    api_data: &[dto::AirBase],
     profile_slotitems: &HashMap<i32, models::PlayerSlotItem>,
     master_slotitems: &HashMap<i32, models::MasterSlotItemInfo>,
     existing_bases: &[models::AirBase],
 ) -> Vec<models::AirBase> {
-    let arr = match api_data.as_array() {
-        Some(a) => a,
-        None => return Vec::new(),
-    };
-    parse_air_base_array(arr, profile_slotitems, master_slotitems, existing_bases)
+    parse_air_base_array(
+        api_data,
+        profile_slotitems,
+        master_slotitems,
+        existing_bases,
+    )
 }
 
 fn parse_air_base_array(
-    arr: &[serde_json::Value],
+    arr: &[dto::AirBase],
     profile_slotitems: &HashMap<i32, models::PlayerSlotItem>,
     master_slotitems: &HashMap<i32, models::MasterSlotItemInfo>,
     existing_bases: &[models::AirBase],
 ) -> Vec<models::AirBase> {
     arr.iter()
         .map(|entry| {
-            let rid = entry.get("api_rid").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-            let area_id = entry
-                .get("api_area_id")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0) as i32;
-            let name = entry
-                .get("api_name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let action_kind = entry
-                .get("api_action_kind")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0) as i32;
-            let distance = parse_distance(entry.get("api_distance"));
+            let rid = entry.api_rid;
+            let area_id = entry.api_area_id;
+            let name = entry.api_name.clone();
+            let action_kind = entry.api_action_kind;
+            let distance = parse_distance(&entry.api_distance);
             let planes = entry
-                .get("api_plane_info")
-                .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .map(|p| parse_plane(p, profile_slotitems, master_slotitems))
-                        .collect()
-                })
-                .unwrap_or_default();
+                .api_plane_info
+                .iter()
+                .map(|plane| parse_plane(plane, profile_slotitems, master_slotitems))
+                .collect();
             let recent_attacks = existing_bases
                 .iter()
                 .find(|b| b.area_id == area_id && b.rid == rid)
@@ -89,53 +78,30 @@ fn parse_air_base_array(
         .collect()
 }
 
-fn parse_distance(value: Option<&serde_json::Value>) -> models::AirBaseDistance {
-    let value = match value {
-        Some(v) => v,
-        None => return models::AirBaseDistance::default(),
-    };
+fn parse_distance(value: &dto::AirBaseDistance) -> models::AirBaseDistance {
     models::AirBaseDistance {
-        base: value
-            .get("api_base")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32,
-        bonus: value
-            .get("api_bonus")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32,
+        base: value.api_base,
+        bonus: value.api_bonus,
     }
 }
 
 fn parse_plane(
-    p: &serde_json::Value,
+    plane: &dto::AirBasePlane,
     profile_slotitems: &HashMap<i32, models::PlayerSlotItem>,
     master_slotitems: &HashMap<i32, models::MasterSlotItemInfo>,
 ) -> models::AirBasePlane {
-    let squadron_id = p
-        .get("api_squadron_id")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0) as i32;
-    let slotid = p.get("api_slotid").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-    let state = p.get("api_state").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-    let count = p.get("api_count").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-    let max_count = p
-        .get("api_max_count")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0) as i32;
-    let cond = p.get("api_cond").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-
-    let mut plane = models::AirBasePlane {
-        squadron_id,
-        slotid,
-        state,
-        count,
-        max_count,
-        cond,
+    let mut parsed = models::AirBasePlane {
+        squadron_id: plane.api_squadron_id,
+        slotid: plane.api_slotid,
+        state: plane.api_state,
+        count: plane.api_count,
+        max_count: plane.api_max_count,
+        cond: plane.api_cond,
         ..Default::default()
     };
 
-    enrich_plane(&mut plane, profile_slotitems, master_slotitems);
-    plane
+    enrich_plane(&mut parsed, profile_slotitems, master_slotitems);
+    parsed
 }
 
 /// Resolve master + player slotitem data and populate name/level/alv/icon_type.
@@ -165,17 +131,12 @@ fn enrich_plane(
 pub(super) fn apply_set_plane(
     state: &mut models::GameStateInner,
     request_body: &str,
-    api_data: &serde_json::Value,
+    api_data: &dto::PlaneUpdate,
 ) -> bool {
-    let params = parse_query(request_body);
-    let area_id = params
-        .get("api_area_id")
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
-    let base_id = params
-        .get("api_base_id")
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
+    let params =
+        serde_urlencoded::from_str::<dto::AirBaseRequest>(request_body).unwrap_or_default();
+    let area_id = params.api_area_id;
+    let base_id = params.api_base_id;
     if area_id == 0 || base_id == 0 {
         warn!(
             "air_corps/set_plane: missing area_id/base_id in request: {}",
@@ -184,11 +145,7 @@ pub(super) fn apply_set_plane(
         return false;
     }
 
-    let distance = parse_distance(api_data.get("api_distance"));
-    let planes_arr = match api_data.get("api_plane_info").and_then(|v| v.as_array()) {
-        Some(a) => a,
-        None => return false,
-    };
+    let distance = parse_distance(&api_data.api_distance);
 
     // Snapshot data needed for enrichment, then take a mutable reference to the base.
     let profile_clone = state.profile.slotitems.clone();
@@ -200,7 +157,7 @@ pub(super) fn apply_set_plane(
     };
 
     base.distance = distance;
-    for entry in planes_arr {
+    for entry in &api_data.api_plane_info {
         let updated = parse_plane(entry, &profile_clone, &master_clone);
         upsert_squadron(&mut base.planes, updated);
     }
@@ -210,30 +167,22 @@ pub(super) fn apply_set_plane(
 /// Apply `api_req_air_corps/set_action` — base action change. The response has
 /// no body data, so parse the request: `api_base_id=1,2&api_action_kind=1,1`.
 pub(super) fn apply_set_action(state: &mut models::GameStateInner, request_body: &str) -> bool {
-    let params = parse_query(request_body);
-    let area_id = params
-        .get("api_area_id")
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
+    let params =
+        serde_urlencoded::from_str::<dto::SetActionRequest>(request_body).unwrap_or_default();
+    let area_id = params.api_area_id;
     if area_id == 0 {
         return false;
     }
     let base_ids: Vec<i32> = params
-        .get("api_base_id")
-        .map(|s| {
-            s.split(',')
-                .filter_map(|tok| tok.trim().parse::<i32>().ok())
-                .collect()
-        })
-        .unwrap_or_default();
+        .api_base_id
+        .split(',')
+        .filter_map(|token| token.trim().parse::<i32>().ok())
+        .collect();
     let actions: Vec<i32> = params
-        .get("api_action_kind")
-        .map(|s| {
-            s.split(',')
-                .filter_map(|tok| tok.trim().parse::<i32>().ok())
-                .collect()
-        })
-        .unwrap_or_default();
+        .api_action_kind
+        .split(',')
+        .filter_map(|token| token.trim().parse::<i32>().ok())
+        .collect();
     if base_ids.is_empty() || base_ids.len() != actions.len() {
         warn!(
             "air_corps/set_action: malformed pairs (bases={:?} actions={:?})",
@@ -257,7 +206,7 @@ pub(super) fn apply_set_action(state: &mut models::GameStateInner, request_body:
 pub(super) fn apply_supply(
     state: &mut models::GameStateInner,
     request_body: &str,
-    api_data: &serde_json::Value,
+    api_data: &dto::PlaneUpdate,
 ) -> bool {
     apply_single_base_plane_update(state, request_body, api_data)
 }
@@ -268,37 +217,26 @@ pub(super) fn apply_supply(
 pub(super) fn apply_change_deployment(
     state: &mut models::GameStateInner,
     request_body: &str,
-    api_data: &serde_json::Value,
+    api_data: &dto::DeploymentUpdate,
 ) -> bool {
-    let params = parse_query(request_body);
-    let area_id = params
-        .get("api_area_id")
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
+    let params =
+        serde_urlencoded::from_str::<dto::AirBaseRequest>(request_body).unwrap_or_default();
+    let area_id = params.api_area_id;
     if area_id == 0 {
         return false;
     }
-    let items = match api_data.get("api_base_items").and_then(|v| v.as_array()) {
-        Some(a) => a,
-        None => return false,
-    };
-
     let profile_clone = state.profile.slotitems.clone();
     let master_clone = state.master.slotitems.clone();
     let mut changed = false;
-    for item in items {
-        let rid = item.get("api_rid").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+    for item in &api_data.api_base_items {
+        let rid = item.api_rid;
         if rid == 0 {
             continue;
         }
-        let distance = parse_distance(item.get("api_distance"));
-        let planes_arr = match item.get("api_plane_info").and_then(|v| v.as_array()) {
-            Some(a) => a,
-            None => continue,
-        };
+        let distance = parse_distance(&item.api_distance);
         if let Some(base) = find_or_insert_base(&mut state.air_bases, area_id, rid) {
             base.distance = distance;
-            for entry in planes_arr {
+            for entry in &item.api_plane_info {
                 let updated = parse_plane(entry, &profile_clone, &master_clone);
                 upsert_squadron(&mut base.planes, updated);
             }
@@ -311,25 +249,16 @@ pub(super) fn apply_change_deployment(
 fn apply_single_base_plane_update(
     state: &mut models::GameStateInner,
     request_body: &str,
-    api_data: &serde_json::Value,
+    api_data: &dto::PlaneUpdate,
 ) -> bool {
-    let params = parse_query(request_body);
-    let area_id = params
-        .get("api_area_id")
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
-    let base_id = params
-        .get("api_base_id")
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
+    let params =
+        serde_urlencoded::from_str::<dto::AirBaseRequest>(request_body).unwrap_or_default();
+    let area_id = params.api_area_id;
+    let base_id = params.api_base_id;
     if area_id == 0 || base_id == 0 {
         return false;
     }
-    let planes_arr = match api_data.get("api_plane_info").and_then(|v| v.as_array()) {
-        Some(a) => a,
-        None => return false,
-    };
-    let distance = parse_distance(api_data.get("api_distance"));
+    let distance = parse_distance(&api_data.api_distance);
 
     let profile_clone = state.profile.slotitems.clone();
     let master_clone = state.master.slotitems.clone();
@@ -338,7 +267,7 @@ fn apply_single_base_plane_update(
         None => return false,
     };
     base.distance = distance;
-    for entry in planes_arr {
+    for entry in &api_data.api_plane_info {
         let updated = parse_plane(entry, &profile_clone, &master_clone);
         upsert_squadron(&mut base.planes, updated);
     }
@@ -347,19 +276,14 @@ fn apply_single_base_plane_update(
 
 /// Apply `api_req_air_corps/change_name` — base rename. Request body has the new name.
 pub(super) fn apply_change_name(state: &mut models::GameStateInner, request_body: &str) -> bool {
-    let params = parse_query(request_body);
-    let area_id = params
-        .get("api_area_id")
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
-    let base_id = params
-        .get("api_base_id")
-        .and_then(|v| v.parse::<i32>().ok())
-        .unwrap_or(0);
-    let new_name = match params.get("api_name") {
-        Some(s) if !s.is_empty() => s.clone(),
-        _ => return false,
-    };
+    let params =
+        serde_urlencoded::from_str::<dto::ChangeNameRequest>(request_body).unwrap_or_default();
+    let area_id = params.api_area_id;
+    let base_id = params.api_base_id;
+    let new_name = params.api_name;
+    if new_name.is_empty() {
+        return false;
+    }
     if area_id == 0 || base_id == 0 {
         return false;
     }
@@ -411,53 +335,6 @@ fn upsert_squadron(planes: &mut Vec<models::AirBasePlane>, updated: models::AirB
     }
 }
 
-/// Parse a `key=value&key=value` form-encoded body into a map. We only need the
-/// fields we care about (api_area_id, api_base_id, api_squadron_id, api_action_kind);
-/// values are URL-decoded so `1%2C2` becomes `1,2`.
-fn parse_query(body: &str) -> HashMap<&str, String> {
-    let mut out = HashMap::new();
-    for pair in body.split('&') {
-        let mut it = pair.splitn(2, '=');
-        let k = match it.next() {
-            Some(k) if !k.is_empty() => k,
-            _ => continue,
-        };
-        let raw = it.next().unwrap_or("");
-        let decoded = url_decode(raw);
-        out.insert(k, decoded);
-    }
-    out
-}
-
-fn url_decode(s: &str) -> String {
-    let bytes = s.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'+' => {
-                out.push(b' ');
-                i += 1;
-            }
-            b'%' if i + 2 < bytes.len() => {
-                let h = std::str::from_utf8(&bytes[i + 1..i + 3]).ok();
-                if let Some(hex) = h.and_then(|h| u8::from_str_radix(h, 16).ok()) {
-                    out.push(hex);
-                    i += 3;
-                } else {
-                    out.push(bytes[i]);
-                    i += 1;
-                }
-            }
-            b => {
-                out.push(b);
-                i += 1;
-            }
-        }
-    }
-    String::from_utf8(out).unwrap_or_default()
-}
-
 /// Process `api_air_base_attack[]` from a battle response.
 ///
 /// For each wave entry, compute the total losses (stage1 + stage2), distribute
@@ -472,50 +349,42 @@ fn url_decode(s: &str) -> String {
 pub fn apply_battle_attack(
     state: &mut models::GameStateInner,
     current_area_id: i32,
-    api_data: &serde_json::Value,
+    api_data: &dto::BattleAirBaseAttacks,
 ) -> bool {
     if current_area_id == 0 {
         return false;
     }
-    let attacks = match api_data.get("api_air_base_attack").and_then(|v| v.as_array()) {
-        Some(a) if !a.is_empty() => a,
-        _ => return false,
-    };
+    if api_data.api_air_base_attack.is_empty() {
+        return false;
+    }
 
     let mut wave_index_for_base: HashMap<i32, i32> = HashMap::new();
     let mut changed = false;
 
-    for entry in attacks {
-        let base_id = entry
-            .get("api_base_id")
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32;
+    for entry in &api_data.api_air_base_attack {
+        let base_id = entry.api_base_id;
         if base_id == 0 {
             continue;
         }
-        let stage1 = entry.get("api_stage1");
-        let stage2 = entry.get("api_stage2");
-        let stage3 = entry.get("api_stage3");
-        let stage3_combined = entry.get("api_stage3_combined");
+        let disp_seiku = entry
+            .api_stage1
+            .as_ref()
+            .map_or(0, |stage| stage.api_disp_seiku);
+        let f_count = entry
+            .api_stage1
+            .as_ref()
+            .map_or(0, |stage| stage.api_f_count);
+        let stage1_lost = entry
+            .api_stage1
+            .as_ref()
+            .map_or(0, |stage| stage.api_f_lostcount);
+        let stage2_lost = entry
+            .api_stage2
+            .as_ref()
+            .map_or(0, |stage| stage.api_f_lostcount);
 
-        let disp_seiku = stage1
-            .and_then(|s| s.get("api_disp_seiku"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32;
-        let f_count = stage1
-            .and_then(|s| s.get("api_f_count"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32;
-        let stage1_lost = stage1
-            .and_then(|s| s.get("api_f_lostcount"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32;
-        let stage2_lost = stage2
-            .and_then(|s| s.get("api_f_lostcount"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0) as i32;
-
-        let edam_total = sum_edam(stage3) + sum_edam(stage3_combined);
+        let edam_total =
+            sum_edam(entry.api_stage3.as_ref()) + sum_edam(entry.api_stage3_combined.as_ref());
         let total_lost = stage1_lost + stage2_lost;
 
         let wave = {
@@ -607,13 +476,11 @@ fn distribute_losses(planes: &mut [models::AirBasePlane], total_lost: i32) -> Ve
     result
 }
 
-fn sum_edam(stage3: Option<&serde_json::Value>) -> i32 {
-    let arr = match stage3.and_then(|s| s.get("api_edam")).and_then(|v| v.as_array()) {
-        Some(a) => a,
-        None => return 0,
-    };
-    arr.iter()
-        .filter_map(|v| v.as_f64())
+fn sum_edam(stage3: Option<&dto::AirAttackDamage>) -> i32 {
+    stage3
+        .into_iter()
+        .flat_map(|stage| stage.api_edam.iter().flatten())
+        .copied()
         .map(|f| f.max(0.0) as i32)
         .sum()
 }
@@ -637,12 +504,9 @@ pub fn emit_air_base_update(state: &models::GameStateInner, app: &AppHandle) {
         "air-base-updated",
         &format!("{} bases", state.air_bases.len()),
     );
-    if let Err(e) = app.emit("air-base-updated", &state.air_bases) {
+    if let Err(e) = app.emit(crate::events::AIR_BASE_UPDATED, &state.air_bases) {
         warn!("Failed to emit air-base-updated: {}", e);
     } else {
-        info!(
-            "air-base-updated emitted: {} bases",
-            state.air_bases.len()
-        );
+        info!("air-base-updated emitted: {} bases", state.air_bases.len());
     }
 }

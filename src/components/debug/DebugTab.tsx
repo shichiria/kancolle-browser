@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { EVENTS } from "../../constants";
 import "./DebugTab.css";
 
 interface ClickEntry {
@@ -119,32 +120,32 @@ export function DebugTab() {
     invoke<number | null>("get_current_fleet").then(setCurrentFleet).catch(() => {});
     invoke<QuestFilters>("get_quest_filters").then(setQuestFilters).catch(() => {});
 
-    const unlistenScreen = listen<string>("screen-changed", (event) => {
+    const unlistenScreen = listen<string>(EVENTS.SCREEN_CHANGED, (event) => {
       if (pausedRef.current) return;
       setCurrentScreen(event.payload);
       setScreenChangedAt(new Date().toLocaleTimeString());
     });
 
-    const unlistenFleet = listen<number | null>("fleet-view-changed", (event) => {
+    const unlistenFleet = listen<number | null>(EVENTS.FLEET_VIEW_CHANGED, (event) => {
       if (pausedRef.current) return;
       setCurrentFleet(event.payload);
     });
 
     const unlistenQuestFilters = listen<QuestFilters>(
-      "quest-filters-changed",
+      EVENTS.QUEST_FILTERS_CHANGED,
       (event) => {
         if (pausedRef.current) return;
         setQuestFilters(event.payload);
       }
     );
 
-    const unlistenClick = listen<ClickEntry>("click-event", (event) => {
+    const unlistenClick = listen<ClickEntry>(EVENTS.CLICK_EVENT, (event) => {
       if (pausedRef.current) return;
       setClicks((prev) => [event.payload, ...prev].slice(0, MAX_ENTRIES));
     });
 
     const unlistenScreenshot = listen<ClickScreenshotPayload>(
-      "click-screenshot",
+      EVENTS.CLICK_SCREENSHOT,
       (event) => {
         if (pausedRef.current) return;
         const { ts, image } = event.payload;
@@ -154,7 +155,7 @@ export function DebugTab() {
       }
     );
 
-    const unlistenApi = listen<{ endpoint: string }>("kancolle-api", (event) => {
+    const unlistenApi = listen<{ endpoint: string }>(EVENTS.KANCOLLE_API, (event) => {
       if (pausedRef.current) return;
       const ts = new Date().toLocaleTimeString();
       setApis((prev) => [{ ts, endpoint: event.payload.endpoint }, ...prev].slice(0, MAX_ENTRIES));

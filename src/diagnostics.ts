@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import sensitiveKeys from "./sensitive-keys.json";
 
 type LogLevel = "info" | "warn" | "error" | "debug";
 
@@ -12,8 +13,11 @@ const originals = {
 };
 
 function redact(value: string): string {
+  const alternatives = sensitiveKeys
+    .map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
   return value.replace(
-    /((?:api_token|authorization|password|client_secret|access_token|refresh_token|cookie|rpctoken|st)["']?\s*[:=]\s*["']?)[^&,"'}\]\s]+/gi,
+    new RegExp(`((?:${alternatives})["']?\\s*[:=]\\s*["']?)[^&,"'}\\]\\s]+`, "gi"),
     "$1<redacted>",
   );
 }

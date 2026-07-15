@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { STORAGE_KEYS, API_QUEST_PREFIX } from "../../constants";
+import { EVENTS, STORAGE_KEYS, API_QUEST_PREFIX } from "../../constants";
 import "./SortieQuestChecker.css";
 import type {
   SortieQuestDef, ActiveQuestDetail, SortieQuestCheckResult,
@@ -114,7 +114,7 @@ export function SortieQuestChecker({
   }, [storageKey, fleetIndex, dropdownQuests]);
 
   useEffect(() => {
-    const unlisten = listen<number>("quest-started", (event) => {
+    const unlisten = listen<number>(EVENTS.QUEST_STARTED, (event) => {
       pendingStartedRef.current = event.payload;
     });
     return () => { unlisten.then((f) => f()); };
@@ -122,7 +122,7 @@ export function SortieQuestChecker({
 
   // Clear selection when any quest is stopped in game
   useEffect(() => {
-    const unlisten = listen<number>("quest-stopped", () => {
+    const unlisten = listen<number>(EVENTS.QUEST_STOPPED, () => {
       setSelectedId(null);
       setCheckResult(null);
       localStorage.removeItem(storageKey);

@@ -1,4 +1,5 @@
 use log::info;
+use tauri::Manager;
 
 /// Check if the CA certificate is installed in the system trust store
 #[tauri::command]
@@ -31,8 +32,9 @@ pub(crate) fn is_ca_installed() -> bool {
 
 /// Install the CA certificate into the system trust store.
 #[tauri::command]
-pub(crate) fn install_ca_cert() -> Result<(), String> {
-    let pem_path = crate::proxy::ca_pem_path();
+pub(crate) fn install_ca_cert(app: tauri::AppHandle) -> Result<(), String> {
+    let data_dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
+    let pem_path = crate::proxy::ca_pem_path(&data_dir);
 
     if !pem_path.exists() {
         return Err("CA certificate file not found. Proxy may not have started yet.".to_string());

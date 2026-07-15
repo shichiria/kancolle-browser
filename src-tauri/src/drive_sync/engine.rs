@@ -157,7 +157,7 @@ fn emit_status(
         last_sync: last_sync.map(|t| t.to_rfc3339()),
         error: error.map(|s| s.to_string()),
     };
-    let _ = app.emit("drive-sync-status", &status);
+    let _ = app.emit(crate::events::DRIVE_SYNC_STATUS, &status);
 }
 
 /// Setup Drive folder structure: root + subfolders.
@@ -284,7 +284,7 @@ async fn full_sync(
         // even if later targets are slow (e.g. raw_api with many files).
         if changed {
             reload_game_state(app).await;
-            let _ = app.emit("drive-data-updated", ());
+            let _ = app.emit(crate::events::DRIVE_DATA_UPDATED, ());
         }
     }
 

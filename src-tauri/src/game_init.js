@@ -1,5 +1,11 @@
 
 (function() {
+    // This script is a DMM host-page shim. It never reads or modifies the
+    // cross-origin KanColle iframe document.
+    var GAME_WIDTH = '__KC_GAME_WIDTH__px';
+    var GAME_HEIGHT = '__KC_GAME_HEIGHT__px';
+    var CONTROL_BAR_HEIGHT = '__KC_CONTROL_BAR_HEIGHT__px';
+    var LAYOUT_DIAGNOSTICS = __KC_LAYOUT_DIAGNOSTICS__;
     // Spoof navigator.userAgentData to look like Edge (instead of WebView2-flavored brands).
     // DMM appears to inspect Sec-CH-UA / userAgentData.brands and bounce non-Edge browsers
     // back to login. Without this, login succeeds but play.games.dmm.com immediately
@@ -82,18 +88,18 @@
         #area-game {
             margin: 0 !important;
             padding: 0 !important;
-            width: 1200px !important;
-            height: 720px !important;
+            width: __KC_GAME_WIDTH__px !important;
+            height: __KC_GAME_HEIGHT__px !important;
             position: relative !important;
             overflow: hidden !important;
         }
         #game_frame {
             position: fixed !important;
-            top: 28px !important;
+            top: __KC_CONTROL_BAR_HEIGHT__px !important;
             left: 0 !important;
             z-index: 10000 !important;
-            width: 1200px !important;
-            height: 720px !important;
+            width: __KC_GAME_WIDTH__px !important;
+            height: __KC_GAME_HEIGHT__px !important;
             border: none !important;
             overflow: hidden !important;
         }
@@ -103,7 +109,7 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 28px;
+            height: __KC_CONTROL_BAR_HEIGHT__px;
             z-index: 99999;
             background: #16213e;
             display: flex;
@@ -154,7 +160,7 @@
     // its wrapper markup periodically, and this makes a blank/incorrect game
     // surface diagnosable without asking the player to open DevTools.
     function reportLayout(stage) {
-        if (!isTop || !window.__TAURI_INTERNALS__) return;
+        if (!LAYOUT_DIAGNOSTICS || !isTop || !window.__TAURI_INTERNALS__) return;
         try {
             function describe(el) {
                 var rect = el.getBoundingClientRect();
@@ -187,7 +193,7 @@
         } catch(e) {}
     }
 
-    if (isTop) {
+    if (isTop && LAYOUT_DIAGNOSTICS) {
         document.addEventListener('DOMContentLoaded', function() { reportLayout('dom-content-loaded'); });
         setTimeout(function() { reportLayout('after-3s'); }, 3000);
         setTimeout(function() { reportLayout('after-10s'); }, 10000);
@@ -218,10 +224,10 @@
         frame.style.setProperty('visibility', 'visible', 'important');
         frame.style.setProperty('opacity', '1', 'important');
         frame.style.setProperty('position', 'fixed', 'important');
-        frame.style.setProperty('top', '28px', 'important');
+        frame.style.setProperty('top', CONTROL_BAR_HEIGHT, 'important');
         frame.style.setProperty('left', '0', 'important');
-        frame.style.setProperty('width', '1200px', 'important');
-        frame.style.setProperty('height', '720px', 'important');
+        frame.style.setProperty('width', GAME_WIDTH, 'important');
+        frame.style.setProperty('height', GAME_HEIGHT, 'important');
         frame.style.setProperty('z-index', '10000', 'important');
         return true;
     }

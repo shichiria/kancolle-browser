@@ -60,12 +60,13 @@ https://www.googleapis.com/auth/drive.file
 ### クレデンシャル
 
 ```rust
-const GOOGLE_CLIENT_ID: &str = "1018502336976-...";
-const GOOGLE_CLIENT_SECRET: &str = "GOCSPX-...";
+const GOOGLE_CLIENT_ID: Option<&str> = option_env!("KANCOLLE_GOOGLE_CLIENT_ID");
+const GOOGLE_CLIENT_SECRET: Option<&str> = option_env!("KANCOLLE_GOOGLE_CLIENT_SECRET");
 ```
 
-- Desktop app 向けの OAuth クレデンシャル（Google のドキュメントで非機密扱い）
-- `client_credentials()` で取得。空の場合は `None` を返し同期不可
+- Desktop app 向けの OAuth クレデンシャルをビルド環境から注入する
+- `client_credentials()` で取得。未設定または空の場合は `None` を返し同期不可
+- 漏えい時はGoogle Cloud Consoleでクライアントをローテーションして再ビルドする
 
 ### トークン永続化
 

@@ -83,12 +83,14 @@ impl HttpHandler for KanColleHandler {
                 }
             };
             let body_str = String::from_utf8_lossy(&body_bytes).to_string();
-            self.request_data.lock().unwrap().insert(ctx.client_addr, (uri, body_str));
+            crate::lock_or_recover(&self.request_data, "proxy_request_data")
+                .insert(ctx.client_addr, (uri, body_str));
 
             let full_body = http_body_util::Full::new(body_bytes);
             RequestOrResponse::Request(Request::from_parts(parts, Body::from(full_body)))
         } else {
-            self.request_data.lock().unwrap().insert(ctx.client_addr, (uri, String::new()));
+            crate::lock_or_recover(&self.request_data, "proxy_request_data")
+                .insert(ctx.client_addr, (uri, String::new()));
             RequestOrResponse::Request(req)
         }
     }
@@ -99,7 +101,12 @@ impl HttpHandler for KanColleHandler {
         res: Response<Body>,
     ) -> Response<Body> {
         // Retrieve and remove per-connection request data to prevent memory leaks
-        let (uri, req_body) = match self.request_data.lock().unwrap().remove(&ctx.client_addr) {
+        let (uri, req_body) = match crate::lock_or_recover(
+            &self.request_data,
+            "proxy_request_data",
+        )
+        .remove(&ctx.client_addr)
+        {
             Some(data) => data,
             None => {
                 log::debug!("[Proxy] no request_data for client {}, using default", ctx.client_addr);
@@ -186,7 +193,7 @@ impl KanColleHandler {
             endpoint: endpoint.clone(),
         };
 
-        if let Err(e) = self.app_handle.emit("kancolle-api", &event) {
+        if let Err(e) = self.app_handle.emit(crate::events::KANCOLLE_API, &event) {
             error!("Failed to emit API event: {}", e);
         }
 
@@ -295,22 +302,38 @@ impl KanColleHandler {
 // ---------------------------------------------------------------------------
 
 /// Directory for storing CA certificate files
-fn ca_data_dir() -> PathBuf {
+fn legacy_ca_data_dir() -> PathBuf {
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("kancolle-browser")
 }
 
 /// Get the path to the CA PEM certificate (for keychain installation)
-pub fn ca_pem_path() -> PathBuf {
-    ca_data_dir().join("ca.cert.pem")
+pub fn ca_pem_path(data_dir: &std::path::Path) -> PathBuf {
+    data_dir.join("ca.cert.pem")
 }
 
 /// Load existing CA from disk or generate a new one.
-fn load_or_generate_ca() -> Result<RcgenAuthority, Box<dyn std::error::Error + Send + Sync>> {
-    let dir = ca_data_dir();
+fn load_or_generate_ca(
+    data_dir: &std::path::Path,
+) -> Result<RcgenAuthority, Box<dyn std::error::Error + Send + Sync>> {
+    let dir = data_dir.to_path_buf();
     let key_pem_path = dir.join("ca.key.pem");
     let cert_pem_path = dir.join("ca.cert.pem");
+
+    // Preserve the already-trusted authority created by versions that used
+    // `%LOCALAPPDATA%/kancolle-browser` instead of Tauri's identifier path.
+    if !key_pem_path.exists() && !cert_pem_path.exists() {
+        let legacy = legacy_ca_data_dir();
+        let legacy_key = legacy.join("ca.key.pem");
+        let legacy_cert = legacy.join("ca.cert.pem");
+        if legacy_key.exists() && legacy_cert.exists() {
+            fs::create_dir_all(&dir)?;
+            fs::copy(legacy_key, &key_pem_path)?;
+            fs::copy(legacy_cert, &cert_pem_path)?;
+            info!("Migrated legacy CA files into {}", dir.display());
+        }
+    }
 
     if key_pem_path.exists() && cert_pem_path.exists() {
         info!("Loading existing CA from {}", dir.display());
@@ -368,8 +391,9 @@ fn load_or_generate_ca() -> Result<RcgenAuthority, Box<dyn std::error::Error + S
 pub async fn start_proxy(
     app_handle: AppHandle,
     cache_dir: PathBuf,
+    data_dir: PathBuf,
 ) -> Result<u16, Box<dyn std::error::Error + Send + Sync>> {
-    let ca = load_or_generate_ca()?;
+    let ca = load_or_generate_ca(&data_dir)?;
 
     // Use a fixed port so WKWebView treats proxy as the same origin across restarts
     // (preserving cookies/sessions). Fall back to OS-assigned port if 19080 is in use.

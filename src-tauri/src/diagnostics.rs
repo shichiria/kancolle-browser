@@ -177,20 +177,8 @@ fn truncate_utf8(value: &str, max_bytes: usize) -> &str {
 
 /// Redact common credential fields from both URL-encoded and JSON-like text.
 pub fn redact_sensitive(input: &str) -> String {
-    const KEYS: &[&str] = &[
-        "api_token",
-        "authorization",
-        "password",
-        "client_secret",
-        "access_token",
-        "refresh_token",
-        "cookie",
-        "rpctoken",
-        "st",
-    ];
-
     let mut output = input.to_string();
-    for key in KEYS {
+    for key in crate::sensitive::keys() {
         let mut search_from = 0;
         loop {
             let lower = output.to_ascii_lowercase();

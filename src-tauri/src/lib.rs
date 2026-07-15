@@ -6,30 +6,43 @@ mod commands;
 mod cookie;
 mod drive_sync;
 mod diagnostics;
+mod events;
 mod expedition;
 mod game_window;
 mod improvement;
-mod kantai;
-mod management;
 mod migration;
 mod mouse_hook;
 mod overlay;
 mod proxy;
 mod quest_progress;
-mod quests;
 mod senka;
+mod sensitive;
+mod settings;
 mod sortie_quest;
 mod ui_event;
+mod window_toggle;
 
 use log::info;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use tauri::{Emitter, Manager};
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 
 use api::models::GameState;
+
+/// Recover UI state from a poisoned mutex instead of turning one panic into a
+/// permanent crash loop. The original panic is still present in diagnostics.
+pub(crate) fn lock_or_recover<'a, T>(mutex: &'a Mutex<T>, name: &str) -> MutexGuard<'a, T> {
+    match mutex.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::error!("Recovering poisoned mutex: {}", name);
+            poisoned.into_inner()
+        }
+    }
+}
 
 /// Formation hint window offset from game window inner position (physical pixels)
 #[derive(Debug, Default, Clone, Copy)]
@@ -41,14 +54,19 @@ pub struct FormationHintRect {
     pub visible: bool,
 }
 
-/// Application state shared across the app
-pub struct AppState {
+pub struct RuntimeState {
     pub proxy_port: Mutex<u16>,
+}
+
+pub struct OverlayPrefs {
     pub game_muted: AtomicBool,
     pub formation_hint_enabled: AtomicBool,
     pub taiha_alert_enabled: AtomicBool,
     pub minimap_enabled: AtomicBool,
     pub battle_info_enabled: AtomicBool,
+}
+
+pub struct OverlayState {
     /// Last battle info data for re-display on toggle re-enable
     pub last_battle_info: Mutex<Option<crate::api::battle_info::BattleInfoData>>,
     pub expedition_notify_visible: AtomicBool,
@@ -60,6 +78,9 @@ pub struct AppState {
     pub minimap_position: Mutex<Option<(f64, f64)>>,
     /// Minimap size (logical w, h)
     pub minimap_size: Mutex<(f64, f64)>,
+}
+
+pub struct NavigationState {
     /// Currently displayed game screen, inferred from click navigation events.
     /// Used by the mouse hook to dispatch coordinate-based UI event detection.
     pub current_screen: Mutex<ui_event::Screen>,
@@ -70,6 +91,14 @@ pub struct AppState {
     pub current_quest_period: Mutex<Option<String>>,
     /// QuestList top-row category filter (出撃 / 演習 / 遠征 / 編成 / その他).
     pub current_quest_category: Mutex<Option<String>>,
+}
+
+/// Application state shared across the app, grouped by responsibility.
+pub struct AppState {
+    pub runtime: RuntimeState,
+    pub prefs: OverlayPrefs,
+    pub overlay: OverlayState,
+    pub navigation: NavigationState,
 }
 
 /// Verify the CA certificate is installed; if not, prompt the user.
@@ -101,7 +130,8 @@ async fn ensure_ca_installed(app: &tauri::AppHandle) -> bool {
     }
 
     // install_ca_cert is blocking (spawns elevated process); offload it.
-    let install_result = tokio::task::spawn_blocking(ca::install_ca_cert)
+    let install_app = app.clone();
+    let install_result = tokio::task::spawn_blocking(move || ca::install_ca_cert(install_app))
         .await
         .unwrap_or_else(|e| Err(format!("install task panicked: {}", e)));
 
@@ -197,25 +227,34 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(game_state)
         .manage(AppState {
-            proxy_port: Mutex::new(0),
-            game_muted: AtomicBool::new(false),
-            formation_hint_enabled: AtomicBool::new(true),
-            taiha_alert_enabled: AtomicBool::new(true),
-            minimap_enabled: AtomicBool::new(true),
-            battle_info_enabled: AtomicBool::new(true),
-            last_battle_info: Mutex::new(None),
-            expedition_notify_visible: AtomicBool::new(false),
-            formation_hint_rect: Mutex::new(FormationHintRect::default()),
-            game_zoom: Mutex::new(1.0),
-            minimap_position: Mutex::new(None),
-            minimap_size: Mutex::new((overlay::MINIMAP_DEFAULT_W, overlay::MINIMAP_DEFAULT_H)),
-            // Default to Unknown — the game starts on title/login screens
-            // where no Navigate buttons exist. `api_port/port` will set Homeport
-            // on first port load.
-            current_screen: Mutex::new(ui_event::Screen::Unknown),
-            current_fleet: Mutex::new(None),
-            current_quest_period: Mutex::new(None),
-            current_quest_category: Mutex::new(None),
+            runtime: RuntimeState {
+                proxy_port: Mutex::new(0),
+            },
+            prefs: OverlayPrefs {
+                game_muted: AtomicBool::new(false),
+                formation_hint_enabled: AtomicBool::new(true),
+                taiha_alert_enabled: AtomicBool::new(true),
+                minimap_enabled: AtomicBool::new(true),
+                battle_info_enabled: AtomicBool::new(true),
+            },
+            overlay: OverlayState {
+                last_battle_info: Mutex::new(None),
+                expedition_notify_visible: AtomicBool::new(false),
+                formation_hint_rect: Mutex::new(FormationHintRect::default()),
+                game_zoom: Mutex::new(1.0),
+                minimap_position: Mutex::new(None),
+                minimap_size: Mutex::new((
+                    overlay::MINIMAP_DEFAULT_W,
+                    overlay::MINIMAP_DEFAULT_H,
+                )),
+            },
+            navigation: NavigationState {
+                // Default to Unknown until the first port API arrives.
+                current_screen: Mutex::new(ui_event::Screen::Unknown),
+                current_fleet: Mutex::new(None),
+                current_quest_period: Mutex::new(None),
+                current_quest_category: Mutex::new(None),
+            },
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_proxy_port,
@@ -223,15 +262,15 @@ pub fn run() {
             ca::install_ca_cert,
             game_window::open_game_window,
             game_window::close_game_window,
-            management::show_management_window,
-            management::hide_management_window,
-            management::toggle_management_window,
-            kantai::show_kantai_window,
-            kantai::hide_kantai_window,
-            kantai::toggle_kantai_window,
-            quests::show_quests_window,
-            quests::hide_quests_window,
-            quests::toggle_quests_window,
+            window_toggle::show_management_window,
+            window_toggle::hide_management_window,
+            window_toggle::toggle_management_window,
+            window_toggle::show_kantai_window,
+            window_toggle::hide_kantai_window,
+            window_toggle::toggle_kantai_window,
+            window_toggle::show_quests_window,
+            window_toggle::hide_quests_window,
+            window_toggle::toggle_quests_window,
             commands::get_expeditions,
             commands::check_expedition_cmd,
             commands::get_sortie_quests,
@@ -250,11 +289,11 @@ pub fn run() {
             commands::set_raw_api_enabled,
             commands::get_raw_api_enabled,
             cookie::clear_cookies,
-            commands::reset_browser_data,
-            commands::get_cached_resource,
-            commands::get_map_sprite,
-            commands::clear_resource_cache,
-            commands::clear_browser_cache,
+            commands::cache::reset_browser_data,
+            commands::cache::get_cached_resource,
+            commands::cache::get_map_sprite,
+            commands::cache::clear_resource_cache,
+            commands::cache::clear_browser_cache,
             game_window::set_game_zoom,
             game_window::toggle_game_mute,
             game_window::get_game_mute,
@@ -303,133 +342,52 @@ pub fn run() {
             let sync_dir = data_dir.join("sync");
             info!("Sync dir: {}", sync_dir.display());
 
-            // Restore mute state from disk (new local/ path)
-            let mute_file = data_dir.join("local").join("game_muted");
-            if let Ok(content) = std::fs::read_to_string(&mute_file) {
-                if content.trim() == "1" {
-                    let state = app.state::<AppState>();
-                    state.game_muted.store(true, Ordering::Relaxed);
-                    info!("Restored mute state: muted");
-                }
+            let state = app.state::<AppState>();
+            state.prefs.game_muted.store(
+                settings::restore_flag(&data_dir, settings::GAME_MUTED, false),
+                Ordering::Relaxed,
+            );
+            state.prefs.formation_hint_enabled.store(
+                settings::restore_flag(&data_dir, settings::FORMATION_HINT_ENABLED, true),
+                Ordering::Relaxed,
+            );
+            state.prefs.taiha_alert_enabled.store(
+                settings::restore_flag(&data_dir, settings::TAIHA_ALERT_ENABLED, true),
+                Ordering::Relaxed,
+            );
+            state.prefs.minimap_enabled.store(
+                settings::restore_flag(&data_dir, settings::MINIMAP_ENABLED, true),
+                Ordering::Relaxed,
+            );
+            state.prefs.battle_info_enabled.store(
+                settings::restore_flag(&data_dir, settings::BATTLE_INFO_ENABLED, true),
+                Ordering::Relaxed,
+            );
+            if let Some(position) = settings::restore_json(&data_dir, settings::MINIMAP_POSITION) {
+                *lock_or_recover(&state.overlay.minimap_position, "minimap_position") =
+                    Some(position);
             }
-
-            // Restore formation hint enabled state from disk (default: enabled)
-            let hint_file = data_dir.join("local").join("formation_hint_enabled");
-            if let Ok(content) = std::fs::read_to_string(&hint_file) {
-                if content.trim() == "0" {
-                    let state = app.state::<AppState>();
-                    state.formation_hint_enabled.store(false, Ordering::Relaxed);
-                    info!("Restored formation hint state: disabled");
-                }
-            }
-
-            // Restore taiha alert enabled state from disk (default: enabled)
-            let taiha_file = data_dir.join("local").join("taiha_alert_enabled");
-            if let Ok(content) = std::fs::read_to_string(&taiha_file) {
-                if content.trim() == "0" {
-                    let state = app.state::<AppState>();
-                    state.taiha_alert_enabled.store(false, Ordering::Relaxed);
-                    info!("Restored taiha alert state: disabled");
-                }
-            }
-
-            // Restore minimap enabled state from disk (default: enabled)
-            let minimap_file = data_dir.join("local").join("minimap_enabled");
-            if let Ok(content) = std::fs::read_to_string(&minimap_file) {
-                if content.trim() == "0" {
-                    let state = app.state::<AppState>();
-                    state.minimap_enabled.store(false, Ordering::Relaxed);
-                    info!("Restored minimap state: disabled");
-                }
-            }
-
-            // Restore battle info enabled state from disk (default: enabled)
-            let battle_info_file = data_dir.join("local").join("battle_info_enabled");
-            if let Ok(content) = std::fs::read_to_string(&battle_info_file) {
-                if content.trim() == "0" {
-                    let state = app.state::<AppState>();
-                    state.battle_info_enabled.store(false, Ordering::Relaxed);
-                    info!("Restored battle info state: disabled");
-                }
-            }
-
-            // Restore minimap position from disk
-            let minimap_pos_file = data_dir.join("local").join("minimap_position.json");
-            if let Ok(content) = std::fs::read_to_string(&minimap_pos_file) {
-                if let Ok(pos) = serde_json::from_str::<(f64, f64)>(&content) {
-                    let state = app.state::<AppState>();
-                    *state.minimap_position.lock().unwrap() = Some(pos);
-                    info!("Restored minimap position: ({}, {})", pos.0, pos.1);
-                }
-            }
-
-            // Restore minimap size from disk
-            let minimap_size_file = data_dir.join("local").join("minimap_size.json");
-            if let Ok(content) = std::fs::read_to_string(&minimap_size_file) {
-                if let Ok(size) = serde_json::from_str::<(f64, f64)>(&content) {
-                    let state = app.state::<AppState>();
-                    *state.minimap_size.lock().unwrap() = size;
-                    info!("Restored minimap size: ({}, {})", size.0, size.1);
-                }
+            if let Some(size) = settings::restore_json(&data_dir, settings::MINIMAP_SIZE) {
+                *lock_or_recover(&state.overlay.minimap_size, "minimap_size") = size;
             }
 
             // Create cache directory for proxy resource caching
             let cache_dir = data_dir.join("local").join("cache");
             let _ = std::fs::create_dir_all(&cache_dir);
 
-            // Intercept management window close: hide instead of destroy so
-            // React state survives across toggles.
-            if let Some(mgmt_win) = app.get_window("management") {
-                let mgmt_handle = app.handle().clone();
-                mgmt_win.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        if let Some(win) = mgmt_handle.get_window("management") {
-                            let _ = win.hide();
-                            info!("Management close intercepted -> hidden");
-                        }
-                    }
-                });
-            }
-
-            // Same intercept for the kantai window.
-            if let Some(kantai_win) = app.get_window("kantai") {
-                let kantai_handle = app.handle().clone();
-                kantai_win.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        if let Some(win) = kantai_handle.get_window("kantai") {
-                            let _ = win.hide();
-                            info!("Kantai close intercepted -> hidden");
-                        }
-                    }
-                });
-            }
-
-            // Same intercept for the quests window.
-            if let Some(quests_win) = app.get_window("quests") {
-                let quests_handle = app.handle().clone();
-                quests_win.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        if let Some(win) = quests_handle.get_window("quests") {
-                            let _ = win.hide();
-                            info!("Quests close intercepted -> hidden");
-                        }
-                    }
-                });
-            }
+            window_toggle::intercept_close_as_hide(app.handle());
 
             let handle = app.handle().clone();
+            let proxy_data_dir = data_dir.clone();
 
             tauri::async_runtime::spawn(async move {
-                match proxy::start_proxy(handle.clone(), cache_dir).await {
+                match proxy::start_proxy(handle.clone(), cache_dir, proxy_data_dir).await {
                     Ok(port) => {
                         info!("Proxy server started on port {}", port);
                         crate::action_log::log("Event", "proxy-ready", &format!("port={}", port));
                         let state = handle.state::<AppState>();
-                        *state.proxy_port.lock().unwrap() = port;
-                        let _ = handle.emit("proxy-ready", port);
+                        *lock_or_recover(&state.runtime.proxy_port, "proxy_port") = port;
+                        let _ = handle.emit(events::PROXY_READY, port);
 
                         // CA check before opening the game window. Without a trusted
                         // CA the proxy can't intercept HTTPS, so DMM ends up in a

@@ -209,21 +209,6 @@ fn screen_from_event(event: &crate::ui_event::UiEvent) -> Option<crate::ui_event
     }
 }
 
-/// Fleet-tab-bearing screens: 編成 / 補給 / 改装 / 遠征-艦隊選択.
-/// Other screens reset `current_fleet` to None so the Debug UI doesn't
-/// show stale selections.
-#[cfg(target_os = "windows")]
-fn screen_has_fleet_tabs(screen: crate::ui_event::Screen) -> bool {
-    use crate::ui_event::Screen;
-    matches!(
-        screen,
-        Screen::FleetComposition
-            | Screen::Resupply
-            | Screen::Remodel
-            | Screen::ExpeditionFleetSelect
-    )
-}
-
 /// Extract (period, category) updates from a click event on the QuestList.
 #[cfg(target_os = "windows")]
 fn quest_filter_from_event(
@@ -253,14 +238,17 @@ fn fleet_from_event(event: &crate::ui_event::UiEvent) -> Option<u32> {
 pub async fn consume_clicks(
     mut rx: tokio::sync::mpsc::UnboundedReceiver<GameClick>,
     app: tauri::AppHandle,
-    data_dir: std::path::PathBuf,
+    _data_dir: std::path::PathBuf,
 ) {
     use log::info;
     use tauri::{Emitter, Manager};
 
     #[cfg(debug_assertions)]
     let screenshot_dir = {
-        let dir = data_dir.join("local").join("action_logs").join("screenshots");
+        let dir = _data_dir
+            .join("local")
+            .join("action_logs")
+            .join("screenshots");
         let _ = std::fs::create_dir_all(&dir);
         dir
     };
@@ -274,8 +262,10 @@ pub async fn consume_clicks(
 
     while let Some(click) = rx.recv().await {
         // Read current screen from app state
-        let current_screen =
-            *app.state::<crate::AppState>().current_screen.lock().unwrap();
+        let current_screen = *crate::lock_or_recover(
+            &app.state::<crate::AppState>().navigation.current_screen,
+            "current_screen",
+        );
 
         // Single timestamp for this click — shared by click-event payload and
         // the click-screenshot event so the Debug UI can correlate them.
@@ -295,7 +285,8 @@ pub async fn consume_clicks(
         // returns `Navigate`, side-menu click in any screen returns `SideMenuClick`).
         if let Some(new_screen) = screen_from_event(&event) {
             let state = app.state::<crate::AppState>();
-            let mut guard = state.current_screen.lock().unwrap();
+            let mut guard =
+                crate::lock_or_recover(&state.navigation.current_screen, "current_screen");
             if *guard != new_screen {
                 let prev = *guard;
                 info!("[MouseHook] Screen changed: {:?} -> {:?}", prev, new_screen);
@@ -306,29 +297,36 @@ pub async fn consume_clicks(
                 );
                 *guard = new_screen;
                 drop(guard);
-                let _ = app.emit("screen-changed", format!("{:?}", new_screen));
+                let _ = app.emit(crate::events::SCREEN_CHANGED, format!("{:?}", new_screen));
 
                 // Clear fleet selection when leaving fleet-compatible screens.
-                if !screen_has_fleet_tabs(new_screen) {
-                    let mut f_guard = state.current_fleet.lock().unwrap();
+                if !crate::api::screen::has_fleet_tabs(new_screen) {
+                    let mut f_guard =
+                        crate::lock_or_recover(&state.navigation.current_fleet, "current_fleet");
                     if f_guard.is_some() {
                         *f_guard = None;
                         drop(f_guard);
-                        let _ = app.emit("fleet-view-changed", serde_json::Value::Null);
+                        let _ = app.emit(crate::events::FLEET_VIEW_CHANGED, serde_json::Value::Null);
                     }
                 }
 
                 // Clear quest sub-state when leaving QuestList.
                 if new_screen != crate::ui_event::Screen::QuestList {
-                    let mut p = state.current_quest_period.lock().unwrap();
-                    let mut c = state.current_quest_category.lock().unwrap();
+                    let mut p = crate::lock_or_recover(
+                        &state.navigation.current_quest_period,
+                        "current_quest_period",
+                    );
+                    let mut c = crate::lock_or_recover(
+                        &state.navigation.current_quest_category,
+                        "current_quest_category",
+                    );
                     if p.is_some() || c.is_some() {
                         *p = None;
                         *c = None;
                         drop(p);
                         drop(c);
                         let _ = app.emit(
-                            "quest-filters-changed",
+                            crate::events::QUEST_FILTERS_CHANGED,
                             serde_json::json!({"period": null, "category": null}),
                         );
                     }
@@ -339,7 +337,7 @@ pub async fn consume_clicks(
         // Always emit the raw debug event so the Debug tab can show what was
         // detected for each click. Payload includes coords + JSON-encoded event.
         let _ = app.emit(
-            "click-event",
+            crate::events::CLICK_EVENT,
             serde_json::json!({
                 "ts": click_ts.clone(),
                 "x": click.x,
@@ -352,7 +350,8 @@ pub async fn consume_clicks(
         // Track current fleet selection and emit fleet-view-changed for kantai.
         if let Some(fleet) = fleet_from_event(&event) {
             let state = app.state::<crate::AppState>();
-            let mut guard = state.current_fleet.lock().unwrap();
+            let mut guard =
+                crate::lock_or_recover(&state.navigation.current_fleet, "current_fleet");
             let prev = *guard;
             if prev != Some(fleet) {
                 info!("[MouseHook] Fleet changed: {:?} -> Some({})", prev, fleet);
@@ -366,14 +365,17 @@ pub async fn consume_clicks(
             drop(guard);
             // Emit unconditionally so the kantai window stays in sync even on
             // repeated clicks of the same tab.
-            let _ = app.emit("fleet-view-changed", fleet);
+            let _ = app.emit(crate::events::FLEET_VIEW_CHANGED, fleet);
         }
 
         // Track QuestList sub-screen filters (period × category).
         if let Some((period, category)) = quest_filter_from_event(&event) {
             let state = app.state::<crate::AppState>();
             if let Some(p) = period {
-                let mut guard = state.current_quest_period.lock().unwrap();
+                let mut guard = crate::lock_or_recover(
+                    &state.navigation.current_quest_period,
+                    "current_quest_period",
+                );
                 if guard.as_deref() != Some(p) {
                     info!("[MouseHook] Quest period: {:?} -> Some({:?})", *guard, p);
                     crate::action_log::log(
@@ -385,7 +387,10 @@ pub async fn consume_clicks(
                 }
             }
             if let Some(c) = category {
-                let mut guard = state.current_quest_category.lock().unwrap();
+                let mut guard = crate::lock_or_recover(
+                    &state.navigation.current_quest_category,
+                    "current_quest_category",
+                );
                 if guard.as_deref() != Some(c) {
                     info!("[MouseHook] Quest category: {:?} -> Some({:?})", *guard, c);
                     crate::action_log::log(
@@ -396,10 +401,19 @@ pub async fn consume_clicks(
                     *guard = Some(c.to_string());
                 }
             }
-            let snap_period = state.current_quest_period.lock().unwrap().clone();
-            let snap_category = state.current_quest_category.lock().unwrap().clone();
+            let snap_period =
+                crate::lock_or_recover(
+                    &state.navigation.current_quest_period,
+                    "current_quest_period",
+                )
+                .clone();
+            let snap_category = crate::lock_or_recover(
+                &state.navigation.current_quest_category,
+                "current_quest_category",
+            )
+            .clone();
             let _ = app.emit(
-                "quest-filters-changed",
+                crate::events::QUEST_FILTERS_CHANGED,
                 serde_json::json!({
                     "period": snap_period,
                     "category": snap_category,
@@ -422,7 +436,7 @@ pub async fn consume_clicks(
                             let b64 =
                                 base64::engine::general_purpose::STANDARD.encode(&bytes);
                             let _ = app_for_ss.emit(
-                                "click-screenshot",
+                                crate::events::CLICK_SCREENSHOT,
                                 serde_json::json!({
                                     "ts": ts_for_ss,
                                     "x": cx,

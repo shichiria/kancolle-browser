@@ -31,17 +31,17 @@ impl InstalledFlowDelegate for BrowserFlowDelegate {
 /// Google Drive API scope — only access files created by this app.
 const DRIVE_SCOPE: &str = "https://www.googleapis.com/auth/drive.file";
 
-/// OAuth 2.0 client credentials (Desktop app — not confidential per Google docs).
-const GOOGLE_CLIENT_ID: &str = "1018502336976-phtmhta3sc679d185tgkin6o31s4eafu.apps.googleusercontent.com";
-const GOOGLE_CLIENT_SECRET: &str = "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";
+/// OAuth 2.0 desktop credentials supplied by the release build environment.
+/// Desktop client secrets are not confidential at runtime, but keeping the
+/// literal out of source avoids leaking live credentials through Git history.
+const GOOGLE_CLIENT_ID: Option<&str> = option_env!("KANCOLLE_GOOGLE_CLIENT_ID");
+const GOOGLE_CLIENT_SECRET: Option<&str> = option_env!("KANCOLLE_GOOGLE_CLIENT_SECRET");
 
 /// Returns the embedded client credentials, or None if not yet configured.
 pub fn client_credentials() -> Option<(&'static str, &'static str)> {
-    if GOOGLE_CLIENT_ID.is_empty() || GOOGLE_CLIENT_SECRET.is_empty() {
-        None
-    } else {
-        Some((GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET))
-    }
+    let client_id = GOOGLE_CLIENT_ID.filter(|value| !value.trim().is_empty())?;
+    let client_secret = GOOGLE_CLIENT_SECRET.filter(|value| !value.trim().is_empty())?;
+    Some((client_id, client_secret))
 }
 
 fn build_secret(client_id: &str, client_secret: &str) -> yup_oauth2::ApplicationSecret {

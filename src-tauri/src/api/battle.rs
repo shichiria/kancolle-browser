@@ -3,10 +3,10 @@ use std::collections::HashSet;
 use tauri::{AppHandle, Emitter, Manager};
 
 use super::air_corps;
-use super::models;
-use super::formation::{formation_name, show_formation_hint, hide_formation_hint};
-use super::minimap::update_minimap_overlay;
 use super::battle_info;
+use super::formation::{formation_name, hide_formation_hint, show_formation_hint};
+use super::minimap::update_minimap_overlay;
+use super::models;
 use super::notify_sync;
 
 /// Resolve the 1-based fleet positions returned in battleresult.api_escape to
@@ -130,7 +130,7 @@ pub(super) fn process_battle(
             // Emit sortie-update with the initial sortie record
             if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                 let summary = crate::battle_log::SortieRecordSummary::from(sortie);
-                let _ = app.emit("sortie-update", &summary);
+                let _ = app.emit(crate::events::SORTIE_UPDATE, &summary);
 
                 // Update minimap overlay
                 update_minimap_overlay(app, sortie);
@@ -140,7 +140,12 @@ pub(super) fn process_battle(
                     let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
                     if let Some(&formation) = state.formation_memory.get(&key) {
                         let ship_count = sortie.ships.len();
-                        info!("Formation hint: {} -> {} (ships={})", key, formation_name(formation), ship_count);
+                        info!(
+                            "Formation hint: {} -> {} (ships={})",
+                            key,
+                            formation_name(formation),
+                            ship_count
+                        );
                         show_formation_hint(app, formation, ship_count);
                     }
                 }
@@ -149,8 +154,13 @@ pub(super) fn process_battle(
         "/kcsapi/api_req_map/next" => {
             // Check for taiha (大破) ships advancing — warn the player
             let mut taiha_shown = false;
-            let taiha_enabled = app.try_state::<crate::AppState>()
-                .map(|s| s.taiha_alert_enabled.load(std::sync::atomic::Ordering::Relaxed))
+            let taiha_enabled = app
+                .try_state::<crate::AppState>()
+                .map(|s| {
+                    s.prefs
+                        .taiha_alert_enabled
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                })
                 .unwrap_or(true);
             if taiha_enabled {
                 if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
@@ -169,18 +179,35 @@ pub(super) fn process_battle(
                             let ship_ids = &state.profile.fleets[fi];
                             for (i, &ship_id) in ship_ids.iter().enumerate() {
                                 if state.sortie.escaped_ship_ids.contains(&ship_id) {
-                                    info!("Ship {} ({}) has retreated — skipping warning", ship_id, i);
+                                    info!(
+                                        "Ship {} ({}) has retreated — skipping warning",
+                                        ship_id, i
+                                    );
                                     continue;
                                 }
                                 if let Some(ship) = state.profile.ships.get(&ship_id) {
-                                    if ship.maxhp > 0 && ship.hp as f64 / ship.maxhp as f64 <= 0.25 && ship.hp > 0 {
-                                        let has_damecon = ship.slot.iter()
+                                    if ship.maxhp > 0
+                                        && ship.hp as f64 / ship.maxhp as f64 <= 0.25
+                                        && ship.hp > 0
+                                    {
+                                        let has_damecon = ship
+                                            .slot
+                                            .iter()
                                             .chain(std::iter::once(&ship.slot_ex))
                                             .any(|&slot_id| {
-                                                slot_id > 0 && state.profile.slotitems.get(&slot_id)
-                                                    .and_then(|p| state.master.slotitems.get(&p.slotitem_id))
-                                                    .map(|m| m.icon_type == 14)
-                                                    .unwrap_or(false)
+                                                slot_id > 0
+                                                    && state
+                                                        .profile
+                                                        .slotitems
+                                                        .get(&slot_id)
+                                                        .and_then(|p| {
+                                                            state
+                                                                .master
+                                                                .slotitems
+                                                                .get(&p.slotitem_id)
+                                                        })
+                                                        .map(|m| m.icon_type == 14)
+                                                        .unwrap_or(false)
                                             });
                                         if has_damecon {
                                             info!("Ship {} ({}) is taiha but has damecon — skipping warning", ship.name, i);
@@ -195,16 +222,23 @@ pub(super) fn process_battle(
                     }
                     if !taiha_names.is_empty() {
                         taiha_shown = true;
-                        warn!("TAIHA ADVANCE WARNING: {} ships critically damaged: {:?}", taiha_names.len(), taiha_names);
+                        warn!(
+                            "TAIHA ADVANCE WARNING: {} ships critically damaged: {:?}",
+                            taiha_names.len(),
+                            taiha_names
+                        );
                         if let Some(overlay) = app.get_webview("game-overlay") {
                             if let Some(win) = app.get_window("game") {
                                 if let Ok(size) = win.inner_size() {
-                                    let _ = overlay.set_position(tauri::LogicalPosition::new(0.0, 0.0));
+                                    let _ =
+                                        overlay.set_position(tauri::LogicalPosition::new(0.0, 0.0));
                                     let _ = overlay.set_size(size);
                                 }
                             }
-                            let ships_json = serde_json::to_string(&taiha_names).unwrap_or_else(|_| "[]".to_string());
-                            let _ = overlay.eval(format!("window.showTaihaWarning({})", ships_json));
+                            let ships_json = serde_json::to_string(&taiha_names)
+                                .unwrap_or_else(|_| "[]".to_string());
+                            let _ =
+                                overlay.eval(format!("window.showTaihaWarning({})", ships_json));
                         }
                     }
                 }
@@ -226,10 +260,18 @@ pub(super) fn process_battle(
                         if !taiha_shown {
                             if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                                 if let Some(node) = sortie.nodes.last() {
-                                    let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
+                                    let key = format!(
+                                        "{}-{}-{}",
+                                        sortie.map_area, sortie.map_no, node.cell_no
+                                    );
                                     if let Some(&formation) = state.formation_memory.get(&key) {
                                         let ship_count = sortie.ships.len();
-                                        info!("Formation hint: {} -> {} (ships={})", key, formation_name(formation), ship_count);
+                                        info!(
+                                            "Formation hint: {} -> {} (ships={})",
+                                            key,
+                                            formation_name(formation),
+                                            ship_count
+                                        );
                                         show_formation_hint(app, formation, ship_count);
                                     }
                                 }
@@ -239,23 +281,20 @@ pub(super) fn process_battle(
                         // Emit sortie-update for minimap real-time tracking
                         if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                             let summary = crate::battle_log::SortieRecordSummary::from(sortie);
-                            let _ = app.emit("sortie-update", &summary);
+                            let _ = app.emit(crate::events::SORTIE_UPDATE, &summary);
                             update_minimap_overlay(app, sortie);
                         }
 
                         // 1-6 goal node detection: event_id 9 = goal reached
                         if data.api_event_id == Some(9) {
-                            if let Some(sortie) =
-                                state.sortie.battle_logger.active_sortie_ref()
-                            {
+                            if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                                 if sortie.map_area == 1 && sortie.map_no == 6 {
-                                    let bonus =
-                                        crate::senka::eo_bonus_for_map(1, 6);
+                                    let bonus = crate::senka::eo_bonus_for_map(1, 6);
                                     if bonus > 0 {
                                         info!("1-6 goal reached, EO bonus: {}", bonus);
                                         state.senka.add_eo_bonus(bonus, "1-6");
                                         let summary = state.senka.summary();
-                                        let _ = app.emit("senka-updated", &summary);
+                                        let _ = app.emit(crate::events::SENKA_UPDATED, &summary);
                                         notify_sync(
                                             state,
                                             vec![crate::senka::SenkaTracker::sync_path()],
@@ -302,7 +341,12 @@ pub(super) fn process_battle(
                             .unwrap_or(0);
                         if area_id != 0 {
                             if let Some(api_data_json) = json.get("api_data") {
-                                if air_corps::apply_battle_attack(state, area_id, api_data_json) {
+                                let attacks =
+                                    serde_json::from_value::<
+                                        super::dto::air_corps::BattleAirBaseAttacks,
+                                    >(api_data_json.clone())
+                                    .unwrap_or_default();
+                                if air_corps::apply_battle_attack(state, area_id, &attacks) {
                                     air_corps::emit_air_base_update(state, app);
                                 }
                             }
@@ -312,12 +356,24 @@ pub(super) fn process_battle(
                         if let Some(arr) = &data.api_formation {
                             let friendly_formation = arr.first().copied().unwrap_or(0);
                             if friendly_formation > 0 {
-                                if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
+                                if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref()
+                                {
                                     if let Some(node) = sortie.nodes.last() {
-                                        let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
-                                        info!("Formation saved: {} = {} ({})", key, friendly_formation, formation_name(friendly_formation));
+                                        let key = format!(
+                                            "{}-{}-{}",
+                                            sortie.map_area, sortie.map_no, node.cell_no
+                                        );
+                                        info!(
+                                            "Formation saved: {} = {} ({})",
+                                            key,
+                                            friendly_formation,
+                                            formation_name(friendly_formation)
+                                        );
                                         state.formation_memory.insert(key, friendly_formation);
-                                        models::save_formation_memory(&state.formation_memory_path, &state.formation_memory);
+                                        models::save_formation_memory(
+                                            &state.formation_memory_path,
+                                            &state.formation_memory,
+                                        );
                                         notify_sync(state, vec!["formation_memory.json"]);
                                     }
                                 }
@@ -330,7 +386,9 @@ pub(super) fn process_battle(
                         if let Some(arr) = &data.api_formation {
                             if arr.len() >= 3 {
                                 let engagement_id = arr[2];
-                                let air_id = data.api_kouku.as_ref()
+                                let air_id = data
+                                    .api_kouku
+                                    .as_ref()
                                     .and_then(|k| k.api_stage1.as_ref())
                                     .and_then(|s| s.api_disp_seiku);
                                 let (air_text, air_color) = air_id
@@ -347,8 +405,10 @@ pub(super) fn process_battle(
                                     lbas_waves.len()
                                 );
                                 let info_data = battle_info::BattleInfoData {
-                                    engagement: battle_info::engagement_name(engagement_id).to_string(),
-                                    engagement_color: battle_info::engagement_color(engagement_id).to_string(),
+                                    engagement: battle_info::engagement_name(engagement_id)
+                                        .to_string(),
+                                    engagement_color: battle_info::engagement_color(engagement_id)
+                                        .to_string(),
                                     air_control: air_text.to_string(),
                                     air_control_color: air_color.to_string(),
                                     lbas_waves,
@@ -377,14 +437,22 @@ pub(super) fn process_battle(
                         state.sortie.battle_logger.on_midnight_battle(&data, json);
 
                         // Show battle info for night-start battles (sp_midnight, ec_night_to_day)
-                        if endpoint.contains("sp_midnight") || endpoint.contains("ec_night_to_day") {
+                        if endpoint.contains("sp_midnight") || endpoint.contains("ec_night_to_day")
+                        {
                             if let Some(arr) = &data.api_formation {
                                 if arr.len() >= 3 {
                                     let engagement_id = arr[2];
-                                    info!("[Battle] night-start overlay: engagement={}", engagement_id);
+                                    info!(
+                                        "[Battle] night-start overlay: engagement={}",
+                                        engagement_id
+                                    );
                                     let info_data = battle_info::BattleInfoData {
-                                        engagement: battle_info::engagement_name(engagement_id).to_string(),
-                                        engagement_color: battle_info::engagement_color(engagement_id).to_string(),
+                                        engagement: battle_info::engagement_name(engagement_id)
+                                            .to_string(),
+                                        engagement_color: battle_info::engagement_color(
+                                            engagement_id,
+                                        )
+                                        .to_string(),
                                         air_control: String::new(),
                                         air_control_color: String::new(),
                                         lbas_waves: Vec::new(),
@@ -401,8 +469,7 @@ pub(super) fn process_battle(
         // The game sends this only after the player accepts the retreat prompt.
         // ship_deck still contains retreated ships, so remember them separately
         // for the rest of the sortie's taiha checks.
-        "/kcsapi/api_req_sortie/goback_port"
-        | "/kcsapi/api_req_combined_battle/goback_port" => {
+        "/kcsapi/api_req_sortie/goback_port" | "/kcsapi/api_req_combined_battle/goback_port" => {
             let confirmed = std::mem::take(&mut state.sortie.pending_escape_ship_ids);
             if confirmed.is_empty() {
                 warn!("Retreat confirmed without pending escape ships");
@@ -422,7 +489,8 @@ pub(super) fn process_battle(
                 Ok(resp) => {
                     if let Some(data) = resp.api_data {
                         state
-                            .sortie.battle_logger
+                            .sortie
+                            .battle_logger
                             .on_battle_result(&data, json, &master_ships);
                     }
                 }
@@ -535,7 +603,7 @@ pub(super) fn process_battle(
                             }
                         }
                     }
-                    let _ = app.emit("port-data", &*cached);
+                    let _ = app.emit(crate::events::PORT_DATA, &*cached);
                     info!("Re-emitted port-data with updated battle HP");
                 }
 
@@ -591,7 +659,7 @@ pub(super) fn process_battle(
                             &defs,
                             &path,
                         );
-                        let _ = app.emit("quest-progress-updated", &progress);
+                        let _ = app.emit(crate::events::QUEST_PROGRESS_UPDATED, &progress);
                     }
                 }
             }
@@ -636,18 +704,15 @@ pub(super) fn process_battle(
 
                 if senka_changed {
                     let summary = state.senka.summary();
-                    let _ = app.emit("senka-updated", &summary);
-                    notify_sync(
-                        state,
-                        vec![crate::senka::SenkaTracker::sync_path()],
-                    );
+                    let _ = app.emit(crate::events::SENKA_UPDATED, &summary);
+                    notify_sync(state, vec![crate::senka::SenkaTracker::sync_path()]);
                 }
             }
 
             // Emit sortie-update event for real-time frontend updates
             if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                 let summary = crate::battle_log::SortieRecordSummary::from(sortie);
-                let _ = app.emit("sortie-update", &summary);
+                let _ = app.emit(crate::events::SORTIE_UPDATE, &summary);
                 update_minimap_overlay(app, sortie);
             }
         }
@@ -658,60 +723,7 @@ pub(super) fn process_battle(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::escape_ship_ids;
-    use serde_json::json;
-    use std::collections::HashSet;
-
-    #[test]
-    fn resolves_retreat_ship_from_recorded_sortie_result() {
-        let fleets = vec![
-            vec![],
-            vec![],
-            vec![79689, 101, 138361, 44105, 7310, 8906, 21292],
-        ];
-        let api_data = json!({
-            "api_escape": {
-                "api_escape_idx": [4],
-                "api_escape_type": 1
-            }
-        });
-
-        assert_eq!(
-            escape_ship_ids(&fleets, &[2], &api_data),
-            HashSet::from([44105])
-        );
-    }
-
-    #[test]
-    fn resolves_escape_and_tow_positions_across_combined_fleets() {
-        let fleets = vec![vec![11, 12, 13], vec![21, 22, 23]];
-        let api_data = json!({
-            "api_escape": {
-                "api_escape_idx": [2],
-                "api_tow_idx": [8]
-            }
-        });
-
-        assert_eq!(
-            escape_ship_ids(&fleets, &[0, 1], &api_data),
-            HashSet::from([12, 22])
-        );
-    }
-
-    #[test]
-    fn ignores_missing_and_out_of_range_escape_positions() {
-        let fleets = vec![vec![11, 12]];
-        let api_data = json!({
-            "api_escape": {
-                "api_escape_idx": [0, 3]
-            }
-        });
-
-        assert!(escape_ship_ids(&fleets, &[0], &api_data).is_empty());
-        assert!(escape_ship_ids(&fleets, &[0], &json!({})).is_empty());
-    }
-}
+mod tests;
 
 /// Process exercise battle result (api_req_practice/battle_result)
 pub(super) fn process_exercise_result(
@@ -725,7 +737,7 @@ pub(super) fn process_exercise_result(
     if data.api_get_exp > 0 {
         state.senka.add_battle_exp(data.api_get_exp, "演習");
         let summary = state.senka.summary();
-        let _ = app.emit("senka-updated", &summary);
+        let _ = app.emit(crate::events::SENKA_UPDATED, &summary);
         notify_sync(state, vec![crate::senka::SenkaTracker::sync_path()]);
     }
 
@@ -747,6 +759,6 @@ pub(super) fn process_exercise_result(
             &defs,
             &path,
         );
-        let _ = app.emit("quest-progress-updated", &progress);
+        let _ = app.emit(crate::events::QUEST_PROGRESS_UPDATED, &progress);
     }
 }

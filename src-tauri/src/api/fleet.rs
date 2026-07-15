@@ -122,7 +122,8 @@ pub(super) fn process_hensei_preset_select(
 /// Build and emit fleet summaries to the frontend
 pub(super) fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle) {
     let fleets: Vec<models::FleetSummary> = state
-        .profile.fleets
+        .profile
+        .fleets
         .iter()
         .enumerate()
         .map(|(i, ship_ids)| {
@@ -172,8 +173,12 @@ pub(super) fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle)
         })
         .collect();
 
-    crate::action_log::log("Event", "fleet-updated", &format!("{} fleets", fleets.len()));
-    match app.emit("fleet-updated", &fleets) {
+    crate::action_log::log(
+        "Event",
+        "fleet-updated",
+        &format!("{} fleets", fleets.len()),
+    );
+    match app.emit(crate::events::FLEET_UPDATED, &fleets) {
         Ok(_) => info!("fleet-updated event emitted: {} fleets", fleets.len()),
         Err(e) => error!("Failed to emit fleet-updated: {}", e),
     }

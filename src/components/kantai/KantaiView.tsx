@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { EVENTS } from "../../constants";
 import { FleetPanel } from "../homeport/FleetPanel";
 import { AirBaseTab } from "./AirBaseTab";
 import "./KantaiView.css";
@@ -68,7 +69,7 @@ export function KantaiView({
   // Payload is null when the user navigates away from a fleet-bearing screen;
   // we keep the last selection in that case rather than resetting.
   useEffect(() => {
-    const unlisten = listen<number | null>("fleet-view-changed", (event) => {
+    const unlisten = listen<number | null>(EVENTS.FLEET_VIEW_CHANGED, (event) => {
       const fleet = event.payload;
       if (typeof fleet === "number" && fleet >= 1 && fleet <= 4) {
         setSelectedTab(fleet);
@@ -81,7 +82,7 @@ export function KantaiView({
 
   useEffect(() => {
     invoke<AirBase[]>("get_air_bases").then(setAirBases).catch(() => {});
-    const unlisten = listen<AirBase[]>("air-base-updated", (event) => {
+    const unlisten = listen<AirBase[]>(EVENTS.AIR_BASE_UPDATED, (event) => {
       setAirBases(event.payload);
     });
     return () => {
@@ -177,4 +178,3 @@ export function KantaiView({
     </div>
   );
 }
-
