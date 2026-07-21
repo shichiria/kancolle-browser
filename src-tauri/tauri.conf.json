@@ -37,6 +37,24 @@
         "minWidth": 400,
         "minHeight": 400,
         "visible": false
+      },
+      {
+        "label": "improvement",
+        "title": "KanColle Browser - 改修",
+        "width": 1100,
+        "height": 800,
+        "minWidth": 600,
+        "minHeight": 400,
+        "visible": false
+      },
+      {
+        "label": "ships",
+        "title": "KanColle Browser - 艦娘",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 600,
+        "minHeight": 400,
+        "visible": false
       }
     ],
     "macOSPrivateApi": true,

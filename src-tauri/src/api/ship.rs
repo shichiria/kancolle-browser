@@ -66,6 +66,7 @@ pub(super) fn build_ship_info(ship: &models::PlayerShip, master: Option<&models:
         slot: extract_slot_ids(&ship.api_slot),
         slot_ex: ship.api_slot_ex,
         soku: ship.api_soku,
+        sally_area: ship.api_sally_area,
     }
 }
 

@@ -241,6 +241,7 @@ pub(crate) async fn get_ship_list(
                 los: info.los,
                 luck: info.luck,
                 locked: info.locked,
+                sally_area: info.sally_area,
             }
         })
         .collect();

@@ -7,7 +7,7 @@ export interface ConditionResult {
   required_value: string;
 }
 
-export type TabId = "homeport" | "battle" | "improvement" | "ships" | "equips" | "options" | "debug";
+export type TabId = "homeport" | "battle" | "equips" | "options" | "debug";
 
 export interface DriveStatus {
   authenticated: boolean;

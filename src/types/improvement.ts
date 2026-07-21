@@ -7,6 +7,13 @@ export interface ConsumedEquipInfo {
   owned: number; // unlocked count
 }
 
+/** A ship that can act as today's 担当艦 (2nd-slot helper) for an improvement. */
+export interface ImprovementHelperShip {
+  name: string;
+  /** Highest level among the owned copies; null if not owned. */
+  level: number | null;
+}
+
 export interface ImprovementItem {
   eq_id: number;
   name: string;
@@ -14,7 +21,7 @@ export interface ImprovementItem {
   type_name: string;
   sort_value: number;
   available_today: boolean;
-  today_helpers: string[];
+  today_helpers: ImprovementHelperShip[];
   matches_secretary: boolean;
   previously_improved: boolean;
   consumed_equips: ConsumedEquipInfo[];

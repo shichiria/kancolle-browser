@@ -19,6 +19,8 @@ export interface ShipListItem {
   los: number;
   luck: number;
   locked: boolean;
+  /** 出撃札 (api_sally_area): 0 = 札なし, N = 札N */
+  sally_area: number;
 }
 
 export interface ShipListResponse {
@@ -26,4 +28,4 @@ export interface ShipListResponse {
   stypes: [number, string][];
 }
 
-export type ShipSortKey = "lv" | "name" | "stype" | "firepower" | "torpedo" | "aa" | "armor" | "asw" | "evasion" | "los" | "luck" | "cond" | "locked";
+export type ShipSortKey = "lv" | "name" | "stype" | "firepower" | "torpedo" | "aa" | "armor" | "asw" | "evasion" | "los" | "luck" | "cond" | "locked" | "sally";

@@ -1381,6 +1381,26 @@ mod suite2_data_transformation {
         assert_eq!(info.slot, vec![1001, 1002, -1, -1, -1]);
         assert_eq!(info.slot_ex, 2001);
         assert_eq!(info.soku, 10);
+        // 札はイベント期間外のレスポンスには存在しない → 0 (札なし)
+        assert_eq!(info.sally_area, 0);
+    }
+
+    /// 出撃札 (`api_sally_area`) はイベント中のみ非0で返る。
+    /// 実測 (2026-07-15 api_port): 613隻中 札1=9隻 / 札2=2隻 / 残り 0。
+    #[test]
+    fn test_build_ship_info_sally_area() {
+        let tagged: models::PlayerShip = serde_json::from_value(serde_json::json!({
+            "api_id": 1, "api_ship_id": 141, "api_lv": 123, "api_sally_area": 2
+        }))
+        .expect("Failed to parse PlayerShip");
+        assert_eq!(ship::build_ship_info(&tagged, None).sally_area, 2);
+
+        // フィールドが無い (イベント期間外) 場合は 0 にフォールバック
+        let untagged: models::PlayerShip = serde_json::from_value(serde_json::json!({
+            "api_id": 2, "api_ship_id": 141, "api_lv": 123
+        }))
+        .expect("Failed to parse PlayerShip");
+        assert_eq!(ship::build_ship_info(&untagged, None).sally_area, 0);
     }
 
     #[test]

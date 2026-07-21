@@ -155,7 +155,18 @@ export function ImprovementTab({ portDataVersion }: { portDataVersion: number })
             )}
             <span className="imp-helpers">
               {item.today_helpers.length > 0
-                ? item.today_helpers.join(", ")
+                ? item.today_helpers.map((helper) => (
+                  <span
+                    key={helper.name}
+                    className={`imp-helper${helper.level === null ? " imp-helper-missing" : ""}`}
+                    title={helper.level === null ? `${helper.name} (未所持)` : `${helper.name} Lv${helper.level}`}
+                  >
+                    {helper.name}
+                    {helper.level !== null && (
+                      <span className="imp-helper-lv">Lv{helper.level}</span>
+                    )}
+                  </span>
+                ))
                 : "-"}
             </span>
           </div>

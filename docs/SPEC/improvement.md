@@ -6,6 +6,8 @@
 
 明石の工廠で実施可能な装備改修を一覧表示する機能。曜日・二番艦によって利用可能な改修が変化するゲーム仕様に対応し、本日改修可能な装備を視覚的に区別して表示する。
 
+**表示先**: 独立ウィンドウ `improvement` (1100x800, hide-on-close)。ゲームウィンドウ上部バーの 🔧 改修 ボタン (`toggle_improvement_window`) で開閉する。management ウィンドウのタブではない。
+
 ---
 
 ## 1. データソース: equipment_upgrades.json
@@ -152,10 +154,15 @@ pub struct ImprovementItem {
     pub type_name: String,         // 装備種名（「小口径主砲」等）
     pub sort_value: i32,           // 装備種に応じたステータス値
     pub available_today: bool,     // 本日改修可能か
-    pub today_helpers: Vec<String>,// 本日の担当艦名リスト
+    pub today_helpers: Vec<ImprovementHelperShip>, // 本日の担当艦
     pub matches_secretary: bool,   // 現在の二番艦が担当艦か
     pub previously_improved: bool, // 過去に改修実績があるか
     pub consumed_equips: Vec<ConsumedEquipInfo>,
+}
+
+pub struct ImprovementHelperShip {
+    pub name: String,
+    pub level: Option<i32>,  // 所持している同一マスターIDの最高Lv。未所持は None
 }
 
 pub struct ConsumedEquipInfo {
@@ -181,7 +188,9 @@ pub struct ConsumedEquipInfo {
    d. 各改修パスの helpers をチェック:
       - days に今日が含まれるか → available_today
       - ship_ids に現在の二番艦が含まれるか → matches_secretary
-      - 該当する艦名を today_helpers に集約
+      - 該当する艦名を today_helpers に集約 (艦名で重複排除)
+        - Lv は事前構築した owned_levels (master ship_id → 所持最高Lv) から引く
+        - 改造段階ごとにマスターIDが異なるため、ship_id でそのまま突合できる
    e. improved_equipment 履歴に含まれるか → previously_improved
    f. costs から消費装備を集約（全パスの最大値を採用）
       - ロックされていない同装備の所持数を計算
@@ -288,6 +297,11 @@ interface ConsumedEquipInfo {
   owned: number;
 }
 
+interface ImprovementHelperShip {
+  name: string;
+  level: number | null;  // 未所持は null
+}
+
 interface ImprovementItem {
   eq_id: number;
   name: string;
@@ -295,7 +309,7 @@ interface ImprovementItem {
   type_name: string;
   sort_value: number;
   available_today: boolean;
-  today_helpers: string[];
+  today_helpers: ImprovementHelperShip[];
   matches_secretary: boolean;
   previously_improved: boolean;
   consumed_equips: ConsumedEquipInfo[];

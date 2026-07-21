@@ -294,6 +294,8 @@
             + '<button id="kc-battle-info" title="\u{6226}\u{95D8}\u{60C5}\u{5831}">\u{2694} \u{6226}\u{95D8}</button>'
             + '<button id="kc-quest" title="\u{4EFB}\u{52D9}\u{30A6}\u{30A3}\u{30F3}\u{30C9}\u{30A6}">\u{1F4DC} \u{4EFB}\u{52D9}</button>'
             + '<button id="kc-kantai" title="\u{8266}\u{968A}\u{30D1}\u{30CD}\u{30EB}">\u{2693} \u{8266}\u{968A}</button>'
+            + '<button id="kc-improve" title="\u{6539}\u{4FEE}\u{30A6}\u{30A3}\u{30F3}\u{30C9}\u{30A6}">\u{1F527} \u{6539}\u{4FEE}</button>'
+            + '<button id="kc-ships" title="\u{8266}\u{5A18}\u{30A6}\u{30A3}\u{30F3}\u{30C9}\u{30A6}">\u{1F467} \u{8266}\u{5A18}</button>'
             + '<span class="spacer"></span>'
             + '<span class="label">KanColle Browser</span>'
             + '<button id="kc-mgmt" title="\u{7BA1}\u{7406}\u{30D1}\u{30CD}\u{30EB}">\u{1F4CA} \u{7BA1}\u{7406}</button>';
@@ -420,6 +422,18 @@
         var questBtn = document.getElementById('kc-quest');
         questBtn.addEventListener('click', function() {
             window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_quests_window');
+        });
+
+        // Improvement (\u{6539}\u{4FEE}) window toggle
+        var improveBtn = document.getElementById('kc-improve');
+        improveBtn.addEventListener('click', function() {
+            window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_improvement_window');
+        });
+
+        // Ship list (\u{8266}\u{5A18}) window toggle
+        var shipsBtn = document.getElementById('kc-ships');
+        shipsBtn.addEventListener('click', function() {
+            window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_ships_window');
         });
     }
 

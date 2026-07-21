@@ -2,6 +2,16 @@
    Improvement Tab
    =========================================================================== */
 
+/* Standalone window root (label="improvement") */
+.improvement-window {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
 .improvement-tab {
   display: flex;
   flex-direction: column;
@@ -214,7 +224,33 @@
   min-width: 0;
 }
 
+/* 担当艦: name + owned level. Kept inline so the row still ellipsises. */
+.imp-helper + .imp-helper::before {
+  content: ", ";
+  color: #666;
+}
+
+.imp-helper-lv {
+  margin-left: 2px;
+  font-size: 9px;
+  color: #26c6da;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Not owned — dimmed, no level to show */
+.imp-helper.imp-helper-missing {
+  color: #555;
+}
+
 .imp-row.imp-unavailable .imp-helpers {
   color: #333;
+}
+
+.imp-row.imp-unavailable .imp-helper-lv {
+  color: #444;
+}
+
+.imp-row.imp-unavailable .imp-helper.imp-helper-missing {
+  color: #2a2a2a;
 }
 

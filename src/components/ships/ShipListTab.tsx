@@ -6,12 +6,24 @@ import "../common/ListTable.css";
 import "./ShipListTab.css";
 import type { ShipListItem, ShipListResponse, ShipSortKey } from "../../types";
 
+// 出撃札 (api_sally_area). The API only exposes a number — the in-game label and
+// colour live in the game's UI assets — so tags are shown as 札N with a stable
+// colour per index.
+const SALLY_COLORS = [
+  "#e94560", "#26c6da", "#ffb300", "#66bb6a",
+  "#ab47bc", "#42a5f5", "#ff7043", "#8d6e63",
+];
+
+const sallyColor = (area: number) =>
+  SALLY_COLORS[(area - 1) % SALLY_COLORS.length] ?? "#90a4ae";
+
 export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
   const [data, setData] = useState<ShipListResponse | null>(null);
   const [stypeFilters, setStypeFilters] = useState<Set<number>>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SHIP_STYPE_FILTERS);
     return saved ? new Set(JSON.parse(saved) as number[]) : new Set();
   });
+  const [sallyFilters, setSallyFilters] = useState<Set<number>>(new Set());
   const [sortKey, setSortKey] = useState<ShipSortKey>("lv");
   const [sortAsc, setSortAsc] = useState(false);
 
@@ -31,6 +43,16 @@ export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
       }
     }
     return Array.from(typeMap.entries()).sort((a, b) => a[0] - b[0]);
+  }, [data]);
+
+  // 札 present in the data (events only). Empty outside events → filter row hidden.
+  const sallyAreas = useMemo(() => {
+    if (!data) return [];
+    const seen = new Set<number>();
+    for (const ship of data.ships) {
+      if (ship.sally_area > 0) seen.add(ship.sally_area);
+    }
+    return [...seen].sort((a, b) => a - b);
   }, [data]);
 
   const handleSort = (key: ShipSortKey) => {
@@ -60,14 +82,27 @@ export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
     localStorage.removeItem(STORAGE_KEYS.SHIP_STYPE_FILTERS);
   };
 
+  const toggleSally = (area: number) => {
+    setSallyFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(area)) next.delete(area);
+      else next.add(area);
+      return next;
+    });
+  };
+
   const displayShips = useMemo(() => {
     if (!data) return [];
     let ships = data.ships;
     if (stypeFilters.size > 0) {
       ships = ships.filter((s) => stypeFilters.has(s.stype));
     }
+    if (sallyFilters.size > 0) {
+      ships = ships.filter((s) => sallyFilters.has(s.sally_area));
+    }
     const numericKeys: Record<string, (s: ShipListItem) => number> = {
       lv: (s) => s.lv,
+      sally: (s) => s.sally_area,
       firepower: (s) => s.firepower,
       torpedo: (s) => s.torpedo,
       aa: (s) => s.aa,
@@ -92,7 +127,7 @@ export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
       }
       return sortAsc ? cmp : -cmp;
     });
-  }, [data, stypeFilters, sortKey, sortAsc]);
+  }, [data, stypeFilters, sallyFilters, sortKey, sortAsc]);
 
   if (!data) {
     return (
@@ -114,11 +149,43 @@ export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
     <div className="ship-list-tab">
       <div className="list-header">
         <span className="list-count">
-          {stypeFilters.size > 0
+          {stypeFilters.size > 0 || sallyFilters.size > 0
             ? `${displayShips.length}/${data.ships.length}隻`
             : `${data.ships.length}隻`}
         </span>
       </div>
+      {sallyAreas.length > 0 && (
+        <div className="list-filters sally-filters">
+          <span className="sally-filters-label">出撃札</span>
+          {sallyAreas.map((area) => (
+            <button
+              key={area}
+              className={`list-filter-btn sally-filter-btn ${sallyFilters.has(area) ? "active" : ""}`}
+              style={{ borderColor: sallyColor(area), color: sallyFilters.has(area) ? "#fff" : sallyColor(area) }}
+              onClick={() => toggleSally(area)}
+            >
+              札{area}
+              <span className="sally-filter-count">
+                {data.ships.filter((s) => s.sally_area === area).length}
+              </span>
+            </button>
+          ))}
+          <button
+            className={`list-filter-btn sally-filter-btn ${sallyFilters.has(0) ? "active" : ""}`}
+            onClick={() => toggleSally(0)}
+          >
+            札なし
+            <span className="sally-filter-count">
+              {data.ships.filter((s) => s.sally_area === 0).length}
+            </span>
+          </button>
+          {sallyFilters.size > 0 && (
+            <button className="list-filter-clear" onClick={() => setSallyFilters(new Set())}>
+              解除
+            </button>
+          )}
+        </div>
+      )}
       <div className="list-filters">
         {stypes.map(([id, name]) => (
           <button
@@ -140,6 +207,7 @@ export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
           <thead>
             <tr>
               <th className="col-name sortable" onClick={() => handleSort("name")}>名前{sortIndicator("name")}</th>
+              <th className="col-sally sortable" onClick={() => handleSort("sally")}>札{sortIndicator("sally")}</th>
               <th className="col-stype sortable" onClick={() => handleSort("stype")}>艦種{sortIndicator("stype")}</th>
               <th className="col-num sortable" onClick={() => handleSort("lv")}>Lv{sortIndicator("lv")}</th>
               <th className="col-num sortable" onClick={() => handleSort("firepower")}>火力{sortIndicator("firepower")}</th>
@@ -158,6 +226,17 @@ export function ShipListTab({ portDataVersion }: { portDataVersion: number }) {
             {displayShips.map((ship) => (
               <tr key={ship.id} className={ship.locked ? "" : "unlocked"}>
                 <td className="col-name">{ship.name}</td>
+                <td className="col-sally">
+                  {ship.sally_area > 0 && (
+                    <span
+                      className="sally-badge"
+                      style={{ background: sallyColor(ship.sally_area) }}
+                      title={`出撃札 ${ship.sally_area}`}
+                    >
+                      {ship.sally_area}
+                    </span>
+                  )}
+                </td>
                 <td className="col-stype">{ship.stype_name}</td>
                 <td className="col-num">{ship.lv}</td>
                 <td className="col-num">{ship.firepower}</td>

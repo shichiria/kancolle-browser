@@ -80,6 +80,10 @@ pub struct ShipInfo {
     pub slot_ex: i32,
     /// Speed: 5=低速, 10=高速, 15=高速+, 20=最速
     pub soku: i32,
+    /// 出撃札 (`api_sally_area`): 0 = 札なし, N = 札N。
+    /// イベント海域に出撃すると付与され、以降その札が許可された海域にしか出せない。
+    /// 札の名称はAPIに含まれない (ゲーム側のUI素材のみ) ため番号で扱う。
+    pub sally_area: i32,
 }
 
 /// Player equipment instance

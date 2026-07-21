@@ -173,6 +173,9 @@ pub struct PlayerShip {
     /// Speed: 5=低速, 10=高速, 15=高速+, 20=最速
     #[serde(default)]
     pub api_soku: i32,
+    /// 出撃札: 0 = 札なし, N = 札N (イベント期間中のみ非0になる)
+    #[serde(default)]
+    pub api_sally_area: i32,
     /// Capture all other fields without strongly typing them
     #[serde(flatten)]
     _extra: serde_json::Value,

@@ -9,3 +9,53 @@
   flex: 1;
   overflow: hidden;
 }
+
+/* Standalone window root (label="ships") */
+.ships-window {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  transform-origin: top left;
+}
+
+/* ── 出撃札 (api_sally_area) ── */
+.sally-filters {
+  align-items: center;
+  gap: 4px;
+}
+
+.sally-filters-label {
+  font-size: 9px;
+  color: #888;
+  margin-right: 2px;
+}
+
+.sally-filter-btn.active {
+  background: #0f3460;
+}
+
+.sally-filter-count {
+  margin-left: 4px;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+}
+
+.col-sally {
+  width: 28px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.sally-badge {
+  display: inline-block;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 3px;
+  color: #10101c;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}

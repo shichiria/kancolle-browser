@@ -492,9 +492,7 @@ App.tsx (useState)
 │  React SPA (管理UI)         │  hide-on-close (コントロールバー📊で開閉)
 │  ├ 母港タブ                  │
 │  ├ 戦闘ログタブ              │
-│  ├ 艦船一覧タブ              │
 │  ├ 装備一覧タブ              │
-│  ├ 改修タブ                  │
 │  ├ Debugタブ                 │
 │  └ 設定タブ                  │
 └─────────────────────────────┘
@@ -508,6 +506,16 @@ App.tsx (useState)
 │  Quests Window ("quests")   │  800x800, hide-on-close (📜で開閉)
 │  任務ビュー (QuestTab)       │  同一Reactバンドル (window label で分岐)
 └─────────────────────────────┘
+
+┌──────────────────────────────────┐
+│  Improvement Window              │  1100x800, hide-on-close (🔧で開閉)
+│  改修ビュー (ImprovementTab)      │  同一Reactバンドル (window label で分岐)
+└──────────────────────────────────┘
+
+┌──────────────────────────────────┐
+│  Ships Window ("ships")          │  1200x800, hide-on-close (👧で開閉)
+│  艦娘一覧 (ShipListTab)           │  出撃札 (api_sally_area) 表示/フィルタ
+└──────────────────────────────────┘
 
 ┌─────────────────────────────┐
 │  Game Window ("game")       │  1200x748 (1200x720 + 28px control bar)

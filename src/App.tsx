@@ -25,13 +25,18 @@ import { DebugTab } from "./components/debug";
 
 // View mode is decided once at startup from the Tauri window label.
 // Each window loads the same React bundle; the label distinguishes them.
-//   label="management" → full SPA (toolbar + tabs)
-//   label="kantai"     → fleet-only view
-const VIEW_MODE: "management" | "kantai" | "quests" = (() => {
+//   label="management"  → full SPA (toolbar + tabs)
+//   label="kantai"      → fleet-only view
+//   label="quests"      → quest-only view
+//   label="improvement" → 改修 arsenal-only view
+//   label="ships"       → 艦娘一覧-only view
+const VIEW_MODE: "management" | "kantai" | "quests" | "improvement" | "ships" = (() => {
   try {
     const label = getCurrentWindow().label;
     if (label === "kantai") return "kantai";
     if (label === "quests") return "quests";
+    if (label === "improvement") return "improvement";
+    if (label === "ships") return "ships";
     return "management";
   } catch {
     return "management";
@@ -305,6 +310,22 @@ function App() {
     );
   }
 
+  if (VIEW_MODE === "improvement") {
+    return (
+      <div className="improvement-window" style={{ zoom: uiZoom / 100 }}>
+        <ImprovementTab portDataVersion={portDataVersion} />
+      </div>
+    );
+  }
+
+  if (VIEW_MODE === "ships") {
+    return (
+      <div className="ships-window" style={{ zoom: uiZoom / 100 }}>
+        <ShipListTab portDataVersion={portDataVersion} />
+      </div>
+    );
+  }
+
   if (VIEW_MODE === "kantai") {
     return (
       <KantaiView
@@ -352,18 +373,6 @@ function App() {
           )}
         </button>
         <button
-          className={`tab-btn ${activeTab === "improvement" ? "active" : ""}`}
-          onClick={() => setActiveTab("improvement")}
-        >
-          改修
-        </button>
-        <button
-          className={`tab-btn ${activeTab === "ships" ? "active" : ""}`}
-          onClick={() => setActiveTab("ships")}
-        >
-          艦娘
-        </button>
-        <button
           className={`tab-btn ${activeTab === "equips" ? "active" : ""}`}
           onClick={() => setActiveTab("equips")}
         >
@@ -408,12 +417,6 @@ function App() {
             dateTo={battleDateTo}
             onDateChange={(from, to) => { setBattleDateFrom(from); setBattleDateTo(to); }}
           />
-        )}
-        {activeTab === "improvement" && (
-          <ImprovementTab portDataVersion={portDataVersion} />
-        )}
-        {activeTab === "ships" && (
-          <ShipListTab portDataVersion={portDataVersion} />
         )}
         {activeTab === "equips" && (
           <EquipListTab portDataVersion={portDataVersion} />

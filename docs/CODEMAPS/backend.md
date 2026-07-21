@@ -19,8 +19,14 @@ show_management_window, hide_management_window, toggle_management_window
 ### Kantai Window (kantai.rs) — Fleet panel hide/show
 show_kantai_window, hide_kantai_window, toggle_kantai_window
 
-### Quests Window (quests.rs) — Quest view hide/show
+### Quests Window (window_toggle.rs) — Quest view hide/show
 show_quests_window, hide_quests_window, toggle_quests_window
+
+### Improvement Window (window_toggle.rs) — 改修 view hide/show
+show_improvement_window, hide_improvement_window, toggle_improvement_window
+
+### Ships Window (window_toggle.rs) — 艦娘一覧 view hide/show
+show_ships_window, hide_ships_window, toggle_ships_window
 
 ### Proxy/Cert (commands.rs, ca.rs)
 get_proxy_port, is_ca_installed, install_ca_cert

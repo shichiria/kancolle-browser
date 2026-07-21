@@ -78,10 +78,18 @@ pub struct ImprovementItem {
     pub type_name: String,
     pub sort_value: i32,
     pub available_today: bool,
-    pub today_helpers: Vec<String>,
+    pub today_helpers: Vec<ImprovementHelperShip>,
     pub matches_secretary: bool,
     pub previously_improved: bool,
     pub consumed_equips: Vec<ConsumedEquipInfo>,
+}
+
+/// A ship that can act as today's 担当艦 (2nd-slot helper) for an improvement.
+#[derive(Debug, Serialize)]
+pub struct ImprovementHelperShip {
+    pub name: String,
+    /// Highest level among the owned copies of this ship; `None` if not owned.
+    pub level: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -255,6 +263,20 @@ pub fn build_improvement_list(state: &GameStateInner) -> ImprovementListResponse
         .map(|s| s.name.clone())
         .unwrap_or_default();
 
+    // master ship_id → highest level among the owned copies.
+    // Remodel forms are distinct master ids, so the recipe's ship_ids match directly.
+    let owned_levels: HashMap<i32, i32> =
+        state
+            .profile
+            .ships
+            .values()
+            .fold(HashMap::new(), |mut acc, ship| {
+                acc.entry(ship.ship_id)
+                    .and_modify(|lv| *lv = (*lv).max(ship.lv))
+                    .or_insert(ship.lv);
+                acc
+            });
+
     let mut items = Vec::new();
 
     for entry in upgrade_data {
@@ -279,13 +301,16 @@ pub fn build_improvement_list(state: &GameStateInner) -> ImprovementListResponse
                         matches_secretary = true;
                     }
                     for &ship_id in &helper.ship_ids {
-                        let ship_name = state
+                        let name = state
                             .master.ships
                             .get(&ship_id)
                             .map(|s| s.name.clone())
                             .unwrap_or_else(|| format!("ID:{}", ship_id));
-                        if !today_helpers.contains(&ship_name) {
-                            today_helpers.push(ship_name);
+                        if !today_helpers.iter().any(|h: &ImprovementHelperShip| h.name == name) {
+                            today_helpers.push(ImprovementHelperShip {
+                                name,
+                                level: owned_levels.get(&ship_id).copied(),
+                            });
                         }
                     }
                 }

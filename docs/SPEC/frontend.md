@@ -4,7 +4,7 @@
 
 ## 概要
 
-React + TypeScript によるSPA。Tauri v2 の `invoke` / `listen` API を通じてRustバックエンドと通信する。フロントエンドウィンドウは3つ — `management` (フルSPA・情報パネル) / `kantai` (艦隊専用ビュー `KantaiView`) / `quests` (任務ビュー `QuestTab`) — で、同一Reactバンドルを `getCurrentWindow().label` (`VIEW_MODE`, App.tsx) で分岐する。これにゲームウィンドウ (`game`) が加わる。
+React + TypeScript によるSPA。Tauri v2 の `invoke` / `listen` API を通じてRustバックエンドと通信する。フロントエンドウィンドウは5つ — `management` (フルSPA・情報パネル) / `kantai` (艦隊専用ビュー `KantaiView`) / `quests` (任務ビュー `QuestTab`) / `improvement` (改修ビュー `ImprovementTab`) / `ships` (艦娘一覧ビュー `ShipListTab`) — で、同一Reactバンドルを `getCurrentWindow().label` (`VIEW_MODE`, App.tsx) で分岐する。これにゲームウィンドウ (`game`) が加わる。
 
 ---
 
@@ -189,13 +189,11 @@ type TabId = "homeport" | "battle" | "improvement" | "ships" | "equips" | "optio
 |--------|-------|--------------|
 | 母港 | `homeport` | `HomeportTab` |
 | 戦闘 | `battle` | `BattleTab` |
-| 改修 | `improvement` | `ImprovementTab` |
-| 艦娘 | `ships` | `ShipListTab` |
 | 装備 | `equips` | `EquipListTab` |
 | Debug | `debug` | `DebugTab` |
 | 設定 | `options` | `SettingsTab` |
 
-> タブは management ウィンドウのみ。kantai / quests ウィンドウはタブではなく `VIEW_MODE` (ウィンドウラベル) で `KantaiView` / `QuestTab` を直接レンダリングする。
+> タブは management ウィンドウのみ。kantai / quests / improvement / ships ウィンドウはタブではなく `VIEW_MODE` (ウィンドウラベル) で `KantaiView` / `QuestTab` / `ImprovementTab` / `ShipListTab` を直接レンダリングする。
 
 ### ウィンドウ別ビュー / 追加コンポーネント
 
@@ -203,6 +201,8 @@ type TabId = "homeport" | "battle" | "improvement" | "ships" | "equips" | "optio
 |---------------|-----------|------|
 | `QuestTab` (`components/quests/`) | quests | 任務ビュー。カテゴリ/海域別表示、ピン留め (localStorage `pinned_quests`)、同時達成編成条件計算 |
 | `KantaiView` (`components/kantai/`) | kantai | 艦隊専用ビュー。艦隊タブ (localStorage `kc-kantai-fleet-id`) + UIズーム (`kc-kantai-ui-zoom`)、`fleet-view-changed` で自動追従 |
+| `ImprovementTab` (`components/improvement/`) | improvement | 改修工廠ビュー。曜日/担当艦 (Lv付) 表示、装備種フィルタ (localStorage `improvement-type-filters`) |
+| `ShipListTab` (`components/ships/`) | ships | 艦娘一覧。全列ソート + 艦種フィルタ (localStorage `ship-stype-filters`) + **出撃札フィルタ** (札を持つ艦がいる時のみ表示) |
 | `AirBaseTab` (`components/kantai/`) | kantai (🛩タブ) | 基地航空隊表示。`get_air_bases` + `air-base-updated` |
 | `DebugTab` (`components/debug/`) | management (🐛タブ) | current_screen / クリック履歴 (スクリーンショット付) / API 監視 |
 
@@ -555,6 +555,7 @@ export interface ShipListItem {
   los: number;
   luck: number;
   locked: boolean;
+  sally_area: number;  // 出撃札: 0 = 札なし, N = 札N
 }
 
 export interface ShipListResponse {
@@ -787,7 +788,7 @@ export const API_QUEST_PREFIX = "api_";
 | `RANK_COLORS` | `Record<string, string>` | 勝敗ランク色 (S=金, A=赤, B=橙, C/D/E=灰) |
 | `EVENT_LABELS` | `Record<number, string>` | マスイベント種別ラベル (event_kind) |
 | `EVENT_ID_LABELS` | `Record<number, string>` | マスイベントIDラベル (event_id, 優先) |
-| `AIR_SUPERIORITY_LABELS` | `Record<number, {text, color}>` | 制空状態 (0=劣勢 ~ 4=喪失) |
+| `AIR_SUPERIORITY_LABELS` | `Record<number, {text, color}>` | 制空状態 (0=均衡/1=確保/2=優勢/3=劣勢/4=喪失) |
 
 ---
 

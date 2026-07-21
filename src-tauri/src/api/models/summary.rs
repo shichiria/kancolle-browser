@@ -133,6 +133,8 @@ pub struct ShipListItem {
     pub los: i32,
     pub luck: i32,
     pub locked: bool,
+    /// 出撃札 (`api_sally_area`): 0 = 札なし, N = 札N
+    pub sally_area: i32,
 }
 
 /// Response for the ship list tab

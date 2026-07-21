@@ -3,7 +3,8 @@
 use log::info;
 use tauri::Manager;
 
-pub const AUXILIARY_WINDOWS: &[&str] = &["management", "kantai", "quests"];
+pub const AUXILIARY_WINDOWS: &[&str] =
+    &["management", "kantai", "quests", "improvement", "ships"];
 
 fn window(app: &tauri::AppHandle, label: &str) -> Result<tauri::Window, String> {
     app.get_window(label)
@@ -76,6 +77,18 @@ window_commands!(
     hide_quests_window,
     toggle_quests_window,
     "quests"
+);
+window_commands!(
+    show_improvement_window,
+    hide_improvement_window,
+    toggle_improvement_window,
+    "improvement"
+);
+window_commands!(
+    show_ships_window,
+    hide_ships_window,
+    toggle_ships_window,
+    "ships"
 );
 
 pub fn intercept_close_as_hide(app: &tauri::AppHandle) {

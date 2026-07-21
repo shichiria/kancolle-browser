@@ -13,6 +13,7 @@ KanColle Browser のドメイン知識。コードレビュー・バグ検出時
 | [equipment.md](equipment.md) | 装備: スロット構造、タイプ配列、ソナー/爆雷分類、改修 (明石工廠) |
 | [oasw.md](oasw.md) | 先制対潜: 無条件艦、艦種別条件、ソナー/対潜機判定 |
 | [ship-types.md](ship-types.md) | 艦種: stype一覧、敵艦種マッチング |
+| [sally-area.md](sally-area.md) | 出撃札: `api_sally_area`、平時のキー欠落、札名がAPIに無いこと |
 | [overlay.md](overlay.md) | オーバーレイ: 大破警告、陣形記憶、座標系 |
 | [state-transitions.md](state-transitions.md) | 状態遷移: APIシーケンス、不変条件、クラッシュリカバリ |
 | [api-endpoints.md](api-endpoints.md) | API: 全エンドポイント一覧、レスポンス構造、資材配列フォーマット |

@@ -10,6 +10,8 @@ the App component branches on `getCurrentWindow().label` to pick the view:
 | `management` | 📊 button on game control bar | Full SPA (toolbar + tabs) | hide-on-close |
 | `kantai` | ⚓ button on game control bar | `<KantaiView/>` (fleet + 🛩 air base) | hide-on-close, own UI zoom |
 | `quests` | 📜 button on game control bar | `<QuestTab/>` (quest-only) | hide-on-close |
+| `improvement` | 🔧 button on game control bar | `<ImprovementTab/>` (改修-only) | hide-on-close, shares `ui-zoom` |
+| `ships` | 👧 button on game control bar | `<ShipListTab/>` (艦娘-only) | hide-on-close, shares `ui-zoom` |
 
 `VIEW_MODE` is decided once at startup (immutable for the window's lifetime).
 
@@ -20,6 +22,8 @@ App (~440L) — state, event listeners, view-mode dispatch
 │   ├── FleetPanel (homeport, reused)
 │   └── AirBaseTab (~270L) — 基地航空隊 (get_air_bases + air-base-updated)
 ├── QuestTab (~290L) — quests window view (カテゴリ/海域別、ピン留め pinned_quests)
+├── ImprovementTab (~180L) — improvement window view (曜日/担当艦Lv/装備種フィルタ)
+├── ShipListTab (~230L) — ships window view (艦種/出撃札フィルタ + 全列ソート)
 └── (management mode)
     ├── HomeportTab
     │   ├── FleetPanel
@@ -31,9 +35,7 @@ App (~440L) — state, event listeners, view-mode dispatch
     │   └── BattleDetailView
     │       ├── MapRouteView
     │       └── BattleNodeDetail → BattleHpBar
-    ├── ShipListTab
     ├── EquipListTab
-    ├── ImprovementTab
     ├── DebugTab — current_screen + recent clicks (with crops) + recent APIs
     └── SettingsTab → ClearButton
 ```
@@ -65,12 +67,12 @@ drive-sync-status, drive-data-updated, kancolle-api
 - kancolle-api ({endpoint})
 
 ## Types (src/types/, 10 files)
-common.ts — ConditionResult, **TabId** (`"homeport" | "battle" | "improvement" | "ships" | "equips" | "options" | "debug"`), DriveStatus
+common.ts — ConditionResult, **TabId** (`"homeport" | "battle" | "equips" | "options" | "debug"`), DriveStatus
 port.ts — ShipData, FleetData, PortData, ApiLogEntry
 battle.ts — BattleNode, SortieRecord, BattleLogsResponse, MapSprites
 quest.ts — SortieQuestDef, ActiveQuestDetail, QuestProgressSummary
 expedition.ts — ExpeditionDef, ExpeditionCheckResult, MapRecommendationDef
-ship.ts — ShipListItem, ShipListResponse, ShipSortKey
+ship.ts — ShipListItem (**sally_area** = 出撃札), ShipListResponse, ShipSortKey
 equipment.ts — EquipListItem, EquipListResponse
 improvement.ts — ImprovementItem, ImprovementListResponse
 senka.ts — SenkaSummary
