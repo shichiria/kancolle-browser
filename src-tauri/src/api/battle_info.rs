@@ -13,13 +13,13 @@ pub fn engagement_name(id: i32) -> &'static str {
 }
 
 /// Get air superiority display name and CSS color from API value.
-/// api_disp_seiku: 0=航空劣勢, 1=航空優勢, 2=制空権確保, 3=航空均衡, 4=制空権喪失
+/// api_disp_seiku: 0=航空均衡, 1=制空権確保, 2=航空優勢, 3=航空劣勢, 4=制空権喪失
 pub fn air_superiority_label(id: i32) -> (&'static str, &'static str) {
     match id {
-        0 => ("航空劣勢", "#f44336"),
-        1 => ("航空優勢", "#4caf50"),
-        2 => ("制空権確保", "#2196f3"),
-        3 => ("航空均衡", "#ff9800"),
+        0 => ("航空均衡", "#ff9800"),
+        1 => ("制空権確保", "#2196f3"),
+        2 => ("航空優勢", "#4caf50"),
+        3 => ("航空劣勢", "#f44336"),
         4 => ("制空権喪失", "#d32f2f"),
         _ => ("不明", "#78909c"),
     }
@@ -228,11 +228,68 @@ mod tests {
 
     #[test]
     fn test_air_superiority_label_all_values() {
-        assert_eq!(air_superiority_label(0), ("航空劣勢", "#f44336"));
-        assert_eq!(air_superiority_label(1), ("航空優勢", "#4caf50"));
-        assert_eq!(air_superiority_label(2), ("制空権確保", "#2196f3"));
-        assert_eq!(air_superiority_label(3), ("航空均衡", "#ff9800"));
+        assert_eq!(air_superiority_label(0), ("航空均衡", "#ff9800"));
+        assert_eq!(air_superiority_label(1), ("制空権確保", "#2196f3"));
+        assert_eq!(air_superiority_label(2), ("航空優勢", "#4caf50"));
+        assert_eq!(air_superiority_label(3), ("航空劣勢", "#f44336"));
         assert_eq!(air_superiority_label(4), ("制空権喪失", "#d32f2f"));
         assert_eq!(air_superiority_label(99), ("不明", "#78909c"));
+    }
+
+    /// Regression: 2026-07-21 62-2 boss (cell 55) — game showed 航空優勢 but the
+    /// overlay rendered 制空権確保 because the enum order was wrong.
+    ///
+    /// Ground truth from `sync/battle_logs/20260721_222612.json`:
+    /// - boss `api_formation = [12, 14, 1]`, `api_disp_seiku = 2` (player saw 航空優勢)
+    /// - LBAS 4 waves (base1×2, base2×2) `api_disp_seiku = 3` (自軍55機 vs 敵413機 → 劣勢)
+    /// - cells 49/54 `api_disp_seiku = 1` with `api_e_count = 0` → 敵0機は必ず確保
+    #[test]
+    fn test_overlay_regression_20260721_62_2_boss() {
+        let api_data = serde_json::json!({
+            "api_formation": [12, 14, 1],
+            "api_kouku": {
+                "api_stage1": {
+                    "api_disp_seiku": 2,
+                    "api_f_count": 102, "api_f_lostcount": 6,
+                    "api_e_count": 180, "api_e_lostcount": 89
+                }
+            },
+            "api_air_base_attack": [
+                { "api_base_id": 1, "api_stage1": { "api_disp_seiku": 3, "api_f_count": 55, "api_e_count": 413 } },
+                { "api_base_id": 1, "api_stage1": { "api_disp_seiku": 3, "api_f_count": 55, "api_e_count": 328 } },
+                { "api_base_id": 2, "api_stage1": { "api_disp_seiku": 3, "api_f_count": 70, "api_e_count": 280 } },
+                { "api_base_id": 2, "api_stage1": { "api_disp_seiku": 3, "api_f_count": 70, "api_e_count": 236 } }
+            ]
+        });
+
+        let engagement_id = api_data["api_formation"][2].as_i64().unwrap() as i32;
+        assert_eq!(engagement_name(engagement_id), "同航戦");
+
+        let seiku = api_data["api_kouku"]["api_stage1"]["api_disp_seiku"]
+            .as_i64()
+            .unwrap() as i32;
+        assert_eq!(air_superiority_label(seiku).0, "航空優勢");
+
+        let waves = extract_lbas_waves(&api_data);
+        let got: Vec<_> = waves
+            .iter()
+            .map(|w| (w.base_id, w.wave, w.text.as_str()))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                (1, 1, "航空劣勢"),
+                (1, 2, "航空劣勢"),
+                (2, 1, "航空劣勢"),
+                (2, 2, "航空劣勢"),
+            ]
+        );
+    }
+
+    /// Same sortie, cells 49/54: enemy launched 0 planes → always 制空権確保.
+    /// This is what pins `1 = 確保` independently of the player's observation.
+    #[test]
+    fn test_air_superiority_zero_enemy_planes_is_supremacy() {
+        assert_eq!(air_superiority_label(1).0, "制空権確保");
     }
 }

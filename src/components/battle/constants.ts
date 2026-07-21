@@ -48,10 +48,11 @@ export const EVENT_ID_LABELS: Record<number, string> = {
   6: "航路選択",
 };
 
+// api_disp_seiku: 0=均衡, 1=確保, 2=優勢, 3=劣勢, 4=喪失
 export const AIR_SUPERIORITY_LABELS: Record<number, { text: string; color: string }> = {
-  0: { text: "航空劣勢", color: "#f44336" },
-  1: { text: "航空優勢", color: "#4caf50" },
-  2: { text: "制空権確保", color: "#2196f3" },
-  3: { text: "航空均衡", color: "#ff9800" },
+  0: { text: "航空均衡", color: "#ff9800" },
+  1: { text: "制空権確保", color: "#2196f3" },
+  2: { text: "航空優勢", color: "#4caf50" },
+  3: { text: "航空劣勢", color: "#f44336" },
   4: { text: "制空権喪失", color: "#d32f2f" },
 };

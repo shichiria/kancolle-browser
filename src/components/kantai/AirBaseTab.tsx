@@ -6,12 +6,12 @@ interface AirBaseTabProps {
   bases: AirBase[];
 }
 
-// Game enum (per docs/KNOWLEDGE/battle.md): 0=劣勢, 1=優勢, 2=確保, 3=均衡, 4=喪失
+// Game enum (per docs/KNOWLEDGE/battle.md): 0=均衡, 1=確保, 2=優勢, 3=劣勢, 4=喪失
 const SEIKU_LABEL: Record<number, { text: string; className: string }> = {
-  0: { text: "劣勢", className: "seiku-ressei" },
-  1: { text: "優勢", className: "seiku-yuusei" },
-  2: { text: "確保", className: "seiku-kakuho" },
-  3: { text: "均衡", className: "seiku-kinkou" },
+  0: { text: "均衡", className: "seiku-kinkou" },
+  1: { text: "確保", className: "seiku-kakuho" },
+  2: { text: "優勢", className: "seiku-yuusei" },
+  3: { text: "劣勢", className: "seiku-ressei" },
   4: { text: "喪失", className: "seiku-soshitsu" },
 };
 

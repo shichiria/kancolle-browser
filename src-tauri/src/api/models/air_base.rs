@@ -43,7 +43,7 @@ pub struct AirBasePlane {
 pub struct AirBaseAttackWave {
     /// 1-based wave number for this base in the current sortie
     pub wave: i32,
-    /// Game-side enum: 0=劣勢 / 1=優勢 / 2=確保 / 3=均衡 / 4=喪失
+    /// Game-side enum: 0=均衡 / 1=確保 / 2=優勢 / 3=劣勢 / 4=喪失
     pub disp_seiku: i32,
     /// Sum of squadron plane counts that launched (e.g. 4×18 = 72)
     pub f_count: i32,

@@ -30,7 +30,7 @@
 
 ### 表示項目
 - **交戦形態**: `api_formation[2]` → 同航戦/反航戦/T字有利/T字不利
-- **制空状態**: `api_kouku.api_stage1.api_disp_seiku` → 航空優勢/劣勢/確保/均衡/喪失
+- **制空状態**: `api_kouku.api_stage1.api_disp_seiku` (0=均衡/1=確保/2=優勢/3=劣勢/4=喪失)
 
 ### 表示タイミング
 - 表示: 昼戦・夜戦・演習の戦闘API受信時

@@ -82,13 +82,16 @@
 | 4 | T字不利 | ダメージ減少 |
 
 ### 制空状態
-- `api_kouku.api_stage1.api_disp_seiku`: 0=劣勢, 1=優勢, 2=制空権確保, 3=均衡, 4=喪失
+- `api_kouku.api_stage1.api_disp_seiku`: **0=均衡, 1=制空権確保, 2=優勢, 3=劣勢, 4=喪失**
+  - 数値順は「強い順」ではない。確保(1) > 優勢(2) > 均衡(0) > 劣勢(3) > 喪失(4)
+  - 実測根拠: `sync/battle_logs/20260721_222612.json` (62-2)
+    — 敵0機セル(49/54)が `1` (敵0機は必ず確保)、ボスセル(55)が `2` でゲーム表示は優勢
 - `api_kouku.api_stage1.api_f_count`: 味方機数
 - `api_kouku.api_stage1.api_e_count`: 敵機数
 
 #### エッジケース: 0機 vs 0機
-- 双方0機でも `api_kouku` と `api_stage1` は返る (`api_disp_seiku = 1` = 優勢)
-- ゲーム内部ロジック: 敵0機は自動的に「優勢以上」扱い
+- 双方0機でも `api_kouku` と `api_stage1` は返る (`api_disp_seiku = 1` = 制空権確保)
+- ゲーム内部ロジック: 敵0機は制空値0のため自動的に「確保」判定
 - 表示フィルタ: `api_f_count == 0 && api_e_count == 0` なら制空表示をスキップ推奨
 
 ### MVP

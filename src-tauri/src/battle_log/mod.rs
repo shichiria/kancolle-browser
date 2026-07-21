@@ -42,7 +42,7 @@ pub struct EnemyShip {
 /// Air battle result from api_kouku.api_stage1/stage2
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AirBattleResult {
-    /// Air superiority state (api_disp_seiku): 0=denial, 1=superiority, 2=supremacy, 3=parity, 4=incapability
+    /// Air superiority state (api_disp_seiku): 0=parity, 1=supremacy, 2=superiority, 3=denial, 4=incapability
     pub air_superiority: Option<i32>,
     /// Friendly plane count [total, lost]
     pub friendly_plane_count: Option<[i32; 2]>,
