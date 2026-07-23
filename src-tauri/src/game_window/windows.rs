@@ -18,10 +18,13 @@ pub(crate) fn configure_webview(
         .app_local_data_dir()
         .map(|dir| dir.join("local").join("game-webview"))
         .map_err(|error| error.to_string())?;
+    // `*.dmmapis.com` includes DMM's payment gateway (`gw.dmmapis.com`). Keep it off
+    // the interception proxy, consistent with the other DMM-owned hosts; only
+    // kancolle-server.com needs MITM for KanColle API capture.
     let browser_args = format!(
         "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection \
          --proxy-server=http://127.0.0.1:{proxy_port} \
-         --proxy-bypass-list=*.dmm.com;*.dmm-corp.com;*.dmm.co.jp;*.dmmgames.com"
+         --proxy-bypass-list=*.dmm.com;*.dmm-corp.com;*.dmm.co.jp;*.dmmgames.com;*.dmmapis.com"
     );
 
     Ok(builder
@@ -30,6 +33,10 @@ pub(crate) fn configure_webview(
 }
 
 pub(crate) async fn prepare_navigation(_app: &AppHandle, _webview: &Webview<Wry>) {}
+
+pub(crate) fn install_diagnostics(webview: &Webview<Wry>) -> Result<(), String> {
+    crate::game_window::webview_diagnostics::install(webview)
+}
 
 pub(crate) fn install_input_tracking(
     app: &AppHandle,

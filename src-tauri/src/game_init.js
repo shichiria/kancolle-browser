@@ -6,6 +6,14 @@
     var GAME_HEIGHT = '__KC_GAME_HEIGHT__px';
     var CONTROL_BAR_HEIGHT = '__KC_CONTROL_BAR_HEIGHT__px';
     var LAYOUT_DIAGNOSTICS = __KC_LAYOUT_DIAGNOSTICS__;
+
+    // WebView2 runs initialization scripts in every frame. The KanColle gadget is
+    // cross-origin and must remain indistinguishable from an unmodified browser
+    // page, so only the top-level DMM container may be changed.
+    var isTop = false;
+    try { isTop = (window.self === window.top); } catch(e) {}
+    if (!isTop) return;
+
     // Spoof navigator.userAgentData to look like Edge (instead of WebView2-flavored brands).
     // DMM appears to inspect Sec-CH-UA / userAgentData.brands and bounce non-Edge browsers
     // back to login. Without this, login succeeds but play.games.dmm.com immediately
@@ -43,8 +51,7 @@
         });
     } catch(e) {}
 
-    // --- CSS applied to ALL frames (including cross-origin game iframes) ---
-    // This removes scrollbars everywhere in the WebView2 window.
+    // --- CSS applied only to the top-level DMM frame ---
     var COMMON_CSS = `
         html, body {
             margin: 0 !important;
@@ -97,7 +104,7 @@
             position: fixed !important;
             top: __KC_CONTROL_BAR_HEIGHT__px !important;
             left: 0 !important;
-            z-index: 10000 !important;
+            z-index: 1 !important;
             width: __KC_GAME_WIDTH__px !important;
             height: __KC_GAME_HEIGHT__px !important;
             border: none !important;
@@ -153,9 +160,6 @@
         #kc-control-bar .label { font-size: 10px; color: #666; }
     `;
 
-    var isTop = false;
-    try { isTop = (window.self === window.top); } catch(e) {}
-
     // Persist a compact DOM/layout snapshot in the session log. DMM changes
     // its wrapper markup periodically, and this makes a blank/incorrect game
     // surface diagnosable without asking the player to open DevTools.
@@ -199,10 +203,9 @@
         setTimeout(function() { reportLayout('after-10s'); }, 10000);
     }
 
-    // The current DMM React layout puts the game iframe inside several nested
-    // stacking contexts. A fixed z-index on the iframe alone can still leave
-    // recommendation/video panels painted above it. Hide only the siblings on
-    // the iframe's ancestor path, keeping the iframe and control bar alive.
+    // Flatten only the iframe's ancestor stacking contexts. DMM renders payment
+    // confirmation as a sibling <dialog> (z-index 100), so siblings must remain
+    // visible and the game iframe must stay below that dialog.
     function isolateGameFrame() {
         if (!isTop) return false;
         var frame = document.getElementById('game_frame');
@@ -211,9 +214,6 @@
         var node = frame;
         while (node.parentElement && node.parentElement !== document.body) {
             var parent = node.parentElement;
-            Array.from(parent.children).forEach(function(sibling) {
-                if (sibling !== node) sibling.style.setProperty('display', 'none', 'important');
-            });
             parent.style.setProperty('position', 'static', 'important');
             parent.style.setProperty('transform', 'none', 'important');
             parent.style.setProperty('z-index', 'auto', 'important');
@@ -223,12 +223,16 @@
         frame.style.setProperty('display', 'block', 'important');
         frame.style.setProperty('visibility', 'visible', 'important');
         frame.style.setProperty('opacity', '1', 'important');
+        // CSS overflow on an iframe element does not suppress the embedded
+        // WebView2 viewport's own scrollbars. The host-side scrolling attribute
+        // does, without reading or modifying the cross-origin game document.
+        frame.setAttribute('scrolling', 'no');
         frame.style.setProperty('position', 'fixed', 'important');
         frame.style.setProperty('top', CONTROL_BAR_HEIGHT, 'important');
         frame.style.setProperty('left', '0', 'important');
         frame.style.setProperty('width', GAME_WIDTH, 'important');
         frame.style.setProperty('height', GAME_HEIGHT, 'important');
-        frame.style.setProperty('z-index', '10000', 'important');
+        frame.style.setProperty('z-index', '1', 'important');
         return true;
     }
 
@@ -247,7 +251,7 @@
         }, 2000);
     }
 
-    var cssText = isTop ? (COMMON_CSS + TOP_CSS) : COMMON_CSS;
+    var cssText = COMMON_CSS + TOP_CSS;
 
     // Inject style — use MutationObserver on document for WebView2 compatibility
     function injectStyle() {

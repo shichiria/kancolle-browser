@@ -1,8 +1,14 @@
 mod platform;
+#[cfg(target_os = "windows")]
+mod webview_diagnostics;
 
 use log::info;
-use std::sync::atomic::Ordering;
-use tauri::{Manager, State, Webview, WebviewBuilder, WebviewUrl, Window, WindowBuilder, Wry};
+use std::sync::atomic::{AtomicU64, Ordering};
+use tauri::webview::{NewWindowFeatures, NewWindowResponse};
+use tauri::{
+    Manager, State, Webview, WebviewBuilder, WebviewUrl, WebviewWindowBuilder, Window,
+    WindowBuilder, Wry,
+};
 use url::Url;
 
 use crate::AppState;
@@ -10,6 +16,7 @@ use crate::AppState;
 const GAME_INIT_SCRIPT_TEMPLATE: &str = include_str!("../game_init.js");
 const GAME_URL: &str = "https://play.games.dmm.com/game/kancolle";
 const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0";
+static POPUP_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 pub(crate) const GAME_WIDTH: f64 = 1200.0;
 pub(crate) const GAME_HEIGHT: f64 = 720.0;
@@ -63,6 +70,85 @@ fn create_game_window(app: &tauri::AppHandle) -> Result<Window<Wry>, String> {
         .map_err(|error| error.to_string())
 }
 
+fn is_allowed_popup_url(url: &Url) -> bool {
+    url.scheme() == "https"
+}
+
+fn is_point_charge_return_url(url: &Url) -> bool {
+    if url.scheme() != "https" || url.host_str() != Some("point.dmm.com") {
+        return false;
+    }
+
+    match url.path() {
+        "/window/close" | "/close.html" => true,
+        "/close" => url
+            .query_pairs()
+            .any(|(key, value)| key == "basket_service_type" && value == "freegame"),
+        _ => false,
+    }
+}
+
+fn open_requested_window(
+    app: &tauri::AppHandle,
+    url: Url,
+    features: NewWindowFeatures,
+) -> NewWindowResponse<Wry> {
+    if !is_allowed_popup_url(&url) {
+        log::warn!("Denied game popup with unsupported URL scheme: {url}");
+        return NewWindowResponse::Deny;
+    }
+
+    let sequence = POPUP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+    let label = format!("game-popup-{sequence}");
+    info!("Game popup requested: label={label}, url={url}");
+
+    let blank_url = match Url::parse("about:blank") {
+        Ok(url) => url,
+        Err(error) => {
+            log::error!("Failed to prepare game popup URL: {error}");
+            return NewWindowResponse::Deny;
+        }
+    };
+    let popup_url = url.clone();
+    let builder = WebviewWindowBuilder::new(app, label.as_str(), WebviewUrl::External(blank_url))
+        .title("DMM")
+        .inner_size(1000.0, 800.0)
+        // Carries the opener's WebView2 environment on Windows, so DMM cookies
+        // and the configured proxy remain available to the point-charge page.
+        .window_features(features)
+        .on_navigation(move |navigated_url| {
+            info!("Game popup navigation: {navigated_url}");
+            navigated_url.scheme() == "https" || navigated_url.as_str() == "about:blank"
+        })
+        .on_page_load(|window, payload| {
+            if is_point_charge_return_url(payload.url()) {
+                info!(
+                    "Point charge returned to service; closing popup: {}",
+                    payload.url()
+                );
+                if let Err(error) = window.close() {
+                    log::warn!("Failed to close completed point-charge popup: {error}");
+                }
+            }
+        })
+        .on_document_title_changed(|window, title| {
+            if let Err(error) = window.set_title(&title) {
+                log::warn!("Failed to update game popup title: {error}");
+            }
+        });
+
+    match builder.build() {
+        Ok(window) => {
+            info!("Game popup created: label={label}, url={popup_url}");
+            NewWindowResponse::Create { window }
+        }
+        Err(error) => {
+            log::error!("Failed to create game popup for {popup_url}: {error}");
+            NewWindowResponse::Deny
+        }
+    }
+}
+
 async fn create_game_webview(
     app: &tauri::AppHandle,
     game_window: &Window<Wry>,
@@ -71,6 +157,7 @@ async fn create_game_webview(
     let blank_url = Url::parse("about:blank").map_err(|error| error.to_string())?;
     let init_script = platform::initialization_script(app, build_game_init_script()).await;
     let navigation_app = app.clone();
+    let popup_app = app.clone();
     let builder = WebviewBuilder::new("game-content", WebviewUrl::External(blank_url))
         .user_agent(USER_AGENT)
         .initialization_script(&init_script)
@@ -80,10 +167,11 @@ async fn create_game_webview(
                 schedule_cookie_save(navigation_app.clone());
             }
             true
-        });
+        })
+        .on_new_window(move |url, features| open_requested_window(&popup_app, url, features));
     let builder = platform::configure_webview(builder, app, proxy_port)?;
 
-    game_window
+    let webview = game_window
         .add_child(
             builder,
             tauri::LogicalPosition::new(0.0, 0.0),
@@ -92,7 +180,9 @@ async fn create_game_webview(
                 GAME_HEIGHT + CONTROL_BAR_HEIGHT + MACOS_TITLEBAR_HEIGHT,
             ),
         )
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    platform::install_diagnostics(&webview)?;
+    Ok(webview)
 }
 
 fn schedule_cookie_save(app: tauri::AppHandle) {
@@ -340,5 +430,74 @@ mod tests {
         assert!(script.contains("width: 1200px"));
         assert!(script.contains("height: 720px"));
         assert!(script.contains("top: 28px"));
+    }
+
+    #[test]
+    fn game_init_script_exits_child_frames_before_touching_browser_state() {
+        let script = build_game_init_script();
+        let child_frame_guard = script
+            .find("if (!isTop) return;")
+            .expect("initialization script must exit in child frames");
+        let user_agent_override = script
+            .find("Object.defineProperty(navigator, 'userAgentData'")
+            .expect("user agent override must remain available to the DMM host page");
+        let stylesheet_definition = script
+            .find("var COMMON_CSS")
+            .expect("DMM host-page stylesheet must remain available");
+
+        assert!(child_frame_guard < user_agent_override);
+        assert!(child_frame_guard < stylesheet_definition);
+    }
+
+    #[test]
+    fn game_layout_keeps_dmm_purchase_dialog_above_the_game() {
+        let script = build_game_init_script();
+
+        assert!(script.contains("#game_frame"));
+        assert!(script.contains("z-index: 1 !important"));
+        assert!(!script.contains(
+            "if (sibling !== node) sibling.style.setProperty('display', 'none', 'important')"
+        ));
+    }
+
+    #[test]
+    fn game_iframe_disables_its_own_scrollbars() {
+        let script = build_game_init_script();
+
+        assert!(script.contains("frame.setAttribute('scrolling', 'no')"));
+    }
+
+    #[test]
+    fn game_popups_only_accept_https_urls() {
+        assert!(is_allowed_popup_url(
+            &Url::parse("https://point.dmm.com/choice/pay").unwrap()
+        ));
+        assert!(!is_allowed_popup_url(
+            &Url::parse("javascript:alert(1)").unwrap()
+        ));
+        assert!(!is_allowed_popup_url(
+            &Url::parse("data:text/html,unsafe").unwrap()
+        ));
+    }
+
+    #[test]
+    fn point_charge_return_urls_close_the_popup() {
+        for url in [
+            "https://point.dmm.com/close?basket_service_type=freegame",
+            "https://point.dmm.com/window/close",
+            "https://point.dmm.com/close.html",
+        ] {
+            assert!(is_point_charge_return_url(&Url::parse(url).unwrap()));
+        }
+
+        assert!(!is_point_charge_return_url(
+            &Url::parse(
+                "https://point.dmm.com/choice/pay?back_url=https%3A%2F%2Fpoint.dmm.com%2Fwindow%2Fclose"
+            )
+            .unwrap()
+        ));
+        assert!(!is_point_charge_return_url(
+            &Url::parse("https://example.com/close?basket_service_type=freegame").unwrap()
+        ));
     }
 }

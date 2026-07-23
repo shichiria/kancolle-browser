@@ -28,6 +28,10 @@ pub(crate) async fn prepare_navigation(app: &AppHandle, webview: &Webview<Wry>) 
     crate::cookie::restore_cookies_native(app, webview).await;
 }
 
+pub(crate) fn install_diagnostics(_webview: &Webview<Wry>) -> Result<(), String> {
+    Ok(())
+}
+
 pub(crate) fn install_input_tracking(
     _app: &AppHandle,
     _game_window: &Window<Wry>,
