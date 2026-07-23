@@ -292,6 +292,8 @@
             + '<option value="2">200%</option>'
             + '</select>'
             + '<button id="kc-mute">\u{1f50a}</button>'
+            + '<button id="kc-reload" title="ゲームをリロード">\u{21bb} リロード</button>'
+            + '<button id="kc-screenshot" title="ゲーム画面をPNG保存">\u{1f4f7} 撮影</button>'
             + '<button id="kc-formation" title="\u{9663}\u{5F62}\u{8A18}\u{61B6}">\u{1F3AF} \u{9663}\u{5F62}</button>'
             + '<button id="kc-taiha" title="\u{5927}\u{7834}\u{8B66}\u{544A}">\u{26A0} \u{5927}\u{7834}</button>'
             + '<button id="kc-minimap" title="\u{30DF}\u{30CB}\u{30DE}\u{30C3}\u{30D7}">\u{1F5FA} MAP</button>'
@@ -339,6 +341,36 @@
             this.textContent = muted ? '\u{1f507}' : '\u{1f50a}';
             this.className = muted ? 'muted' : '';
             window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_game_mute', { muted: muted });
+        });
+
+        // Reload the DMM host page. This recreates the game iframe naturally
+        // while preserving the WebView2 session, cookies, and proxy settings.
+        document.getElementById('kc-reload').addEventListener('click', function() {
+            window.location.reload();
+        });
+
+        var screenshotBtn = document.getElementById('kc-screenshot');
+        screenshotBtn.addEventListener('click', function() {
+            if (!window.__TAURI_INTERNALS__ || screenshotBtn.disabled) return;
+            var originalText = screenshotBtn.textContent;
+            screenshotBtn.disabled = true;
+            screenshotBtn.textContent = '\u{23f3} 保存中';
+            window.__TAURI_INTERNALS__.invoke('take_game_screenshot')
+                .then(function(path) {
+                    screenshotBtn.textContent = '\u{2713} 保存';
+                    screenshotBtn.title = '保存先: ' + path;
+                })
+                .catch(function(error) {
+                    screenshotBtn.textContent = '\u{26a0} 失敗';
+                    screenshotBtn.title = String(error);
+                    console.error('Screenshot failed:', error);
+                })
+                .finally(function() {
+                    setTimeout(function() {
+                        screenshotBtn.textContent = originalText;
+                        screenshotBtn.disabled = false;
+                    }, 1500);
+                });
         });
 
         // Formation hint toggle

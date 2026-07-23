@@ -11,6 +11,7 @@ pub const MINIMAP_ENABLED: &str = "minimap_enabled";
 pub const BATTLE_INFO_ENABLED: &str = "battle_info_enabled";
 pub const MINIMAP_POSITION: &str = "minimap_position.json";
 pub const MINIMAP_SIZE: &str = "minimap_size.json";
+pub const SCREENSHOT_SETTINGS: &str = "screenshot_settings.json";
 
 fn local_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path()

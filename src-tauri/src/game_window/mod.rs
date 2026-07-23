@@ -1,4 +1,5 @@
 mod platform;
+pub(crate) mod screenshot;
 #[cfg(target_os = "windows")]
 mod webview_diagnostics;
 
@@ -465,6 +466,22 @@ mod tests {
         let script = build_game_init_script();
 
         assert!(script.contains("frame.setAttribute('scrolling', 'no')"));
+    }
+
+    #[test]
+    fn game_control_bar_has_reload_button() {
+        let script = build_game_init_script();
+
+        assert!(script.contains("id=\"kc-reload\""));
+        assert!(script.contains("window.location.reload()"));
+    }
+
+    #[test]
+    fn game_control_bar_has_screenshot_button() {
+        let script = build_game_init_script();
+
+        assert!(script.contains("id=\"kc-screenshot\""));
+        assert!(script.contains("invoke('take_game_screenshot')"));
     }
 
     #[test]

@@ -1,8 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useState } from "react";
 import { STORAGE_KEYS } from "../../constants";
 import { ClearButton } from "../common";
 import "./SettingsTab.css";
 import type { DriveStatus } from "../../types";
+
+interface ScreenshotSettings {
+  directory: string;
+  filename_pattern: string;
+}
 
 export interface SettingsTabProps {
   uiZoom: number;
@@ -31,6 +37,30 @@ export function SettingsTab({
   onRawApiChange,
   onClearBattleLogs,
 }: SettingsTabProps) {
+  const [screenshotSettings, setScreenshotSettings] = useState<ScreenshotSettings | null>(null);
+  const [screenshotSaving, setScreenshotSaving] = useState(false);
+  const [screenshotMessage, setScreenshotMessage] = useState("");
+
+  useEffect(() => {
+    invoke<ScreenshotSettings>("get_screenshot_settings")
+      .then(setScreenshotSettings)
+      .catch((error) => setScreenshotMessage(`読込失敗: ${String(error)}`));
+  }, []);
+
+  const saveScreenshotSettings = async (settings: ScreenshotSettings) => {
+    setScreenshotSaving(true);
+    setScreenshotMessage("");
+    try {
+      const saved = await invoke<ScreenshotSettings>("set_screenshot_settings", { settings });
+      setScreenshotSettings(saved);
+      setScreenshotMessage("保存しました");
+    } catch (error) {
+      setScreenshotMessage(`保存失敗: ${String(error)}`);
+    } finally {
+      setScreenshotSaving(false);
+    }
+  };
+
   return (
     <div className="options-tab">
       <div className="options-section">
@@ -61,6 +91,87 @@ export function SettingsTab({
             リセット
           </button>
         </div>
+      </div>
+
+      <div className="options-section">
+        <div className="options-section-title">スクリーンショット</div>
+        {screenshotSettings ? (
+          <div className="screenshot-settings">
+            <div className="options-row">
+              <label className="options-label screenshot-settings-label">保存フォルダ</label>
+              <input
+                className="options-text-input screenshot-directory-input"
+                value={screenshotSettings.directory}
+                onChange={(event) => setScreenshotSettings({
+                  ...screenshotSettings,
+                  directory: event.target.value,
+                })}
+              />
+              <button
+                className="options-reset-btn"
+                disabled={screenshotSaving}
+                onClick={async () => {
+                  try {
+                    const selected = await invoke<string | null>("choose_screenshot_directory");
+                    if (selected) {
+                      setScreenshotSettings({ ...screenshotSettings, directory: selected });
+                    }
+                  } catch (error) {
+                    setScreenshotMessage(`フォルダ選択失敗: ${String(error)}`);
+                  }
+                }}
+              >
+                参照
+              </button>
+            </div>
+            <div className="options-row">
+              <label className="options-label screenshot-settings-label">ファイル名</label>
+              <input
+                className="options-text-input screenshot-filename-input"
+                value={screenshotSettings.filename_pattern}
+                onChange={(event) => setScreenshotSettings({
+                  ...screenshotSettings,
+                  filename_pattern: event.target.value,
+                })}
+              />
+            </div>
+            <div className="screenshot-settings-hint">
+              使用可能: {"{timestamp}"}、{"{date}"}、{"{time}"}。拡張子を省略すると .png を追加します。同名時は連番になります。
+            </div>
+            <div className="screenshot-settings-actions">
+              <button
+                className="options-reset-btn"
+                disabled={screenshotSaving}
+                onClick={async () => {
+                  try {
+                    const defaults = await invoke<ScreenshotSettings>("get_default_screenshot_settings");
+                    await saveScreenshotSettings(defaults);
+                  } catch (error) {
+                    setScreenshotMessage(`既定値の復元失敗: ${String(error)}`);
+                  }
+                }}
+              >
+                既定値
+              </button>
+              <button
+                className="drive-sync-btn drive-sync-btn-sm"
+                disabled={screenshotSaving}
+                onClick={() => saveScreenshotSettings(screenshotSettings)}
+              >
+                {screenshotSaving ? "保存中" : "設定を保存"}
+              </button>
+              {screenshotMessage && (
+                <span className={screenshotMessage.includes("失敗") ? "screenshot-settings-error" : "screenshot-settings-success"}>
+                  {screenshotMessage}
+                </span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="screenshot-settings-hint">
+            {screenshotMessage || "設定を読み込んでいます…"}
+          </div>
+        )}
       </div>
 
       <div className="options-section">

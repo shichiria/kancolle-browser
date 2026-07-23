@@ -1,3 +1,4 @@
+use std::path::Path;
 use tauri::{AppHandle, Webview, WebviewBuilder, Window, Wry};
 use url::Url;
 
@@ -50,4 +51,36 @@ pub(crate) fn set_muted(webview: &Webview<Wry>, muted: bool) -> Result<(), Strin
             let _: () = msg_send![wk, _setPageMuted: muted_state];
         })
         .map_err(|error| error.to_string())
+}
+
+pub(crate) fn save_screenshot(window: &Window<Wry>, path: &Path) -> Result<(), String> {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+
+    let ns_window = window.ns_window().map_err(|error| error.to_string())?;
+    let window_number: isize = unsafe {
+        let window: *mut AnyObject = ns_window.cast();
+        msg_send![window, windowNumber]
+    };
+    let status = std::process::Command::new("/usr/sbin/screencapture")
+        .arg("-x")
+        .arg("-o")
+        .arg("-l")
+        .arg(window_number.to_string())
+        .arg(path)
+        .status()
+        .map_err(|error| format!("screencaptureを起動できません: {error}"))?;
+    if status.success() {
+        let image = image::open(path).map_err(|error| format!("PNGを読み込めません: {error}"))?;
+        let game_height = (image.width() as f64 * crate::game_window::GAME_HEIGHT
+            / crate::game_window::GAME_WIDTH)
+            .round() as u32;
+        let game_height = game_height.min(image.height());
+        image
+            .crop_imm(0, image.height() - game_height, image.width(), game_height)
+            .save(path)
+            .map_err(|error| format!("PNGの切り抜きに失敗しました: {error}"))
+    } else {
+        Err(format!("screencaptureが終了コード{status}で失敗しました"))
+    }
 }
