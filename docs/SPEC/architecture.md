@@ -9,7 +9,7 @@ KanColle Browser は、ブラウザゲーム「艦隊これくしょん」専用
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                  KanColle Browser v0.4.0                │
+│                  KanColle Browser v0.5.0                │
 │                                                         │
 │  ┌──────────────┐   IPC (invoke/emit)   ┌────────────┐ │
 │  │  Rust Backend │◄────────────────────►│  React UI  │ │
@@ -573,7 +573,7 @@ npm run tauri build
 | 項目       | 値                           |
 |-----------|------------------------------|
 | identifier| com.eo.kancolle-browser      |
-| version   | 0.4.0 (Cargo.toml, tauri.conf.json, package.json で統一) |
+| version   | 0.5.0 (Cargo.toml, tauri.conf.json, package.json で統一) |
 | license   | MIT                          |
 
 
