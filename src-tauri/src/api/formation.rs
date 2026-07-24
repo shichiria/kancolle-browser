@@ -123,10 +123,7 @@ pub(crate) fn show_formation_hint(app: &AppHandle, formation: i32, ship_count: u
 
     // macOS: adjust for platform-specific coordinate offset
     #[cfg(target_os = "macos")]
-    {
-        dx += (6.0 * scale) as i32;
-        dy += (30.0 * scale) as i32;
-    }
+    let (dx, dy) = (dx + (6.0 * scale) as i32, dy + (30.0 * scale) as i32);
     let phys_w = (bw * zoom * scale) as u32;
     let phys_h = (bh * zoom * scale) as u32;
 
