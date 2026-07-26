@@ -6,6 +6,7 @@ use serde::Deserialize;
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApiBattleResponse {
     pub api_formation: Option<Vec<i32>>,
+    pub api_smoke_type: Option<i32>,
     pub api_ship_ke: Option<Vec<i32>>,
     pub api_ship_lv: Option<Vec<i32>>,
     #[serde(rename = "api_eSlot")]
@@ -86,3 +87,18 @@ pub struct ApiEnemyInfo {
     pub api_deck_name: Option<String>,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::ApiBattleResponse;
+
+    #[test]
+    fn parses_smoke_type_from_battle_response() {
+        let response: ApiBattleResponse = serde_json::from_value(serde_json::json!({
+            "api_formation": [13, 1, 1],
+            "api_smoke_type": 2
+        }))
+        .expect("battle response should deserialize");
+
+        assert_eq!(response.api_smoke_type, Some(2));
+    }
+}

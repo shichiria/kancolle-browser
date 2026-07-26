@@ -52,6 +52,7 @@ pub(super) fn apply(
             MemberDeck,
             MissionResult,
             MapInfoData,
+            EventMapRankSelected,
             BaseAirCorps,
             AirCorpsSetPlane,
             AirCorpsSetAction,
@@ -358,11 +359,21 @@ pub(super) fn apply(
                 api_data.api_clear_result, api_data.api_get_exp, api_data.api_get_material
             );
         }
-        ParsedApi::MapInfoData { gauges, air_bases } => {
+        ParsedApi::MapInfoData {
+            gauges,
+            event_maps,
+            air_bases,
+        } => {
             state.mapinfo_gauges = gauges;
+            state.event_map_statuses = event_maps;
             info!(
-                "mapinfo: cached {} gauge entries",
-                state.mapinfo_gauges.len()
+                "mapinfo: cached {} gauge entries and {} event maps",
+                state.mapinfo_gauges.len(),
+                state.event_map_statuses.len()
+            );
+            let _ = app.emit(
+                crate::events::EVENT_MAP_UPDATED,
+                &state.event_map_statuses,
             );
             let bases = air_corps::parse_air_bases(
                 &air_bases,
@@ -375,6 +386,21 @@ pub(super) fn apply(
                 info!("mapinfo: parsed {} air-base entries", state.air_bases.len());
                 air_corps::emit_air_base_update(state, app);
             }
+        }
+        ParsedApi::EventMapRankSelected(status) => {
+            if let Some(existing) = state
+                .event_map_statuses
+                .iter_mut()
+                .find(|existing| existing.map_id == status.map_id)
+            {
+                *existing = status;
+            } else {
+                state.event_map_statuses.push(status);
+            }
+            let _ = app.emit(
+                crate::events::EVENT_MAP_UPDATED,
+                &state.event_map_statuses,
+            );
         }
         ParsedApi::AirCorpsSetPlane {
             request_body,

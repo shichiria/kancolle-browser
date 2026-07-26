@@ -15,6 +15,8 @@ pub const QUEST_FILTERS_CHANGED: &str = "quest-filters-changed";
 pub const SCREEN_CHANGED: &str = "screen-changed";
 pub const FLEET_VIEW_CHANGED: &str = "fleet-view-changed";
 pub const AIR_BASE_UPDATED: &str = "air-base-updated";
+pub const EVENT_MAP_UPDATED: &str = "event-map-updated";
+pub const EVENT_WINDOW_OPENED: &str = "event-window-opened";
 pub const DRIVE_SYNC_STATUS: &str = "drive-sync-status";
 pub const DRIVE_DATA_UPDATED: &str = "drive-data-updated";
 pub const CLICK_EVENT: &str = "click-event";
@@ -44,6 +46,8 @@ mod tests {
             SCREEN_CHANGED,
             FLEET_VIEW_CHANGED,
             AIR_BASE_UPDATED,
+            EVENT_MAP_UPDATED,
+            EVENT_WINDOW_OPENED,
             DRIVE_SYNC_STATUS,
             DRIVE_DATA_UPDATED,
             CLICK_EVENT,

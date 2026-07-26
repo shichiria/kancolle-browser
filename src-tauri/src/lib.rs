@@ -278,6 +278,9 @@ pub fn run() {
             window_toggle::show_ships_window,
             window_toggle::hide_ships_window,
             window_toggle::toggle_ships_window,
+            window_toggle::show_event_window,
+            window_toggle::hide_event_window,
+            window_toggle::toggle_event_window,
             commands::get_expeditions,
             commands::check_expedition_cmd,
             commands::get_sortie_quests,
@@ -286,6 +289,7 @@ pub fn run() {
             commands::get_map_recommendations,
             commands::check_map_recommendation_cmd,
             commands::get_battle_logs,
+            commands::get_event_map_statuses,
             commands::get_improvement_list,
             commands::get_ship_list,
             commands::get_equipment_list,
@@ -389,6 +393,12 @@ pub fn run() {
             let _ = std::fs::create_dir_all(&cache_dir);
 
             window_toggle::intercept_close_as_hide(app.handle());
+            // Auxiliary windows start closed and are opened from the game toolbar.
+            if let Some(window) = app.get_window("event") {
+                if let Err(error) = window.hide() {
+                    log::warn!("Failed to hide event window at startup: {}", error);
+                }
+            }
 
             let handle = app.handle().clone();
             let proxy_data_dir = data_dir.clone();

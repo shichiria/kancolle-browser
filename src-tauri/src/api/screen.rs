@@ -42,6 +42,22 @@ fn from_api(endpoint: &str) -> Option<crate::ui_event::Screen> {
         | "/kcsapi/api_req_quest/stop"
         | "/kcsapi/api_req_quest/clearitemget" => Some(Screen::QuestList),
         "/kcsapi/api_get_member/mapinfo" => Some(Screen::SortieSelect),
+        "/kcsapi/api_req_map/start"
+        | "/kcsapi/api_req_map/next"
+        | "/kcsapi/api_req_sortie/battle"
+        | "/kcsapi/api_req_sortie/airbattle"
+        | "/kcsapi/api_req_sortie/ld_airbattle"
+        | "/kcsapi/api_req_sortie/night_to_day"
+        | "/kcsapi/api_req_battle_midnight/battle"
+        | "/kcsapi/api_req_battle_midnight/sp_midnight"
+        | "/kcsapi/api_req_combined_battle/battle"
+        | "/kcsapi/api_req_combined_battle/each_battle"
+        | "/kcsapi/api_req_combined_battle/ld_airbattle"
+        | "/kcsapi/api_req_combined_battle/each_battle_water"
+        | "/kcsapi/api_req_combined_battle/midnight_battle"
+        | "/kcsapi/api_req_combined_battle/sp_midnight"
+        | "/kcsapi/api_req_sortie/battleresult"
+        | "/kcsapi/api_req_combined_battle/battleresult" => Some(Screen::SortieInProgress),
         "/kcsapi/api_get_member/mission" => Some(Screen::ExpeditionSelect),
         _ => None,
     }
@@ -136,6 +152,18 @@ mod tests {
         assert_eq!(
             from_api("/kcsapi/api_req_kousyou/createitem"),
             Some(crate::ui_event::Screen::FactoryDevelop)
+        );
+    }
+
+    #[test]
+    fn sortie_start_leaves_map_selection_screen() {
+        assert_eq!(
+            from_api("/kcsapi/api_req_map/start"),
+            Some(crate::ui_event::Screen::SortieInProgress)
+        );
+        assert_eq!(
+            from_api("/kcsapi/api_req_sortie/battle"),
+            Some(crate::ui_event::Screen::SortieInProgress)
         );
     }
 }

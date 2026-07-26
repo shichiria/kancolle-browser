@@ -4,7 +4,7 @@ use log::info;
 use tauri::Manager;
 
 pub const AUXILIARY_WINDOWS: &[&str] =
-    &["management", "kantai", "quests", "improvement", "ships"];
+    &["management", "kantai", "quests", "improvement", "ships", "event"];
 
 fn window(app: &tauri::AppHandle, label: &str) -> Result<tauri::Window, String> {
     app.get_window(label)
@@ -90,6 +90,36 @@ window_commands!(
     toggle_ships_window,
     "ships"
 );
+#[tauri::command]
+pub(crate) fn show_event_window(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Emitter;
+    crate::action_log::record("Command", "show_event_window", None);
+    show(&app, "event")?;
+    app.emit(crate::events::EVENT_WINDOW_OPENED, ())
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) fn hide_event_window(app: tauri::AppHandle) -> Result<(), String> {
+    crate::action_log::record("Command", "hide_event_window", None);
+    hide(&app, "event")
+}
+
+#[tauri::command]
+pub(crate) fn toggle_event_window(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::Emitter;
+    crate::action_log::record("Command", "toggle_event_window", None);
+    if window(&app, "event")?
+        .is_visible()
+        .map_err(|error| error.to_string())?
+    {
+        hide(&app, "event")
+    } else {
+        show(&app, "event")?;
+        app.emit(crate::events::EVENT_WINDOW_OPENED, ())
+            .map_err(|error| error.to_string())
+    }
+}
 
 pub fn intercept_close_as_hide(app: &tauri::AppHandle) {
     for &label in AUXILIARY_WINDOWS {

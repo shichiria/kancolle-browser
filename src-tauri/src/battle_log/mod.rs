@@ -50,6 +50,21 @@ pub struct AirBattleResult {
     pub enemy_plane_count: Option<[i32; 2]>,
 }
 
+/// Land-base air defense result included in api_req_map/next.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BaseAirDefenseResult {
+    /// Detection time of the air raid
+    pub occurred_at: DateTime<Local>,
+    /// Air superiority state (api_disp_seiku): 0=parity, 1=supremacy, 2=superiority, 3=denial, 4=incapability
+    pub air_superiority: Option<i32>,
+    /// Friendly plane count [total, lost]
+    pub friendly_plane_count: Option<[i32; 2]>,
+    /// Enemy plane count [total, lost]
+    pub enemy_plane_count: Option<[i32; 2]>,
+    /// Air-base damage category (api_lost_kind)
+    pub lost_kind: Option<i32>,
+}
+
 /// Detailed battle information for a combat node
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BattleDetail {
@@ -115,6 +130,9 @@ pub struct BattleNode {
     /// Battle detail (None if no combat at this cell)
     #[serde(default)]
     pub battle: Option<BattleDetail>,
+    /// Land-base air defense result, when an air raid occurred while moving to this cell
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_air_defense: Option<BaseAirDefenseResult>,
 
     // --- Legacy fields for backward compatibility when loading old records ---
     // These are kept so that old saved JSON files can still be deserialized.
@@ -155,6 +173,7 @@ impl BattleNode {
             event_kind,
             event_id,
             battle: None,
+            base_air_defense: None,
             // Legacy fields - always None for new records
             rank: None,
             enemy_name: None,
@@ -287,7 +306,10 @@ pub struct SortieRecord {
 pub struct SortieRecordSummary {
     pub id: String,
     pub fleet_id: i32,
+    pub map_area: i32,
+    pub map_no: i32,
     pub map_display: String,
+    pub gauge_num: Option<i32>,
     pub ships: Vec<SortieShip>,
     pub nodes: Vec<BattleNode>,
     pub start_time: String,
@@ -299,7 +321,10 @@ impl From<&SortieRecord> for SortieRecordSummary {
         Self {
             id: r.id.clone(),
             fleet_id: r.fleet_id,
+            map_area: r.map_area,
+            map_no: r.map_no,
             map_display: r.map_display.clone(),
+            gauge_num: r.gauge_num,
             ships: r.ships.clone(),
             nodes: r.nodes.iter().map(BattleNode::without_raw).collect(),
             start_time: r.start_time.format("%Y-%m-%d %H:%M:%S").to_string(),
@@ -361,20 +386,25 @@ pub struct BattleLogger {
     pub(super) save_dir: Option<PathBuf>,
     /// Directory for raw API dumps
     raw_dir: Option<PathBuf>,
-    /// Whether raw API saving is enabled (developer option, default OFF)
+    /// Path storing the persistent developer-option state
+    raw_enabled_path: Option<PathBuf>,
+    /// Whether complete raw API saving is enabled
     raw_enabled: bool,
     /// Counter for raw dump ordering within a sortie
     raw_seq: u32,
 }
 
 impl BattleLogger {
-    pub fn new(save_dir: PathBuf, raw_dir: PathBuf) -> Self {
+    pub fn new(save_dir: PathBuf, raw_dir: PathBuf, raw_enabled_path: PathBuf) -> Self {
         // Load existing records from disk
         let completed = Self::load_from_disk(&save_dir);
-        raw::cleanup(&raw_dir);
+        let raw_enabled = std::fs::read_to_string(&raw_enabled_path)
+            .map(|value| value.trim() == "true")
+            .unwrap_or(false);
         info!(
-            "BattleLogger initialized with {} saved records",
-            completed.len()
+            "BattleLogger initialized with {} saved records (raw API: {})",
+            completed.len(),
+            if raw_enabled { "ON" } else { "OFF" }
         );
         let mut logger = Self {
             active_sortie: None,
@@ -382,9 +412,8 @@ impl BattleLogger {
             completed,
             save_dir: Some(save_dir),
             raw_dir: Some(raw_dir),
-            // Raw payload capture is an explicit developer option because it
-            // can grow without bound and may contain private gameplay data.
-            raw_enabled: false,
+            raw_enabled_path: Some(raw_enabled_path),
+            raw_enabled,
             raw_seq: 0,
         };
         logger.fix_interrupted_records();
@@ -410,8 +439,9 @@ impl BattleLogger {
         let clean_ep = endpoint.trim_start_matches("/kcsapi/").replace('/', "_");
 
         let filename = format!(
-            "{}_{:03}_{}.json",
-            now.format("%Y%m%d_%H%M%S"),
+            "{}_{}_{:06}_{}.json",
+            now.format("%Y%m%d_%H%M%S_%9f"),
+            std::process::id(),
             seq,
             clean_ep
         );
@@ -558,22 +588,33 @@ impl BattleLogger {
     pub fn on_map_next(
         &mut self,
         data: &crate::api::dto::battle::ApiMapNextResponse,
-        _json: &serde_json::Value,
+        json: &serde_json::Value,
     ) {
-        let sortie = match &mut self.active_sortie {
-            Some(s) => s,
-            None => return,
-        };
-
         let cell_no = data.api_no.unwrap_or(0);
         let event_kind = data.api_color_no.unwrap_or(0);
         let event_id = data.api_event_id.unwrap_or(0);
+        let base_air_defense = parse_base_air_defense(json);
 
-        if cell_no > 0 {
-            sortie
-                .nodes
-                .push(BattleNode::new(cell_no, event_kind, event_id));
+        let updated = if let Some(sortie) = &mut self.active_sortie {
+            if cell_no <= 0 {
+                false
+            } else {
+                let mut node = BattleNode::new(cell_no, event_kind, event_id);
+                node.base_air_defense = base_air_defense;
+                sortie.nodes.push(node);
+                true
+            }
+        } else {
+            return;
+        };
+
+        if updated {
             info!("Map next: cell {}", cell_no);
+            if let Some(sortie) = &self.active_sortie {
+                // Persist map movement immediately so an air-defense result is
+                // not lost if the app exits before the next battle or port.
+                self.save_to_disk(sortie);
+            }
         }
     }
 
@@ -640,8 +681,18 @@ impl BattleLogger {
     }
 
     /// Clear raw API dumps on disk
-    pub fn set_raw_enabled(&mut self, enabled: bool) {
+    pub fn set_raw_enabled(&mut self, enabled: bool) -> Result<(), String> {
+        if let Some(path) = &self.raw_enabled_path {
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|error| {
+                    format!("全ログ保存の設定フォルダを作成できません: {error}")
+                })?;
+            }
+            std::fs::write(path, if enabled { "true" } else { "false" })
+                .map_err(|error| format!("全ログ保存の設定を保存できません: {error}"))?;
+        }
         self.raw_enabled = enabled;
+        Ok(())
     }
 
     pub fn is_raw_enabled(&self) -> bool {
@@ -672,4 +723,107 @@ fn parse_form_body(body: &str) -> HashMap<String, String> {
             Some((key.to_string(), value.to_string()))
         })
         .collect()
+}
+
+/// Extract an air-defense result from api_req_map/next.
+///
+/// The game has used both object and array containers around
+/// api_air_base_attack, so locate the stage1 object defensively within
+/// api_destruction_battle while keeping the full response in raw_api.
+fn parse_base_air_defense(json: &serde_json::Value) -> Option<BaseAirDefenseResult> {
+    let destruction = json
+        .get("api_data")
+        .and_then(|data| data.get("api_destruction_battle"))?;
+    let stage1 = find_air_stage1(destruction)?;
+
+    Some(BaseAirDefenseResult {
+        occurred_at: Local::now(),
+        air_superiority: json_i32(stage1, "api_disp_seiku"),
+        friendly_plane_count: plane_counts(stage1, "api_f_count", "api_f_lostcount"),
+        enemy_plane_count: plane_counts(stage1, "api_e_count", "api_e_lostcount"),
+        lost_kind: json_i32(destruction, "api_lost_kind"),
+    })
+}
+
+fn find_air_stage1(value: &serde_json::Value) -> Option<&serde_json::Value> {
+    match value {
+        serde_json::Value::Object(object) => {
+            if let Some(stage1) = object.get("api_stage1") {
+                if stage1.get("api_disp_seiku").is_some() {
+                    return Some(stage1);
+                }
+            }
+            object.values().find_map(find_air_stage1)
+        }
+        serde_json::Value::Array(values) => values.iter().find_map(find_air_stage1),
+        _ => None,
+    }
+}
+
+fn json_i32(value: &serde_json::Value, key: &str) -> Option<i32> {
+    value
+        .get(key)
+        .and_then(serde_json::Value::as_i64)
+        .and_then(|number| i32::try_from(number).ok())
+}
+
+fn plane_counts(value: &serde_json::Value, total_key: &str, lost_key: &str) -> Option<[i32; 2]> {
+    Some([json_i32(value, total_key)?, json_i32(value, lost_key)?])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_path(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "kancolle-browser-{name}-{}-{}",
+            std::process::id(),
+            Local::now().timestamp_nanos_opt().unwrap_or_default()
+        ))
+    }
+
+    #[test]
+    fn parses_base_air_defense_from_map_next() {
+        let json = serde_json::json!({
+            "api_data": {
+                "api_no": 42,
+                "api_destruction_battle": {
+                    "api_air_base_attack": {
+                        "api_stage1": {
+                            "api_disp_seiku": 2,
+                            "api_f_count": 71,
+                            "api_f_lostcount": 3,
+                            "api_e_count": 48,
+                            "api_e_lostcount": 19
+                        }
+                    },
+                    "api_lost_kind": 1
+                }
+            }
+        });
+
+        let result = parse_base_air_defense(&json).unwrap();
+        assert_eq!(result.air_superiority, Some(2));
+        assert_eq!(result.friendly_plane_count, Some([71, 3]));
+        assert_eq!(result.enemy_plane_count, Some([48, 19]));
+        assert_eq!(result.lost_kind, Some(1));
+    }
+
+    #[test]
+    fn raw_api_setting_survives_restart() {
+        let root = test_path("raw-setting");
+        let save_dir = root.join("battle_logs");
+        let raw_dir = root.join("raw_api");
+        let setting = root.join("local").join("raw_api_enabled");
+
+        let mut logger = BattleLogger::new(save_dir.clone(), raw_dir.clone(), setting.clone());
+        assert!(!logger.is_raw_enabled());
+        logger.set_raw_enabled(true).unwrap();
+
+        let restored = BattleLogger::new(save_dir, raw_dir, setting);
+        assert!(restored.is_raw_enabled());
+
+        let _ = std::fs::remove_dir_all(root);
+    }
 }
