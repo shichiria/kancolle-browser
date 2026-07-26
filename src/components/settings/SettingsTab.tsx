@@ -284,7 +284,7 @@ export function SettingsTab({
                 await invoke("set_raw_api_enabled", { enabled });
               }}
             />
-            <span className="options-toggle-text">全APIレスポンスを保存（起動時はOFF）</span>
+            <span className="options-toggle-text">全APIのリクエスト・レスポンスを保存（設定を保持）</span>
           </label>
         </div>
       </div>

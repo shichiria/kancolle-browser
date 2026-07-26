@@ -9,3 +9,4 @@ export type { ShipListItem, ShipListResponse, ShipSortKey } from "./ship";
 export type { EquipListItem, EquipListResponse } from "./equipment";
 export type { ConsumedEquipInfo, ImprovementItem, ImprovementListResponse } from "./improvement";
 export type { AirBase, AirBasePlane, AirBaseDistance, AirBaseAttackWave } from "./airbase";
+export type { EventMapStatus } from "./event";

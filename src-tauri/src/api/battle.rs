@@ -9,7 +9,10 @@ pub(super) use exercise::process_exercise_result;
 
 use super::air_corps;
 use super::battle_info;
-use super::formation::{formation_name, hide_formation_hint, show_formation_hint};
+use super::formation::{
+    alert_formation_available, formation_name, hide_formation_hint, remember_selection,
+    remembered_selection, show_formation_hint,
+};
 use super::minimap::update_minimap_overlay;
 use super::models;
 use super::notify_sync;
@@ -20,6 +23,12 @@ pub(super) fn is_battle_endpoint(ep: &str) -> bool {
         || ep.starts_with("/kcsapi/api_req_sortie/")
         || ep.starts_with("/kcsapi/api_req_battle_midnight/")
         || ep.starts_with("/kcsapi/api_req_combined_battle/")
+}
+
+/// The escort-fleet flagship in a combined fleet cannot sink, so it must not
+/// trigger an advance warning even when its HP is at the taiha threshold.
+fn is_taiha_warning_exempt(is_combined: bool, fleet_index: usize, ship_index: usize) -> bool {
+    is_combined && fleet_index == 1 && ship_index == 0
 }
 
 /// Process battle-related API endpoints
@@ -75,22 +84,42 @@ pub(super) fn process_battle(
             if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                 let summary = crate::battle_log::SortieRecordSummary::from(sortie);
                 let _ = app.emit(crate::events::SORTIE_UPDATE, &summary);
+                let alert_available = alert_formation_available(&state.mapinfo_gauges);
 
                 // Update minimap overlay
                 update_minimap_overlay(app, sortie);
 
                 // Show formation hint for first cell if previously visited
                 if let Some(node) = sortie.nodes.last() {
-                    let key = format!("{}-{}-{}", sortie.map_area, sortie.map_no, node.cell_no);
-                    if let Some(&formation) = state.formation_memory.get(&key) {
+                    if let Some((formation, smoke_type)) = remembered_selection(
+                        &state.formation_memory,
+                        sortie.map_area,
+                        sortie.map_no,
+                        node.cell_no,
+                        sortie.is_combined,
+                    ) {
                         let ship_count = sortie.ships.len();
                         info!(
-                            "Formation hint: {} -> {} (ships={})",
-                            key,
+                            "Formation hint: {}-{}-{} ({}) -> {} (ships={}, smoke={})",
+                            sortie.map_area,
+                            sortie.map_no,
+                            node.cell_no,
+                            if sortie.is_combined {
+                                "combined"
+                            } else {
+                                "normal"
+                            },
                             formation_name(formation),
-                            ship_count
+                            ship_count,
+                            smoke_type
                         );
-                        show_formation_hint(app, formation, ship_count);
+                        show_formation_hint(
+                            app,
+                            formation,
+                            ship_count,
+                            smoke_type > 0,
+                            alert_available,
+                        );
                     }
                 }
             }
@@ -122,6 +151,13 @@ pub(super) fn process_battle(
                         if fi < state.profile.fleets.len() {
                             let ship_ids = &state.profile.fleets[fi];
                             for (i, &ship_id) in ship_ids.iter().enumerate() {
+                                if is_taiha_warning_exempt(sortie.is_combined, fi, i) {
+                                    info!(
+                                        "Ship {} is the combined escort flagship — skipping taiha warning",
+                                        ship_id
+                                    );
+                                    continue;
+                                }
                                 if state.sortie.escaped_ship_ids.contains(&ship_id) {
                                     info!(
                                         "Ship {} ({}) has retreated — skipping warning",
@@ -204,19 +240,37 @@ pub(super) fn process_battle(
                         if !taiha_shown {
                             if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref() {
                                 if let Some(node) = sortie.nodes.last() {
-                                    let key = format!(
-                                        "{}-{}-{}",
-                                        sortie.map_area, sortie.map_no, node.cell_no
-                                    );
-                                    if let Some(&formation) = state.formation_memory.get(&key) {
+                                    if let Some((formation, smoke_type)) = remembered_selection(
+                                        &state.formation_memory,
+                                        sortie.map_area,
+                                        sortie.map_no,
+                                        node.cell_no,
+                                        sortie.is_combined,
+                                    ) {
                                         let ship_count = sortie.ships.len();
+                                        let alert_available =
+                                            alert_formation_available(&state.mapinfo_gauges);
                                         info!(
-                                            "Formation hint: {} -> {} (ships={})",
-                                            key,
+                                            "Formation hint: {}-{}-{} ({}) -> {} (ships={}, smoke={})",
+                                            sortie.map_area,
+                                            sortie.map_no,
+                                            node.cell_no,
+                                            if sortie.is_combined {
+                                                "combined"
+                                            } else {
+                                                "normal"
+                                            },
                                             formation_name(formation),
-                                            ship_count
+                                            ship_count,
+                                            smoke_type
                                         );
-                                        show_formation_hint(app, formation, ship_count);
+                                        show_formation_hint(
+                                            app,
+                                            formation,
+                                            ship_count,
+                                            smoke_type > 0,
+                                            alert_available,
+                                        );
                                     }
                                 }
                             }
@@ -300,26 +354,41 @@ pub(super) fn process_battle(
                         if let Some(arr) = &data.api_formation {
                             let friendly_formation = arr.first().copied().unwrap_or(0);
                             if friendly_formation > 0 {
-                                if let Some(sortie) = state.sortie.battle_logger.active_sortie_ref()
-                                {
-                                    if let Some(node) = sortie.nodes.last() {
-                                        let key = format!(
-                                            "{}-{}-{}",
-                                            sortie.map_area, sortie.map_no, node.cell_no
-                                        );
-                                        info!(
-                                            "Formation saved: {} = {} ({})",
-                                            key,
-                                            friendly_formation,
-                                            formation_name(friendly_formation)
-                                        );
-                                        state.formation_memory.insert(key, friendly_formation);
-                                        super::formation::save_memory(
-                                            &state.formation_memory_path,
-                                            &state.formation_memory,
-                                        );
-                                        notify_sync(state, vec!["formation_memory.json"]);
-                                    }
+                                let smoke_type = data.api_smoke_type.unwrap_or(0);
+                                let cell = state.sortie.battle_logger.active_sortie_ref().and_then(
+                                    |sortie| {
+                                        sortie.nodes.last().map(|node| {
+                                            (
+                                                sortie.map_area,
+                                                sortie.map_no,
+                                                node.cell_no,
+                                                sortie.is_combined,
+                                            )
+                                        })
+                                    },
+                                );
+                                if let Some((map_area, map_no, cell_no, is_combined)) = cell {
+                                    let key = remember_selection(
+                                        &mut state.formation_memory,
+                                        map_area,
+                                        map_no,
+                                        cell_no,
+                                        is_combined,
+                                        friendly_formation,
+                                        smoke_type,
+                                    );
+                                    info!(
+                                        "Formation saved: {} = {} ({}), smoke={}",
+                                        key,
+                                        friendly_formation,
+                                        formation_name(friendly_formation),
+                                        smoke_type
+                                    );
+                                    super::formation::save_memory(
+                                        &state.formation_memory_path,
+                                        &state.formation_memory,
+                                    );
+                                    notify_sync(state, vec!["formation_memory.json"]);
                                 }
                             }
                         }
@@ -608,6 +677,13 @@ pub(super) fn process_battle(
                 }
             }
 
+            if apply_provisional_event_gauge(state) {
+                let _ = app.emit(
+                    crate::events::EVENT_MAP_UPDATED,
+                    &state.event_map_statuses,
+                );
+            }
+
             // Record per-battle HQ exp (api_get_exp) and check for EO bonus
             if let Some(api_data) = json.get("api_data") {
                 let mut senka_changed = false;
@@ -664,6 +740,67 @@ pub(super) fn process_battle(
             info!("Unhandled battle endpoint: {}", endpoint);
         }
     }
+}
+
+/// Estimate a destruction gauge immediately after a boss result.
+///
+/// The game does not return the updated map gauge in battleresult. The
+/// authoritative value arrives later via mapinfo, so this updates the in-memory
+/// value provisionally and mapinfo replaces it on the next refresh.
+fn apply_provisional_event_gauge(state: &mut models::GameStateInner) -> bool {
+    let Some((map_id, gauge_num, event_id, boss_hp_before, boss_hp_after)) = state
+        .sortie
+        .battle_logger
+        .active_sortie_ref()
+        .and_then(|sortie| {
+            let node = sortie.nodes.last()?;
+            let boss_hp = node.battle.as_ref()?.enemy_hp.first()?;
+            Some((
+                sortie.map_area * 10 + sortie.map_no,
+                sortie.gauge_num,
+                node.event_id,
+                boss_hp.before,
+                boss_hp.after,
+            ))
+        })
+    else {
+        return false;
+    };
+
+    let Some(status) = state.event_map_statuses.iter_mut().find(|status| {
+        status.map_id == map_id
+            && (gauge_num.is_none() || status.gauge_num == gauge_num)
+    }) else {
+        return false;
+    };
+    let Some(provisional_hp) = calculate_provisional_gauge_hp(
+        status.current_hp,
+        status.gauge_type,
+        event_id,
+        boss_hp_before,
+        boss_hp_after,
+    ) else {
+        return false;
+    };
+
+    status.current_hp = Some(provisional_hp);
+    status.provisional = true;
+    true
+}
+
+fn calculate_provisional_gauge_hp(
+    current_hp: Option<i32>,
+    gauge_type: Option<i32>,
+    event_id: i32,
+    boss_hp_before: i32,
+    boss_hp_after: i32,
+) -> Option<i32> {
+    if gauge_type != Some(2) || event_id != 5 {
+        return None;
+    }
+    let current_hp = current_hp?;
+    let damage = (boss_hp_before - boss_hp_after).max(0);
+    (damage > 0).then_some((current_hp - damage).max(0))
 }
 
 #[cfg(test)]

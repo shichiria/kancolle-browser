@@ -2,6 +2,14 @@ use super::{battle, dto, models};
 use dto::request::{HenseiChangeReq, QuestReq, RemodelSlotReq};
 use log::{error, info, warn};
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct SelectEventMapRankRequest {
+    api_maparea_id: i32,
+    api_map_no: i32,
+    api_rank: i32,
+}
 
 /// Pre-parsed API data to pass into the single async task
 // One transient instance exists at a time; stack size is not a concern here.
@@ -59,8 +67,10 @@ pub(super) enum ParsedApi {
     // Category B: mapinfo — gauge cache + air-base state
     MapInfoData {
         gauges: std::collections::HashMap<i32, i32>,
+        event_maps: Vec<models::EventMapStatus>,
         air_bases: dto::air_corps::MapInfoAirBases,
     },
+    EventMapRankSelected(models::EventMapStatus),
     // Category B: 基地航空隊 — full state (api_get_member/base_air_corps)
     BaseAirCorps(Vec<dto::air_corps::AirBase>),
     // Category B: 基地航空隊 incremental updates
@@ -382,6 +392,7 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
                 Ok(data) => match data.api_data {
                     Some(api_data) => {
                         let mut gauges = std::collections::HashMap::new();
+                        let mut event_maps = Vec::new();
                         if let Some(map_info) =
                             api_data.get("api_map_info").and_then(|v| v.as_array())
                         {
@@ -394,17 +405,103 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
                                         gauges.insert(map_id, gauge as i32);
                                     }
                                 }
+                                if let Some(eventmap) =
+                                    m.get("api_eventmap").filter(|value| !value.is_null())
+                                {
+                                    event_maps.push(models::EventMapStatus {
+                                        map_id,
+                                        gauge_num: m
+                                            .get("api_gauge_num")
+                                            .and_then(|v| v.as_i64())
+                                            .and_then(|v| i32::try_from(v).ok()),
+                                        gauge_type: m
+                                            .get("api_gauge_type")
+                                            .and_then(|v| v.as_i64())
+                                            .and_then(|v| i32::try_from(v).ok()),
+                                        current_hp: eventmap
+                                            .get("api_now_maphp")
+                                            .and_then(|v| v.as_i64())
+                                            .and_then(|v| i32::try_from(v).ok()),
+                                        max_hp: eventmap
+                                            .get("api_max_maphp")
+                                            .and_then(|v| v.as_i64())
+                                            .and_then(|v| i32::try_from(v).ok()),
+                                        selected_rank: eventmap
+                                            .get("api_selected_rank")
+                                            .and_then(|v| v.as_i64())
+                                            .and_then(|v| i32::try_from(v).ok()),
+                                        state: eventmap
+                                            .get("api_state")
+                                            .and_then(|v| v.as_i64())
+                                            .and_then(|v| i32::try_from(v).ok()),
+                                        cleared: m
+                                            .get("api_cleared")
+                                            .and_then(|v| v.as_i64())
+                                            .unwrap_or(0)
+                                            > 0,
+                                        provisional: false,
+                                    });
+                                }
                             }
                         }
                         let air_bases = serde_json::from_value(api_data).unwrap_or_else(|error| {
                             warn!("Failed to parse mapinfo air bases: {}", error);
                             dto::air_corps::MapInfoAirBases::default()
                         });
-                        ParsedApi::MapInfoData { gauges, air_bases }
+                        ParsedApi::MapInfoData {
+                            gauges,
+                            event_maps,
+                            air_bases,
+                        }
                     }
                     None => ParsedApi::LogOnly,
                 },
                 Err(_) => ParsedApi::LogOnly,
+            }
+        }
+        "/kcsapi/api_req_map/select_eventmap_rank" => {
+            info!("Processing api_req_map/select_eventmap_rank");
+            let request = serde_urlencoded::from_str::<SelectEventMapRankRequest>(request_body);
+            let response =
+                serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str);
+            match (request, response) {
+                (Ok(request), Ok(response)) => {
+                    let maphp = response
+                        .api_data
+                        .as_ref()
+                        .and_then(|data| data.get("api_maphp"));
+                    ParsedApi::EventMapRankSelected(models::EventMapStatus {
+                        map_id: request.api_maparea_id * 10 + request.api_map_no,
+                        gauge_num: maphp
+                            .and_then(|value| value.get("api_gauge_num"))
+                            .and_then(|value| value.as_i64())
+                            .and_then(|value| i32::try_from(value).ok()),
+                        gauge_type: maphp
+                            .and_then(|value| value.get("api_gauge_type"))
+                            .and_then(|value| value.as_i64())
+                            .and_then(|value| i32::try_from(value).ok()),
+                        current_hp: maphp
+                            .and_then(|value| value.get("api_now_maphp"))
+                            .and_then(|value| value.as_i64())
+                            .and_then(|value| i32::try_from(value).ok()),
+                        max_hp: maphp
+                            .and_then(|value| value.get("api_max_maphp"))
+                            .and_then(|value| value.as_i64())
+                            .and_then(|value| i32::try_from(value).ok()),
+                        selected_rank: Some(request.api_rank),
+                        state: None,
+                        cleared: false,
+                        provisional: false,
+                    })
+                }
+                (Err(error), _) => {
+                    warn!("Failed to parse event-map rank request: {}", error);
+                    ParsedApi::Other
+                }
+                (_, Err(error)) => {
+                    warn!("Failed to parse event-map rank response: {}", error);
+                    ParsedApi::Other
+                }
             }
         }
         "/kcsapi/api_req_air_corps/set_plane" => {
@@ -565,4 +662,79 @@ pub(super) fn extract_senka_from_clearitemget(json_str: &str) -> i64 {
         }
     }
     total_bonus
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse, ParsedApi};
+
+    #[test]
+    fn mapinfo_extracts_event_gauge_status() {
+        let json = r#"{
+          "api_result": 1,
+          "api_result_msg": "成功",
+          "api_data": {
+            "api_map_info": [{
+              "api_id": 623,
+              "api_cleared": 0,
+              "api_gauge_num": 2,
+              "api_gauge_type": 3,
+              "api_eventmap": {
+                "api_now_maphp": 750,
+                "api_max_maphp": 1000,
+                "api_selected_rank": 4,
+                "api_state": 1
+              }
+            }]
+          }
+        }"#;
+
+        let ParsedApi::MapInfoData { event_maps, .. } =
+            parse("/kcsapi/api_get_member/mapinfo", json, "")
+        else {
+            panic!("mapinfo did not produce MapInfoData");
+        };
+
+        assert_eq!(event_maps.len(), 1);
+        let status = &event_maps[0];
+        assert_eq!(status.map_id, 623);
+        assert_eq!(status.gauge_num, Some(2));
+        assert_eq!(status.gauge_type, Some(3));
+        assert_eq!(status.current_hp, Some(750));
+        assert_eq!(status.max_hp, Some(1000));
+        assert_eq!(status.selected_rank, Some(4));
+        assert_eq!(status.state, Some(1));
+        assert!(!status.cleared);
+    }
+
+    #[test]
+    fn event_rank_selection_immediately_updates_gauge_status() {
+        let json = r#"{
+          "api_result": 1,
+          "api_result_msg": "成功",
+          "api_data": {
+            "api_maphp": {
+              "api_gauge_num": 1,
+              "api_gauge_type": 2,
+              "api_max_maphp": 4410,
+              "api_now_maphp": 4410
+            }
+          }
+        }"#;
+        let request = "api_maparea_id=62&api_map_no=3&api_rank=4";
+
+        let ParsedApi::EventMapRankSelected(status) = parse(
+            "/kcsapi/api_req_map/select_eventmap_rank",
+            json,
+            request,
+        ) else {
+            panic!("rank selection did not produce EventMapRankSelected");
+        };
+
+        assert_eq!(status.map_id, 623);
+        assert_eq!(status.selected_rank, Some(4));
+        assert_eq!(status.gauge_num, Some(1));
+        assert_eq!(status.current_hp, Some(4410));
+        assert_eq!(status.max_hp, Some(4410));
+    }
 }

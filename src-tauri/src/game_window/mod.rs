@@ -485,6 +485,25 @@ mod tests {
     }
 
     #[test]
+    fn game_control_bar_opens_event_window() {
+        let script = build_game_init_script();
+
+        assert!(script.contains("id=\"kc-event\""));
+        assert!(script.contains("invoke('toggle_event_window')"));
+    }
+
+    #[test]
+    fn event_map_shows_unsupplied_airbase_warning() {
+        let script = build_game_init_script();
+
+        assert!(script.contains("id = 'kc-airbase-supply-warning'"));
+        assert!(script.contains("invoke('get_air_bases')"));
+        assert!(script.contains("plane.count) < Number(plane.max_count"));
+        assert!(script.contains("screen === 'SortieSelect' && needsSupply"));
+        assert!(script.contains("kc-airbase-supply-blink"));
+    }
+
+    #[test]
     fn game_popups_only_accept_https_urls() {
         assert!(is_allowed_popup_url(
             &Url::parse("https://point.dmm.com/choice/pay").unwrap()

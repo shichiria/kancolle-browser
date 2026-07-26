@@ -100,6 +100,21 @@ pub struct PlayerSlotItem {
     pub locked: bool,
 }
 
+/// Current event-map gauge state from api_get_member/mapinfo.
+#[derive(Debug, Clone, Serialize)]
+pub struct EventMapStatus {
+    pub map_id: i32,
+    pub gauge_num: Option<i32>,
+    pub gauge_type: Option<i32>,
+    pub current_hp: Option<i32>,
+    pub max_hp: Option<i32>,
+    pub selected_rank: Option<i32>,
+    pub state: Option<i32>,
+    pub cleared: bool,
+    /// True when current_hp was estimated from the latest boss battle result.
+    pub provisional: bool,
+}
+
 /// Static master data from api_start2 (immutable during session)
 #[derive(Debug, Default)]
 pub struct MasterData {
@@ -181,7 +196,9 @@ pub struct GameStateInner {
     pub sync_notifier: Option<tokio::sync::mpsc::Sender<crate::drive_sync::SyncCommand>>,
     /// Cached gauge numbers from mapinfo: map_id (area*10+no) -> gauge_num
     pub mapinfo_gauges: HashMap<i32, i32>,
-    /// Formation memory: "{map_area}-{map_no}-{cell_no}" -> formation_id
+    /// Current event-map boss/transport gauge states from mapinfo
+    pub event_map_statuses: Vec<EventMapStatus>,
+    /// Formation memory: fleet-specific cell keys and companion smoke keys -> integer values
     pub formation_memory: HashMap<String, i32>,
     /// Path to formation memory file
     pub formation_memory_path: std::path::PathBuf,
@@ -200,8 +217,11 @@ impl GameState {
     pub fn new(data_dir: PathBuf) -> Self {
         let sync_dir = data_dir.join("sync");
         let mut inner = GameStateInner::default();
-        inner.sortie.battle_logger =
-            BattleLogger::new(sync_dir.join("battle_logs"), sync_dir.join("raw_api"));
+        inner.sortie.battle_logger = BattleLogger::new(
+            sync_dir.join("battle_logs"),
+            sync_dir.join("raw_api"),
+            data_dir.join("local").join("raw_api_enabled"),
+        );
 
         // Load improved equipment history
         let improved_path = sync_dir.join("improved_equipment.json");

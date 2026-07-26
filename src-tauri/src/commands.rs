@@ -373,7 +373,7 @@ pub(crate) async fn set_raw_api_enabled(
     enabled: bool,
 ) -> Result<(), String> {
     let mut inner = state.inner.write().await;
-    inner.sortie.battle_logger.set_raw_enabled(enabled);
+    inner.sortie.battle_logger.set_raw_enabled(enabled)?;
     info!("Raw API saving: {}", if enabled { "ON" } else { "OFF" });
     Ok(())
 }
@@ -417,6 +417,15 @@ pub(crate) async fn get_battle_logs(
             "total": total,
         }))
     }
+}
+
+/// Get the latest event-map boss/transport gauge states.
+#[tauri::command]
+pub(crate) async fn get_event_map_statuses(
+    state: tauri::State<'_, api::models::GameState>,
+) -> Result<Vec<api::models::EventMapStatus>, String> {
+    let inner = state.inner.read().await;
+    Ok(inner.event_map_statuses.clone())
 }
 
 /// Get quest progress for active quests

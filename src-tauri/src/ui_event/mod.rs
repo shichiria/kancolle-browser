@@ -13,8 +13,14 @@ use serde::Serialize;
 pub enum Screen {
     /// 母港 — main hub with navigation buttons
     Homeport,
-    /// 出撃選択 — sortie/exercise/expedition selection
+    /// 出撃メニュー — sortie/exercise/expedition mode selection
+    SortieMenu,
+    /// 海域選択 — sortie map selection
     SortieSelect,
+    /// 基地航空隊 — event-map air-base organization/supply panel
+    AirBaseSupply,
+    /// 出撃中 — map advance and battle screens
+    SortieInProgress,
     /// 遠征選択 — expedition list with area tabs
     ExpeditionSelect,
     /// 編成 — fleet composition (6 ship slots)
@@ -56,6 +62,8 @@ pub enum UiEvent {
     Navigate { target: String },
     /// Select sortie mode (出撃/演習/遠征)
     SelectMode { mode: String },
+    /// Open the event-map air-base organization/supply panel
+    OpenAirBaseSupply,
     /// Switch expedition area tab
     ExpeditionTab { area: String },
     /// Select an expedition from the list
@@ -147,6 +155,7 @@ pub fn detect_event(screen: Screen, x: i32, y: i32) -> UiEvent {
 
     match screen {
         Screen::Homeport => detect_homeport(x, y),
+        Screen::SortieMenu => detect_sortie_menu(x, y),
         Screen::SortieSelect => detect_sortie_select(x, y),
         Screen::ExpeditionSelect => detect_expedition_select(x, y),
         Screen::FleetComposition => detect_fleet_composition(x, y),
@@ -244,6 +253,15 @@ fn detect_homeport(x: i32, y: i32) -> UiEvent {
 }
 
 fn detect_sortie_select(x: i32, y: i32) -> UiEvent {
+    // Event-map 「基地航空隊」 button at the lower left.
+    if HitRegion::new(200, 560, 500, 660).contains(x, y) {
+        UiEvent::OpenAirBaseSupply
+    } else {
+        detect_sortie_menu(x, y)
+    }
+}
+
+fn detect_sortie_menu(x: i32, y: i32) -> UiEvent {
     if HitRegion::new(300, 80, 450, 120).contains(x, y) {
         UiEvent::SelectMode {
             mode: "出撃".to_string(),

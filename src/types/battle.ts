@@ -25,6 +25,11 @@ export interface AirBattleResult {
   enemy_plane_count?: [number, number];
 }
 
+export interface BaseAirDefenseResult extends AirBattleResult {
+  occurred_at: string;
+  lost_kind?: number;
+}
+
 export interface BattleDetail {
   rank: string;
   enemy_name: string;
@@ -46,6 +51,7 @@ export interface BattleNode {
   event_kind: number;
   event_id?: number;
   battle?: BattleDetail;
+  base_air_defense?: BaseAirDefenseResult;
   // Legacy fields (from old saved records, migrated on load)
   rank?: string;
   enemy_name?: string;
@@ -67,7 +73,10 @@ export interface SortieShip {
 export interface SortieRecord {
   id: string;
   fleet_id: number;
+  map_area?: number;
+  map_no?: number;
   map_display: string;
+  gauge_num?: number;
   ships: SortieShip[];
   nodes: BattleNode[];
   start_time: string;

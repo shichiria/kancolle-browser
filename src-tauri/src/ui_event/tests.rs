@@ -333,3 +333,15 @@ fn real_session_expedition_tab_chinjufu() {
         }
     );
 }
+
+#[test]
+fn event_map_airbase_button_leaves_map_selection() {
+    let event = detect_event(Screen::SortieSelect, 350, 610);
+    assert_eq!(event, UiEvent::OpenAirBaseSupply);
+}
+
+#[test]
+fn sortie_mode_menu_does_not_mistake_lower_left_for_airbase_button() {
+    let event = detect_event(Screen::SortieMenu, 350, 610);
+    assert_eq!(event, UiEvent::UnknownClick { x: 350, y: 610 });
+}

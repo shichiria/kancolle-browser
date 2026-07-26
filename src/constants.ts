@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   EQUIP_TYPE_FILTERS: "equip-type-filters",
   IMPROVEMENT_TYPE_FILTERS: "improvement-type-filters",
   MAP_REC_AREA: "map-rec-area",
+  EVENT_E3_PROGRESS: "event-e3-progress-2026-summer",
   expeditionFleet: (index: number) => `expedition-fleet-${index}`,
   sortieQuestFleet: (index: number) => `sortie-quest-fleet-${index}`,
 } as const;
@@ -28,6 +29,8 @@ export const EVENTS = {
   SCREEN_CHANGED: "screen-changed",
   FLEET_VIEW_CHANGED: "fleet-view-changed",
   AIR_BASE_UPDATED: "air-base-updated",
+  EVENT_MAP_UPDATED: "event-map-updated",
+  EVENT_WINDOW_OPENED: "event-window-opened",
   DRIVE_SYNC_STATUS: "drive-sync-status",
   DRIVE_DATA_UPDATED: "drive-data-updated",
   CLICK_EVENT: "click-event",

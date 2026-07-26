@@ -158,6 +158,42 @@
         }
         #kc-control-bar .spacer { flex: 1; }
         #kc-control-bar .label { font-size: 10px; color: #666; }
+        #kc-airbase-supply-warning {
+            position: fixed;
+            left: 278px;
+            top: calc(__KC_CONTROL_BAR_HEIGHT__px + 480px);
+            z-index: 99998;
+            display: none;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 13px;
+            border: 2px solid #ffca45;
+            border-radius: 8px;
+            background: rgba(92, 35, 10, 0.94);
+            color: #fff3b0;
+            box-shadow: 0 0 15px rgba(255, 174, 32, 0.9);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 17px;
+            font-weight: 800;
+            line-height: 1;
+            pointer-events: none;
+            user-select: none;
+            animation: kc-airbase-supply-blink 0.85s steps(2, start) infinite;
+        }
+        #kc-airbase-supply-warning .fuel {
+            font-size: 23px;
+        }
+        #kc-airbase-supply-warning .detail {
+            display: block;
+            margin-top: 3px;
+            color: #ffd56b;
+            font-size: 9px;
+            font-weight: 600;
+        }
+        @keyframes kc-airbase-supply-blink {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.97); }
+        }
     `;
 
     // Persist a compact DOM/layout snapshot in the session log. DMM changes
@@ -302,10 +338,49 @@
             + '<button id="kc-kantai" title="\u{8266}\u{968A}\u{30D1}\u{30CD}\u{30EB}">\u{2693} \u{8266}\u{968A}</button>'
             + '<button id="kc-improve" title="\u{6539}\u{4FEE}\u{30A6}\u{30A3}\u{30F3}\u{30C9}\u{30A6}">\u{1F527} \u{6539}\u{4FEE}</button>'
             + '<button id="kc-ships" title="\u{8266}\u{5A18}\u{30A6}\u{30A3}\u{30F3}\u{30C9}\u{30A6}">\u{1F467} \u{8266}\u{5A18}</button>'
+            + '<button id="kc-event" title="\u{30A4}\u{30D9}\u{30F3}\u{30C8}\u{9032}\u{884C}\u{7BA1}\u{7406}">\u{1F3AA} \u{30A4}\u{30D9}\u{30F3}\u{30C8}</button>'
             + '<span class="spacer"></span>'
             + '<span class="label">KanColle Browser</span>'
             + '<button id="kc-mgmt" title="\u{7BA1}\u{7406}\u{30D1}\u{30CD}\u{30EB}">\u{1F4CA} \u{7BA1}\u{7406}</button>';
         parent.appendChild(bar);
+
+        // Event-map LBAS supply warning. This lives in the trusted DMM host
+        // frame, above the cross-origin game iframe.
+        var airbaseWarning = document.createElement('div');
+        airbaseWarning.id = 'kc-airbase-supply-warning';
+        airbaseWarning.innerHTML = '<span class="fuel">\u{26FD}</span>'
+            + '<span>\u{88DC}\u{7D66}'
+            + '<small class="detail">\u{30A4}\u{30D9}\u{30F3}\u{30C8}\u{57FA}\u{5730}\u{822A}\u{7A7A}\u{968A}</small>'
+            + '</span>';
+        parent.appendChild(airbaseWarning);
+
+        function refreshAirbaseSupplyWarning() {
+            if (!window.__TAURI_INTERNALS__) return;
+            Promise.all([
+                window.__TAURI_INTERNALS__.invoke('get_current_screen'),
+                window.__TAURI_INTERNALS__.invoke('get_air_bases')
+            ]).then(function(values) {
+                var screen = values[0];
+                var bases = Array.isArray(values[1]) ? values[1] : [];
+                var needsSupply = bases.some(function(base) {
+                    // Event areas use IDs 20 and above. Ignore empty squadrons.
+                    if (!base || Number(base.area_id) < 20 || !Array.isArray(base.planes)) {
+                        return false;
+                    }
+                    return base.planes.some(function(plane) {
+                        if (!plane || Number(plane.slotid) <= 0) return false;
+                        return Number(plane.state) === 2
+                            || Number(plane.count) < Number(plane.max_count);
+                    });
+                });
+                airbaseWarning.style.display =
+                    screen === 'SortieSelect' && needsSupply ? 'flex' : 'none';
+            }).catch(function() {
+                airbaseWarning.style.display = 'none';
+            });
+        }
+        refreshAirbaseSupplyWarning();
+        setInterval(refreshAirbaseSupplyWarning, 500);
 
         // Restore saved zoom
         var saved = localStorage.getItem('kc-game-zoom');
@@ -470,6 +545,12 @@
         var shipsBtn = document.getElementById('kc-ships');
         shipsBtn.addEventListener('click', function() {
             window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_ships_window');
+        });
+
+        // Event progress window toggle
+        var eventBtn = document.getElementById('kc-event');
+        eventBtn.addEventListener('click', function() {
+            window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.invoke('toggle_event_window');
         });
     }
 

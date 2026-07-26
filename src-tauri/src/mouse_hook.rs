@@ -188,7 +188,7 @@ fn screen_from_event(event: &crate::ui_event::UiEvent) -> Option<crate::ui_event
                 "編成" => Some(Screen::FleetComposition),
                 "改装" => Some(Screen::Remodel),
                 "補給" => Some(Screen::Resupply),
-                "出撃" => Some(Screen::SortieSelect),
+                "出撃" => Some(Screen::SortieMenu),
                 "入渠" => Some(Screen::RepairDockSelect),
                 "工廠" => Some(Screen::Factory),
                 _ => None,
@@ -200,6 +200,7 @@ fn screen_from_event(event: &crate::ui_event::UiEvent) -> Option<crate::ui_event
             "遠征" => Some(Screen::ExpeditionSelect),
             _ => None,
         },
+        UiEvent::OpenAirBaseSupply => Some(Screen::AirBaseSupply),
         UiEvent::ExpeditionAction { action } => match action.as_str() {
             // 決定 button on ExpeditionSelect transitions to fleet-select sub-screen.
             "決定" => Some(Screen::ExpeditionFleetSelect),

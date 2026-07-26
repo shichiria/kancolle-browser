@@ -10,8 +10,8 @@ html, body {
   overflow: hidden;
 }
 .frame {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  position: absolute;
+  box-sizing: border-box;
   border: 2px solid #00e5ff;
   border-radius: 4px;
   box-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
@@ -19,6 +19,26 @@ html, body {
 </style>
 </head>
 <body>
-<div class="frame"></div>
+<div id="formation-frame" class="frame"></div>
+<div id="smoke-frame" class="frame" hidden></div>
+<script>
+function applyRect(element, rect) {
+  element.style.left = (rect[0] * 100) + '%';
+  element.style.top = (rect[1] * 100) + '%';
+  element.style.width = (rect[2] * 100) + '%';
+  element.style.height = (rect[3] * 100) + '%';
+}
+
+window.setFormationHint = function(formationRect, smokeRect) {
+  applyRect(document.getElementById('formation-frame'), formationRect);
+  var smokeFrame = document.getElementById('smoke-frame');
+  smokeFrame.hidden = !smokeRect;
+  if (smokeRect) {
+    applyRect(smokeFrame, smokeRect);
+  }
+};
+
+window.setFormationHint([0, 0, 1, 1], null);
+</script>
 </body>
 </html>

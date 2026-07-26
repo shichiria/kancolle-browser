@@ -22,6 +22,7 @@ import { SettingsTab } from "./components/settings";
 import { KantaiView } from "./components/kantai";
 import { QuestTab } from "./components/quests";
 import { DebugTab } from "./components/debug";
+import { EventTab } from "./components/event";
 
 // View mode is decided once at startup from the Tauri window label.
 // Each window loads the same React bundle; the label distinguishes them.
@@ -30,13 +31,14 @@ import { DebugTab } from "./components/debug";
 //   label="quests"      → quest-only view
 //   label="improvement" → 改修 arsenal-only view
 //   label="ships"       → 艦娘一覧-only view
-const VIEW_MODE: "management" | "kantai" | "quests" | "improvement" | "ships" = (() => {
+const VIEW_MODE: "management" | "kantai" | "quests" | "improvement" | "ships" | "event" = (() => {
   try {
     const label = getCurrentWindow().label;
     if (label === "kantai") return "kantai";
     if (label === "quests") return "quests";
     if (label === "improvement") return "improvement";
     if (label === "ships") return "ships";
+    if (label === "event") return "event";
     return "management";
   } catch {
     return "management";
@@ -276,8 +278,7 @@ function App() {
     // Load Google Drive sync status
     invoke<DriveStatus>("get_drive_status").then(setDriveStatus).catch(console.error);
 
-    // Raw payload capture is opt-in for the current launch. Read the backend
-    // state so stale localStorage cannot silently re-enable it.
+    // Read the persisted backend state for complete raw API capture.
     invoke<boolean>("get_raw_api_enabled")
       .then((enabled) => {
         setRawApiEnabled(enabled);
@@ -339,6 +340,14 @@ function App() {
         portDataVersion={portDataVersion}
         weaponIconSheet={weaponIconSheet}
       />
+    );
+  }
+
+  if (VIEW_MODE === "event") {
+    return (
+      <div className="event-window" style={{ zoom: uiZoom / 100 }}>
+        <EventTab />
+      </div>
     );
   }
 
