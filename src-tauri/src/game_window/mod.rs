@@ -263,6 +263,20 @@ fn create_auxiliary_windows(app: &tauri::AppHandle) -> Result<(), String> {
             250.0,
             100.0,
         ),
+        (
+            "exercise-notify",
+            "exercise-notify-content",
+            "exercise-notify.html",
+            360.0,
+            70.0,
+        ),
+        (
+            "nozaki-timer",
+            "nozaki-timer-content",
+            "nozaki-timer.html",
+            108.0,
+            44.0,
+        ),
     ] {
         create_clickthrough_window(app, window, webview, page, width, height)?;
     }
@@ -286,12 +300,16 @@ fn register_window_events(app: &tauri::AppHandle, game_window: &Window<Wry>) {
                 let _ = crate::overlay::show_minimap_overlay(&event_app);
             }
             crate::overlay::reposition_expedition_notification(&event_app);
+            crate::overlay::reposition_exercise_notification(&event_app);
             crate::overlay::reposition_battle_info(&event_app);
+            crate::nozaki_timer::reposition_overlay(&event_app);
         }
         tauri::WindowEvent::Moved(_) => {
             crate::overlay::reposition_formation_hint(&event_app);
             crate::overlay::reposition_expedition_notification(&event_app);
+            crate::overlay::reposition_exercise_notification(&event_app);
             crate::overlay::reposition_battle_info(&event_app);
+            crate::nozaki_timer::reposition_overlay(&event_app);
         }
         tauri::WindowEvent::CloseRequested { .. } => {
             info!("Game window close requested -> exiting app");
@@ -344,7 +362,13 @@ pub(crate) async fn close_game_window(app: tauri::AppHandle) -> Result<(), Strin
     crate::action_log::record("Command", "close_game_window", None);
     crate::mouse_hook::uninstall();
     info!("Closing game window and child windows");
-    for label in ["formation-hint", "battle-info", "expedition-notify"] {
+    for label in [
+        "formation-hint",
+        "battle-info",
+        "expedition-notify",
+        "exercise-notify",
+        "nozaki-timer",
+    ] {
         if let Some(window) = app.get_window(label) {
             if let Err(error) = window.close() {
                 log::warn!("Failed to close {label}: {error}");
@@ -389,6 +413,7 @@ pub(crate) fn set_game_zoom(app: tauri::AppHandle, zoom: f64) -> Result<(), Stri
     {
         let _ = crate::overlay::show_minimap_overlay(&app);
     }
+    crate::nozaki_timer::reposition_overlay(&app);
     info!(
         "Game zoom set to {}% ({}x{})",
         (zoom * 100.0) as i32,
@@ -499,8 +524,30 @@ mod tests {
         assert!(script.contains("id = 'kc-airbase-supply-warning'"));
         assert!(script.contains("invoke('get_air_bases')"));
         assert!(script.contains("plane.count) < Number(plane.max_count"));
-        assert!(script.contains("screen === 'SortieSelect' && needsSupply"));
+        assert!(script.contains("screen === 'SortieSelectEvent' && needsSupply"));
         assert!(script.contains("kc-airbase-supply-blink"));
+    }
+
+    #[test]
+    fn game_window_has_exercise_refresh_warning() {
+        let module = include_str!("mod.rs");
+        let page = include_str!("../../../public/exercise-notify.html");
+
+        assert!(module.contains("\"exercise-notify\""));
+        assert!(module.contains("reposition_exercise_notification"));
+        assert!(page.contains("window.showExerciseAlert"));
+        assert!(page.contains("\\u6F14\\u7FD2\\u304C\\u672A\\u5B9F\\u65BD"));
+    }
+
+    #[test]
+    fn game_window_has_nozaki_supply_timer() {
+        let module = include_str!("mod.rs");
+        let page = include_str!("../../../public/nozaki-timer.html");
+
+        assert!(module.contains("\"nozaki-timer\""));
+        assert!(module.contains("nozaki_timer::reposition_overlay"));
+        assert!(page.contains("window.showNozakiTimer"));
+        assert!(page.contains("\\u6BCD\\u6E2F\\u66F4\\u65B0\\u5F85\\u3061"));
     }
 
     #[test]

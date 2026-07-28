@@ -363,6 +363,101 @@ pub(crate) fn reposition_expedition_notification(app: &tauri::AppHandle) {
     }
 }
 
+const EXERCISE_NOTIFY_W: f64 = 360.0;
+const EXERCISE_NOTIFY_H: f64 = 70.0;
+const EXERCISE_NOTIFY_MARGIN: f64 = 8.0;
+
+/// Show the practice-refresh warning centered above the game.
+pub(crate) fn show_exercise_notification(
+    app: &tauri::AppHandle,
+    minutes_remaining: i64,
+) -> Result<(), String> {
+    let notify_win = app
+        .get_window("exercise-notify")
+        .ok_or("Exercise notification window not found")?;
+    let game_win = app.get_window("game").ok_or("Game window not found")?;
+
+    let scale = game_win.scale_factor().unwrap_or(1.0);
+    let phys_pos = game_win.inner_position().map_err(|e| e.to_string())?;
+    let phys_size = game_win.inner_size().map_err(|e| e.to_string())?;
+    let x = phys_pos.x
+        + (phys_size.width as i32 - (EXERCISE_NOTIFY_W * scale) as i32) / 2;
+    let top_offset = MACOS_TITLEBAR_HEIGHT + CONTROL_BAR_HEIGHT + EXERCISE_NOTIFY_MARGIN;
+    let y = phys_pos.y + (top_offset * scale) as i32;
+
+    notify_win
+        .set_position(tauri::PhysicalPosition::new(x, y))
+        .map_err(|e| e.to_string())?;
+    notify_win
+        .set_size(tauri::LogicalSize::new(
+            EXERCISE_NOTIFY_W,
+            EXERCISE_NOTIFY_H,
+        ))
+        .map_err(|e| e.to_string())?;
+
+    if let Some(webview) = app.get_webview("exercise-notify-content") {
+        webview
+            .set_size(tauri::LogicalSize::new(
+                EXERCISE_NOTIFY_W,
+                EXERCISE_NOTIFY_H,
+            ))
+            .map_err(|e| e.to_string())?;
+        webview
+            .eval(format!(
+                "window.showExerciseAlert({})",
+                minutes_remaining.clamp(1, 15)
+            ))
+            .map_err(|e| e.to_string())?;
+    }
+
+    notify_win.show().map_err(|e| e.to_string())?;
+    app.state::<AppState>()
+        .overlay
+        .exercise_notify_visible
+        .store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+pub(crate) fn hide_exercise_notification(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_window("exercise-notify") {
+        let _ = window.hide();
+    }
+    app.state::<AppState>()
+        .overlay
+        .exercise_notify_visible
+        .store(false, Ordering::Relaxed);
+}
+
+pub(crate) fn reposition_exercise_notification(app: &tauri::AppHandle) {
+    if !app
+        .state::<AppState>()
+        .overlay
+        .exercise_notify_visible
+        .load(Ordering::Relaxed)
+    {
+        return;
+    }
+
+    let Some(game_win) = app.get_window("game") else {
+        return;
+    };
+    let Some(notify_win) = app.get_window("exercise-notify") else {
+        return;
+    };
+    let Ok(phys_pos) = game_win.inner_position() else {
+        return;
+    };
+    let Ok(phys_size) = game_win.inner_size() else {
+        return;
+    };
+    let scale = game_win.scale_factor().unwrap_or(1.0);
+    let x = phys_pos.x
+        + (phys_size.width as i32 - (EXERCISE_NOTIFY_W * scale) as i32) / 2;
+    let top_offset = MACOS_TITLEBAR_HEIGHT + CONTROL_BAR_HEIGHT + EXERCISE_NOTIFY_MARGIN;
+    let y = phys_pos.y + (top_offset * scale) as i32;
+    let _ = notify_win.set_position(tauri::PhysicalPosition::new(x, y));
+}
+
 /// Reposition the battle-info overlay to follow the game window.
 /// Mirrors the positioning math in `battle_info::show_battle_info_overlay` so
 /// that move/resize events keep the overlay anchored to the top-left of the

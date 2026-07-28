@@ -13,7 +13,9 @@ mod improvement;
 mod log_io;
 mod migration;
 mod mouse_hook;
+mod nozaki_timer;
 mod overlay;
+mod practice_alert;
 mod proxy;
 mod quest_progress;
 mod senka;
@@ -71,6 +73,10 @@ pub struct OverlayState {
     /// Last battle info data for re-display on toggle re-enable
     pub last_battle_info: Mutex<Option<crate::api::battle_info::BattleInfoData>>,
     pub expedition_notify_visible: AtomicBool,
+    pub exercise_notify_visible: AtomicBool,
+    pub last_exercise_at_ms: std::sync::atomic::AtomicI64,
+    pub(crate) nozaki_supply_timer: Mutex<nozaki_timer::NozakiSupplyTimers>,
+    pub nozaki_timer_visible: AtomicBool,
     /// Formation hint window offset relative to game window inner position
     pub formation_hint_rect: Mutex<FormationHintRect>,
     /// Current game zoom level (1.0 = 100%)
@@ -241,6 +247,10 @@ pub fn run() {
             overlay: OverlayState {
                 last_battle_info: Mutex::new(None),
                 expedition_notify_visible: AtomicBool::new(false),
+                exercise_notify_visible: AtomicBool::new(false),
+                last_exercise_at_ms: std::sync::atomic::AtomicI64::new(0),
+                nozaki_supply_timer: Mutex::new(nozaki_timer::NozakiSupplyTimers::default()),
+                nozaki_timer_visible: AtomicBool::new(false),
                 formation_hint_rect: Mutex::new(FormationHintRect::default()),
                 game_zoom: Mutex::new(1.0),
                 minimap_position: Mutex::new(None),
@@ -251,7 +261,7 @@ pub fn run() {
             },
             navigation: NavigationState {
                 // Default to Unknown until the first port API arrives.
-                current_screen: Mutex::new(ui_event::Screen::Unknown),
+                current_screen: Mutex::new(ui_event::INITIAL_SCREEN),
                 current_fleet: Mutex::new(None),
                 current_quest_period: Mutex::new(None),
                 current_quest_category: Mutex::new(None),
@@ -336,6 +346,7 @@ pub fn run() {
             commands::drive_force_sync,
             commands::get_action_log,
             commands::get_current_screen,
+            commands::get_screen_sample_summary,
             commands::get_current_fleet,
             commands::get_quest_filters,
             commands::get_air_bases,
@@ -387,12 +398,22 @@ pub fn run() {
             if let Some(size) = settings::restore_json(&data_dir, settings::MINIMAP_SIZE) {
                 *lock_or_recover(&state.overlay.minimap_size, "minimap_size") = size;
             }
+            state.overlay.last_exercise_at_ms.store(
+                settings::restore_json(&data_dir, settings::LAST_EXERCISE_AT_MS).unwrap_or(0),
+                Ordering::Relaxed,
+            );
+            *lock_or_recover(
+                &state.overlay.nozaki_supply_timer,
+                "nozaki_supply_timer",
+            ) = settings::restore_json(&data_dir, settings::NOZAKI_SUPPLY_TIMER)
+                .unwrap_or_default();
 
             // Create cache directory for proxy resource caching
             let cache_dir = data_dir.join("local").join("cache");
             let _ = std::fs::create_dir_all(&cache_dir);
 
             window_toggle::intercept_close_as_hide(app.handle());
+            practice_alert::start(app.handle().clone());
             // Auxiliary windows start closed and are opened from the game toolbar.
             if let Some(window) = app.get_window("event") {
                 if let Err(error) = window.hide() {

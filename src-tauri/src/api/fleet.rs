@@ -182,6 +182,7 @@ pub(super) fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle)
         Ok(_) => info!("fleet-updated event emitted: {} fleets", fleets.len()),
         Err(e) => error!("Failed to emit fleet-updated: {}", e),
     }
+    crate::nozaki_timer::sync(app, state, false);
 }
 
 /// Parse expedition info from a fleet's api_mission array.

@@ -11,14 +11,38 @@ use serde::Serialize;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[allow(dead_code, clippy::enum_variant_names)]
 pub enum Screen {
+    /// 起動画面 — "GAME START" before entering the port
+    GameStart,
     /// 母港 — main hub with navigation buttons
     Homeport,
     /// 出撃メニュー — sortie/exercise/expedition mode selection
     SortieMenu,
-    /// 海域選択 — sortie map selection
+    /// 海域選択 — area not yet classified
     SortieSelect,
+    /// 海域選択 — 鎮守府海域 (area 1)
+    SortieSelectChinjufu,
+    /// 海域選択 — 南西諸島海域 (area 2)
+    SortieSelectSouthwestIslands,
+    /// 海域選択 — 北方海域 (area 3)
+    SortieSelectNorthern,
+    /// 海域選択 — 南西海域 (area 7)
+    SortieSelectSouthwestern,
+    /// 海域選択 — 西方海域 (area 4)
+    SortieSelectWestern,
+    /// 海域選択 — 南方海域 (area 5)
+    SortieSelectSouthern,
+    /// 海域選択 — 中部海域 (area 6)
+    SortieSelectCentral,
+    /// 海域選択 — 期間限定海域
+    SortieSelectEvent,
     /// 基地航空隊 — event-map air-base organization/supply panel
     AirBaseSupply,
+    /// 基地航空隊 — 第一基地航空隊
+    AirBaseSupply1,
+    /// 基地航空隊 — 第二基地航空隊
+    AirBaseSupply2,
+    /// 基地航空隊 — 第三基地航空隊
+    AirBaseSupply3,
     /// 出撃中 — map advance and battle screens
     SortieInProgress,
     /// 遠征選択 — expedition list with area tabs
@@ -36,6 +60,12 @@ pub enum Screen {
     /// Shares the fleet-tab area with 編成 (x≈70-170, y≈120-140) but has a
     /// distinct ship-list / equipment layout.
     Remodel,
+    /// 改装 - 装備選択 — equipment candidate list
+    RemodelEquipmentSelect,
+    /// 改装 - 装備種別選択 — equipment-type drop-down
+    RemodelEquipmentFilter,
+    /// 改装 - 装備変更確認 — before/after equipment confirmation
+    RemodelEquipmentConfirm,
     /// 補給 — resupply screen
     Resupply,
     /// 入渠 - ドック選択 — repair dock selection
@@ -48,22 +78,76 @@ pub enum Screen {
     FactoryDevelop,
     /// 任務 — quest list
     QuestList,
+    /// 図鑑表示 — ship/equipment encyclopedia
+    Encyclopedia,
+    /// アイテム一覧 - 保有アイテム
+    ItemListHeld,
+    /// アイテム一覧 - 購入済みアイテム
+    ItemListPurchased,
+    /// アイテム一覧 - 拡張アイテム
+    ItemListExpansion,
+    /// アイテム屋 - レギュラーコーナー
+    ItemShopRegular,
+    /// アイテム屋 - 特選コーナー
+    ItemShopSpecial,
+    /// 模様替え — furniture placement and room preview
+    FurnitureChange,
+    /// 家具屋 — furniture category selection
+    FurnitureShopCategory,
+    /// 家具一覧 — purchasable furniture in one category
+    FurnitureShopList,
     /// GET画面 — equipment/ship acquisition result
     GetScreen,
     /// 不明
     Unknown,
 }
 
+impl Screen {
+    pub(crate) fn is_sortie_select(self) -> bool {
+        matches!(
+            self,
+            Self::SortieSelect
+                | Self::SortieSelectChinjufu
+                | Self::SortieSelectSouthwestIslands
+                | Self::SortieSelectNorthern
+                | Self::SortieSelectSouthwestern
+                | Self::SortieSelectWestern
+                | Self::SortieSelectSouthern
+                | Self::SortieSelectCentral
+                | Self::SortieSelectEvent
+        )
+    }
+
+    pub(crate) fn is_air_base_supply(self) -> bool {
+        matches!(
+            self,
+            Self::AirBaseSupply
+                | Self::AirBaseSupply1
+                | Self::AirBaseSupply2
+                | Self::AirBaseSupply3
+        )
+    }
+}
+
+/// Screen shown before the first game API request is sent.
+pub const INITIAL_SCREEN: Screen = Screen::GameStart;
+
 /// A semantic UI event derived from screen + click position.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[allow(dead_code)]
 pub enum UiEvent {
+    /// Enter the port from the GAME START screen
+    StartGame,
     /// Navigate from homeport to another screen
     Navigate { target: String },
     /// Select sortie mode (出撃/演習/遠征)
     SelectMode { mode: String },
+    /// Switch the sortie map-selection area
+    SortieAreaSelect { area: String },
     /// Open the event-map air-base organization/supply panel
     OpenAirBaseSupply,
+    /// Switch the selected base in the air-base organization/supply panel
+    AirBaseSelect { base: u32 },
     /// Switch expedition area tab
     ExpeditionTab { area: String },
     /// Select an expedition from the list
@@ -72,6 +156,18 @@ pub enum UiEvent {
     ExpeditionAction { action: String },
     /// Select fleet tab (1-4)
     FleetSelect { fleet: u32 },
+    /// Select a ship in the remodel screen's left list
+    RemodelShipSelect { row: u32 },
+    /// Open one of the selected ship's equipment slots
+    RemodelEquipmentSlot { slot: u32 },
+    /// Open the equipment-type filter
+    RemodelEquipmentFilterOpen,
+    /// Select an equipment type from the open filter
+    RemodelEquipmentCategorySelect,
+    /// Select equipment from the candidate list
+    RemodelEquipmentSelect { row: u32 },
+    /// Confirm an equipment change
+    RemodelEquipmentChangeConfirm,
     /// Start changing a ship in a fleet slot
     FleetChangeStart { slot: u32 },
     /// View ship detail in a fleet slot
@@ -110,6 +206,26 @@ pub enum UiEvent {
     QuestCategoryFilter { category: String },
     /// Select a quest
     QuestSelect { row: u32 },
+    /// Switch held/purchased tabs in the item inventory
+    ItemInventoryTab { tab: String },
+    /// Open the expansion-items panel from held items
+    ItemExpansionOpen,
+    /// Select one of the item/furniture screens from the left menu
+    ItemMenuSelect { target: String },
+    /// Switch between the regular and special item-shop corners
+    ItemShopCornerSwitch { corner: String },
+    /// Switch the furniture category shown on the remodel-room screen
+    FurnitureChangeCategory { category: String },
+    /// Open the furniture shop from the remodel-room screen
+    FurnitureChangeOpenShop,
+    /// Return from the remodel-room screen to the port
+    FurnitureChangeReturnHomeport,
+    /// Select a furniture category
+    FurnitureCategorySelect { category: String },
+    /// Return from a furniture list to its category selector
+    FurnitureListBack,
+    /// Return from the item/furniture area to the port
+    ItemReturnHomeport,
     /// Dismiss GET screen
     GetScreenDismiss,
     /// Click on left side menu
@@ -145,29 +261,50 @@ impl HitRegion {
 
 /// Detect a UI event from the current screen and click coordinates.
 pub fn detect_event(screen: Screen, x: i32, y: i32) -> UiEvent {
-    // Check common regions first (side menu, top menu)
-    if let Some(event) = check_side_menu(x, y) {
-        return event;
+    // Check common regions first. Item/furniture screens have a different
+    // left-side menu, while the start screen has neither menu.
+    if has_standard_side_menu(screen) {
+        if let Some(event) = check_side_menu(x, y) {
+            return event;
+        }
     }
-    if let Some(event) = check_top_menu(x, y) {
-        return event;
+    if !matches!(
+        screen,
+        Screen::GameStart | Screen::SortieInProgress | Screen::FurnitureChange
+    ) {
+        if let Some(event) = check_top_menu(x, y) {
+            return event;
+        }
     }
 
     match screen {
+        Screen::GameStart => detect_game_start(x, y),
         Screen::Homeport => detect_homeport(x, y),
         Screen::SortieMenu => detect_sortie_menu(x, y),
-        Screen::SortieSelect => detect_sortie_select(x, y),
+        screen if screen.is_sortie_select() => detect_sortie_select(screen, x, y),
+        screen if screen.is_air_base_supply() => detect_air_base_supply(x, y),
         Screen::ExpeditionSelect => detect_expedition_select(x, y),
         Screen::FleetComposition => detect_fleet_composition(x, y),
         Screen::ShipSelection => detect_ship_selection(x, y),
         Screen::ShipChangeConfirm => detect_ship_change_confirm(x, y),
         Screen::ExpeditionFleetSelect => detect_expedition_fleet_select(x, y),
         Screen::Remodel => detect_remodel(x, y),
+        Screen::RemodelEquipmentSelect => detect_remodel_equipment_select(x, y),
+        Screen::RemodelEquipmentFilter => detect_remodel_equipment_filter(x, y),
+        Screen::RemodelEquipmentConfirm => detect_remodel_equipment_confirm(x, y),
         Screen::Resupply => detect_resupply(x, y),
         Screen::RepairDockSelect => detect_repair_dock(x, y),
         Screen::Factory => detect_factory(x, y),
         Screen::FactoryDevelop => detect_factory_develop(x, y),
         Screen::QuestList => detect_quest_list(x, y),
+        Screen::ItemListHeld => detect_item_list_held(x, y),
+        Screen::ItemListPurchased => detect_item_list_purchased(x, y),
+        Screen::ItemListExpansion => detect_item_list_expansion(x, y),
+        Screen::ItemShopRegular => detect_item_shop_regular(x, y),
+        Screen::ItemShopSpecial => detect_item_shop_special(x, y),
+        Screen::FurnitureChange => detect_furniture_change(x, y),
+        Screen::FurnitureShopCategory => detect_furniture_shop_category(x, y),
+        Screen::FurnitureShopList => detect_furniture_shop_list(x, y),
         Screen::GetScreen => detect_get_screen(x, y),
         _ => UiEvent::UnknownClick { x, y },
     }
@@ -175,19 +312,43 @@ pub fn detect_event(screen: Screen, x: i32, y: i32) -> UiEvent {
 
 // ── Common regions ────────────────────────────────────────────────────
 
+fn has_standard_side_menu(screen: Screen) -> bool {
+    screen.is_sortie_select()
+        || screen.is_air_base_supply()
+        || matches!(
+            screen,
+            Screen::ExpeditionSelect
+                | Screen::ExpeditionFleetSelect
+                | Screen::FleetComposition
+                | Screen::ShipSelection
+                | Screen::ShipChangeConfirm
+                | Screen::Remodel
+                | Screen::RemodelEquipmentSelect
+                | Screen::RemodelEquipmentFilter
+                | Screen::RemodelEquipmentConfirm
+                | Screen::Resupply
+                | Screen::RepairDockSelect
+                | Screen::RepairShipSelect
+                | Screen::Factory
+                | Screen::FactoryDevelop
+                | Screen::Unknown
+        )
+}
+
 fn check_side_menu(x: i32, y: i32) -> Option<UiEvent> {
-    if x > 65 {
+    if x > 75 {
         return None;
     }
-    let target = if HitRegion::new(10, 130, 65, 180).contains(x, y) {
+    // Calibrated from full 1200x720 samples captured on 2026-07-26.
+    let target = if HitRegion::new(0, 180, 75, 274).contains(x, y) {
         "編成"
-    } else if HitRegion::new(10, 190, 65, 240).contains(x, y) {
+    } else if HitRegion::new(0, 275, 75, 359).contains(x, y) {
         "補給"
-    } else if HitRegion::new(10, 250, 65, 300).contains(x, y) {
+    } else if HitRegion::new(0, 360, 75, 444).contains(x, y) {
         "改装"
-    } else if HitRegion::new(10, 310, 65, 360).contains(x, y) {
+    } else if HitRegion::new(0, 445, 75, 529).contains(x, y) {
         "入渠"
-    } else if HitRegion::new(10, 370, 65, 420).contains(x, y) {
+    } else if HitRegion::new(0, 530, 75, 625).contains(x, y) {
         "工廠"
     } else {
         return None;
@@ -198,21 +359,21 @@ fn check_side_menu(x: i32, y: i32) -> Option<UiEvent> {
 }
 
 fn check_top_menu(x: i32, y: i32) -> Option<UiEvent> {
-    if !(55..=70).contains(&y) {
+    if !(45..=100).contains(&y) {
         return None;
     }
-    // Top menu items are roughly evenly spaced
-    let target = if (200..=280).contains(&x) {
+    // Calibrated from the 1200x720 port header.
+    let target = if (170..300).contains(&x) {
         "戦績表示"
-    } else if (310..=390).contains(&x) {
+    } else if (300..420).contains(&x) {
         "友軍艦隊"
-    } else if (420..=500).contains(&x) {
+    } else if (420..540).contains(&x) {
         "図鑑表示"
-    } else if (530..=590).contains(&x) {
+    } else if (540..660).contains(&x) {
         "アイテム"
-    } else if (620..=700).contains(&x) {
+    } else if (660..780).contains(&x) {
         "模様替え"
-    } else if (730..=790).contains(&x) {
+    } else if (780..900).contains(&x) {
         "任務"
     } else {
         return None;
@@ -223,6 +384,14 @@ fn check_top_menu(x: i32, y: i32) -> Option<UiEvent> {
 }
 
 // ── Screen-specific detectors ────────────────────────────────────────
+
+fn detect_game_start(x: i32, y: i32) -> UiEvent {
+    if HitRegion::new(640, 540, 1190, 710).contains(x, y) {
+        UiEvent::StartGame
+    } else {
+        UiEvent::UnknownClick { x, y }
+    }
+}
 
 fn detect_homeport(x: i32, y: i32) -> UiEvent {
     // Coordinates calibrated from observed clicks (2026-05-05):
@@ -252,25 +421,89 @@ fn detect_homeport(x: i32, y: i32) -> UiEvent {
     }
 }
 
-fn detect_sortie_select(x: i32, y: i32) -> UiEvent {
-    // Event-map 「基地航空隊」 button at the lower left.
-    if HitRegion::new(200, 560, 500, 660).contains(x, y) {
-        UiEvent::OpenAirBaseSupply
-    } else {
-        detect_sortie_menu(x, y)
+fn detect_sortie_select(screen: Screen, x: i32, y: i32) -> UiEvent {
+    // Bottom area tabs. These switches are client-side and do not issue an API,
+    // so the click is the authoritative signal for the selected area.
+    // Calibrated from the user's 2026-07-28 samples.
+    if (630..=710).contains(&y) {
+        let area = if (180..270).contains(&x) {
+            "鎮守府海域"
+        } else if (270..376).contains(&x) {
+            "南西諸島海域"
+        } else if (376..471).contains(&x) {
+            "北方海域"
+        } else if (471..566).contains(&x) {
+            "南西海域"
+        } else if (566..661).contains(&x) {
+            "西方海域"
+        } else if (661..756).contains(&x) {
+            "南方海域"
+        } else if (756..856).contains(&x) {
+            "中部海域"
+        } else if (1060..=1190).contains(&x) {
+            "期間限定海域"
+        } else {
+            return UiEvent::UnknownClick { x, y };
+        };
+        return UiEvent::SortieAreaSelect {
+            area: area.to_string(),
+        };
     }
-}
 
-fn detect_sortie_menu(x: i32, y: i32) -> UiEvent {
-    if HitRegion::new(300, 80, 450, 120).contains(x, y) {
+    // Event-map 「基地航空隊」 button at the lower left. This must be checked
+    // after the area tabs because the old broad region overlapped area 7.
+    if screen == Screen::SortieSelectEvent && HitRegion::new(200, 560, 500, 625).contains(x, y) {
+        UiEvent::OpenAirBaseSupply
+    // Normal areas with land bases show a compact organization button above
+    // the map cards.
+    } else if HitRegion::new(650, 140, 800, 200).contains(x, y) {
+        UiEvent::OpenAirBaseSupply
+    } else if HitRegion::new(790, 145, 920, 205).contains(x, y) {
         UiEvent::SelectMode {
             mode: "出撃".to_string(),
         }
-    } else if HitRegion::new(460, 80, 570, 120).contains(x, y) {
+    } else if HitRegion::new(920, 145, 1050, 205).contains(x, y) {
         UiEvent::SelectMode {
             mode: "演習".to_string(),
         }
-    } else if HitRegion::new(580, 80, 700, 120).contains(x, y) {
+    } else if HitRegion::new(1050, 145, 1180, 205).contains(x, y) {
+        UiEvent::SelectMode {
+            mode: "遠征".to_string(),
+        }
+    } else {
+        UiEvent::UnknownClick { x, y }
+    }
+}
+
+fn detect_air_base_supply(x: i32, y: i32) -> UiEvent {
+    // Tabs at the top of the right-side air-base panel.
+    // Calibrated from 2026-07-28 samples: base 2=(1041,192), base 3=(1154,185).
+    if !(155..=215).contains(&y) {
+        return UiEvent::UnknownClick { x, y };
+    }
+    let base = if (870..980).contains(&x) {
+        1
+    } else if (980..1080).contains(&x) {
+        2
+    } else if (1080..=1190).contains(&x) {
+        3
+    } else {
+        return UiEvent::UnknownClick { x, y };
+    };
+    UiEvent::AirBaseSelect { base }
+}
+
+fn detect_sortie_menu(x: i32, y: i32) -> UiEvent {
+    // Three large panels on the 出撃選択 screen.
+    if HitRegion::new(175, 170, 510, 550).contains(x, y) {
+        UiEvent::SelectMode {
+            mode: "出撃".to_string(),
+        }
+    } else if HitRegion::new(515, 170, 840, 550).contains(x, y) {
+        UiEvent::SelectMode {
+            mode: "演習".to_string(),
+        }
+    } else if HitRegion::new(850, 170, 1180, 550).contains(x, y) {
         UiEvent::SelectMode {
             mode: "遠征".to_string(),
         }
@@ -480,7 +713,50 @@ fn detect_remodel(x: i32, y: i32) -> UiEvent {
             return UiEvent::FleetSelect { fleet: 5 };
         }
     }
+    // Ship list on the left. Seven rows are visible in the captured layout.
+    if (175..=455).contains(&x) && (205..=705).contains(&y) {
+        let row = ((y - 205) / 80) as u32 + 1;
+        return UiEvent::RemodelShipSelect { row: row.min(7) };
+    }
+
+    // Selected ship's equipment slots in the center panel.
+    if (500..=835).contains(&x) && (240..=440).contains(&y) {
+        let slot = ((y - 240) / 50) as u32 + 1;
+        return UiEvent::RemodelEquipmentSlot { slot: slot.min(4) };
+    }
+
     UiEvent::UnknownClick { x, y }
+}
+
+fn detect_remodel_equipment_select(x: i32, y: i32) -> UiEvent {
+    // Equipment type / sorting controls in the list header.
+    if (590..=910).contains(&x) && (145..=190).contains(&y) {
+        return UiEvent::RemodelEquipmentFilterOpen;
+    }
+
+    // Candidate equipment rows.
+    if (540..=1190).contains(&x) && (190..=650).contains(&y) {
+        let row = ((y - 190) / 45) as u32 + 1;
+        return UiEvent::RemodelEquipmentSelect { row };
+    }
+
+    UiEvent::UnknownClick { x, y }
+}
+
+fn detect_remodel_equipment_filter(x: i32, y: i32) -> UiEvent {
+    if (740..=870).contains(&x) && (180..=620).contains(&y) {
+        UiEvent::RemodelEquipmentCategorySelect
+    } else {
+        UiEvent::UnknownClick { x, y }
+    }
+}
+
+fn detect_remodel_equipment_confirm(x: i32, y: i32) -> UiEvent {
+    if (960..=1170).contains(&x) && (610..=710).contains(&y) {
+        UiEvent::RemodelEquipmentChangeConfirm
+    } else {
+        UiEvent::UnknownClick { x, y }
+    }
 }
 
 fn detect_resupply(x: i32, y: i32) -> UiEvent {
@@ -518,9 +794,7 @@ fn detect_repair_dock(x: i32, y: i32) -> UiEvent {
     // 4 docks (y≈130..690, ~140px each)
     if (100..=1100).contains(&x) && (130..=690).contains(&y) {
         let dock = ((y - 130) / 140) as u32 + 1;
-        return UiEvent::RepairDockSelect {
-            dock: dock.min(4),
-        };
+        return UiEvent::RepairDockSelect { dock: dock.min(4) };
     }
     UiEvent::UnknownClick { x, y }
 }
@@ -631,6 +905,178 @@ fn detect_quest_list(x: i32, y: i32) -> UiEvent {
     }
 
     UiEvent::UnknownClick { x, y }
+}
+
+fn detect_item_side_menu(x: i32, y: i32) -> Option<UiEvent> {
+    if !(0..=170).contains(&x) {
+        return None;
+    }
+    if (190..=245).contains(&y) {
+        Some(UiEvent::ItemMenuSelect {
+            target: "アイテム一覧".to_string(),
+        })
+    } else if (250..=305).contains(&y) {
+        Some(UiEvent::ItemMenuSelect {
+            target: "アイテム屋".to_string(),
+        })
+    } else if (310..=370).contains(&y) {
+        Some(UiEvent::ItemMenuSelect {
+            target: "家具屋".to_string(),
+        })
+    } else if (640..=720).contains(&y) {
+        Some(UiEvent::ItemReturnHomeport)
+    } else {
+        None
+    }
+}
+
+fn detect_item_list_held(x: i32, y: i32) -> UiEvent {
+    if let Some(event) = detect_item_side_menu(x, y) {
+        return event;
+    }
+    if (700..=900).contains(&x) && (190..=245).contains(&y) {
+        return UiEvent::ItemExpansionOpen;
+    }
+    if (370..=550).contains(&x) && (140..=240).contains(&y) {
+        return UiEvent::ItemInventoryTab {
+            tab: "購入済みアイテム".to_string(),
+        };
+    }
+    UiEvent::UnknownClick { x, y }
+}
+
+fn detect_item_list_purchased(x: i32, y: i32) -> UiEvent {
+    if let Some(event) = detect_item_side_menu(x, y) {
+        return event;
+    }
+    if (180..=360).contains(&x) && (140..=240).contains(&y) {
+        return UiEvent::ItemInventoryTab {
+            tab: "保有アイテム".to_string(),
+        };
+    }
+    UiEvent::UnknownClick { x, y }
+}
+
+fn detect_item_list_expansion(x: i32, y: i32) -> UiEvent {
+    if let Some(event) = detect_item_side_menu(x, y) {
+        return event;
+    }
+    if (180..=360).contains(&x) && (140..=245).contains(&y) {
+        return UiEvent::ItemInventoryTab {
+            tab: "保有アイテム".to_string(),
+        };
+    }
+    if (370..=550).contains(&x) && (140..=240).contains(&y) {
+        return UiEvent::ItemInventoryTab {
+            tab: "購入済みアイテム".to_string(),
+        };
+    }
+    UiEvent::UnknownClick { x, y }
+}
+
+fn detect_item_shop_regular(x: i32, y: i32) -> UiEvent {
+    if let Some(event) = detect_item_side_menu(x, y) {
+        return event;
+    }
+    // Bottom-right "特選コーナー" link. The character overlaps part of the
+    // label, so use the empirically clickable right-side area.
+    if (1000..=1200).contains(&x) && (640..=720).contains(&y) {
+        UiEvent::ItemShopCornerSwitch {
+            corner: "特選コーナー".to_string(),
+        }
+    } else {
+        UiEvent::UnknownClick { x, y }
+    }
+}
+
+fn detect_item_shop_special(x: i32, y: i32) -> UiEvent {
+    if let Some(event) = detect_item_side_menu(x, y) {
+        return event;
+    }
+    // Bottom-left "レギュラーコーナー" link.
+    if (180..=500).contains(&x) && (640..=720).contains(&y) {
+        UiEvent::ItemShopCornerSwitch {
+            corner: "レギュラーコーナー".to_string(),
+        }
+    } else {
+        UiEvent::UnknownClick { x, y }
+    }
+}
+
+fn detect_furniture_change(x: i32, y: i32) -> UiEvent {
+    // Category tabs on the left side of the full-screen room preview.
+    if (0..=245).contains(&x) {
+        let category = if (35..=95).contains(&y) {
+            Some("壁紙")
+        } else if (100..=155).contains(&y) {
+            Some("床")
+        } else if (160..=220).contains(&y) {
+            Some("椅子+机")
+        } else if (225..=285).contains(&y) {
+            Some("窓枠+カーテン")
+        } else if (290..=345).contains(&y) {
+            Some("装飾")
+        } else if (350..=410).contains(&y) {
+            Some("家具+棚")
+        } else {
+            None
+        };
+        if let Some(category) = category {
+            return UiEvent::FurnitureChangeCategory {
+                category: category.to_string(),
+            };
+        }
+
+        // Chibi furniture-shop button below the category tabs.
+        if (470..=600).contains(&y) {
+            return UiEvent::FurnitureChangeOpenShop;
+        }
+
+        // Large back button at the bottom-left.
+        if (640..=720).contains(&y) {
+            return UiEvent::FurnitureChangeReturnHomeport;
+        }
+    }
+
+    UiEvent::UnknownClick { x, y }
+}
+
+fn detect_furniture_shop_category(x: i32, y: i32) -> UiEvent {
+    if let Some(event) = detect_item_side_menu(x, y) {
+        return event;
+    }
+    if (200..=490).contains(&x) {
+        let category = if (235..=300).contains(&y) {
+            "壁紙"
+        } else if (305..=370).contains(&y) {
+            "床"
+        } else if (375..=440).contains(&y) {
+            "椅子+机"
+        } else if (445..=510).contains(&y) {
+            "窓枠+カーテン"
+        } else if (515..=575).contains(&y) {
+            "装飾"
+        } else if (580..=650).contains(&y) {
+            "家具+棚"
+        } else {
+            return UiEvent::UnknownClick { x, y };
+        };
+        return UiEvent::FurnitureCategorySelect {
+            category: category.to_string(),
+        };
+    }
+    UiEvent::UnknownClick { x, y }
+}
+
+fn detect_furniture_shop_list(x: i32, y: i32) -> UiEvent {
+    if let Some(event) = detect_item_side_menu(x, y) {
+        return event;
+    }
+    if (180..=500).contains(&x) && (640..=720).contains(&y) {
+        UiEvent::FurnitureListBack
+    } else {
+        UiEvent::UnknownClick { x, y }
+    }
 }
 
 fn detect_get_screen(x: i32, y: i32) -> UiEvent {

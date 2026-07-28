@@ -98,7 +98,7 @@ API → Screen mapping (`screen_from_api`):
 - api_req_kousyou/{createship,destroyship,destroyitem2,getship,…} → Factory
 - api_req_kousyou/createitem → FactoryDevelop
 - api_get_member/questlist, api_req_quest/* → QuestList
-- api_get_member/mapinfo → SortieSelect
+- api_get_member/mapinfo → SortieSelectChinjufu
 
 Other key endpoints:
 - api_start2 → MasterData parse (ships, equip, missions)

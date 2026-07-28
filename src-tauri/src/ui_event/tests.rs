@@ -58,7 +58,7 @@ fn homeport_click_secretary_area_is_unknown() {
 
 #[test]
 fn side_menu_hensei() {
-    let event = detect_event(Screen::Resupply, 30, 150);
+    let event = detect_event(Screen::Resupply, 30, 225);
     assert_eq!(
         event,
         UiEvent::SideMenuClick {
@@ -69,7 +69,7 @@ fn side_menu_hensei() {
 
 #[test]
 fn side_menu_supply() {
-    let event = detect_event(Screen::FleetComposition, 30, 210);
+    let event = detect_event(Screen::FleetComposition, 30, 315);
     assert_eq!(
         event,
         UiEvent::SideMenuClick {
@@ -80,13 +80,206 @@ fn side_menu_supply() {
 
 #[test]
 fn side_menu_not_triggered_when_x_too_large() {
-    let event = detect_event(Screen::FleetComposition, 100, 150);
-    // x=100 is outside side menu (max 65), so should NOT be side menu
+    let event = detect_event(Screen::FleetComposition, 100, 225);
+    // x=100 is outside side menu (max 75), so should NOT be side menu
     assert_ne!(
         event,
         UiEvent::SideMenuClick {
             target: "編成".to_string()
         }
+    );
+}
+
+#[test]
+fn real_fullscreen_side_menu_positions() {
+    assert_eq!(
+        detect_event(Screen::Resupply, 30, 390),
+        UiEvent::SideMenuClick {
+            target: "改装".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::Remodel, 30, 480),
+        UiEvent::SideMenuClick {
+            target: "入渠".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::RepairDockSelect, 30, 565),
+        UiEvent::SideMenuClick {
+            target: "工廠".to_string()
+        }
+    );
+}
+
+#[test]
+fn top_menu_quest_uses_full_width_position() {
+    assert_eq!(
+        detect_event(Screen::Homeport, 817, 81),
+        UiEvent::TopMenuClick {
+            target: "任務".to_string()
+        }
+    );
+}
+
+// ── GAME START / item and furniture screens ─────────────────────────
+
+#[test]
+fn game_start_button_enters_port() {
+    assert_eq!(INITIAL_SCREEN, Screen::GameStart);
+    assert_eq!(
+        detect_event(Screen::GameStart, 972, 607),
+        UiEvent::StartGame
+    );
+    assert_eq!(
+        detect_event(Screen::GameStart, 100, 50),
+        UiEvent::UnknownClick { x: 100, y: 50 }
+    );
+}
+
+#[test]
+fn observed_item_screen_flow() {
+    assert_eq!(
+        detect_event(Screen::ItemListHeld, 409, 196),
+        UiEvent::ItemInventoryTab {
+            tab: "購入済みアイテム".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::ItemListHeld, 85, 283),
+        UiEvent::ItemMenuSelect {
+            target: "アイテム屋".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::ItemShopRegular, 107, 333),
+        UiEvent::ItemMenuSelect {
+            target: "家具屋".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::FurnitureShopCategory, 98, 680),
+        UiEvent::ItemReturnHomeport
+    );
+}
+
+#[test]
+fn observed_item_inventory_subscreens() {
+    assert_eq!(
+        detect_event(Screen::ItemListHeld, 767, 214),
+        UiEvent::ItemExpansionOpen
+    );
+    assert_eq!(
+        detect_event(Screen::ItemListExpansion, 276, 215),
+        UiEvent::ItemInventoryTab {
+            tab: "保有アイテム".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::ItemListHeld, 454, 164),
+        UiEvent::ItemInventoryTab {
+            tab: "購入済みアイテム".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::ItemListPurchased, 309, 181),
+        UiEvent::ItemInventoryTab {
+            tab: "保有アイテム".to_string()
+        }
+    );
+}
+
+#[test]
+fn observed_item_shop_corner_switches() {
+    assert_eq!(
+        detect_event(Screen::ItemShopRegular, 1065, 688),
+        UiEvent::ItemShopCornerSwitch {
+            corner: "特選コーナー".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::ItemShopSpecial, 281, 684),
+        UiEvent::ItemShopCornerSwitch {
+            corner: "レギュラーコーナー".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::ItemShopRegular, 740, 689),
+        UiEvent::UnknownClick { x: 740, y: 689 }
+    );
+}
+
+#[test]
+fn observed_furniture_category_flow() {
+    assert_eq!(
+        detect_event(Screen::FurnitureShopCategory, 334, 274),
+        UiEvent::FurnitureCategorySelect {
+            category: "壁紙".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::FurnitureShopCategory, 408, 414),
+        UiEvent::FurnitureCategorySelect {
+            category: "椅子+机".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::FurnitureShopList, 347, 686),
+        UiEvent::FurnitureListBack
+    );
+}
+
+#[test]
+fn observed_furniture_change_flow() {
+    assert_eq!(
+        detect_event(Screen::FurnitureChange, 172, 60),
+        UiEvent::FurnitureChangeCategory {
+            category: "壁紙".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::FurnitureChange, 142, 128),
+        UiEvent::FurnitureChangeCategory {
+            category: "床".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::FurnitureChange, 98, 247),
+        UiEvent::FurnitureChangeCategory {
+            category: "窓枠+カーテン".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::FurnitureChange, 108, 553),
+        UiEvent::FurnitureChangeOpenShop
+    );
+    assert_eq!(
+        detect_event(Screen::FurnitureChange, 100, 680),
+        UiEvent::FurnitureChangeReturnHomeport
+    );
+}
+
+#[test]
+fn observed_remodel_equipment_flow() {
+    assert_eq!(
+        detect_event(Screen::Remodel, 570, 309),
+        UiEvent::RemodelEquipmentSlot { slot: 2 }
+    );
+    assert_eq!(
+        detect_event(Screen::RemodelEquipmentSelect, 793, 169),
+        UiEvent::RemodelEquipmentFilterOpen
+    );
+    assert_eq!(
+        detect_event(Screen::RemodelEquipmentFilter, 833, 285),
+        UiEvent::RemodelEquipmentCategorySelect
+    );
+    assert_eq!(
+        detect_event(Screen::RemodelEquipmentSelect, 803, 446),
+        UiEvent::RemodelEquipmentSelect { row: 6 }
+    );
+    assert_eq!(
+        detect_event(Screen::RemodelEquipmentConfirm, 1134, 667),
+        UiEvent::RemodelEquipmentChangeConfirm
     );
 }
 
@@ -336,12 +529,74 @@ fn real_session_expedition_tab_chinjufu() {
 
 #[test]
 fn event_map_airbase_button_leaves_map_selection() {
-    let event = detect_event(Screen::SortieSelect, 350, 610);
+    // 2026-07-28 23:23:04.384 — observed click that opened the panel.
+    let event = detect_event(Screen::SortieSelectEvent, 377, 579);
     assert_eq!(event, UiEvent::OpenAirBaseSupply);
+}
+
+#[test]
+fn observed_airbase_tabs_select_all_three_bases() {
+    let samples = [(930, 190, 1), (1041, 192, 2), (1154, 185, 3)];
+
+    for (x, y, base) in samples {
+        assert_eq!(
+            detect_event(Screen::AirBaseSupply1, x, y),
+            UiEvent::AirBaseSelect { base },
+            "base {base} at ({x}, {y})"
+        );
+    }
 }
 
 #[test]
 fn sortie_mode_menu_does_not_mistake_lower_left_for_airbase_button() {
     let event = detect_event(Screen::SortieMenu, 350, 610);
     assert_eq!(event, UiEvent::UnknownClick { x: 350, y: 610 });
+}
+
+#[test]
+fn observed_sortie_menu_button_opens_map_selection() {
+    assert_eq!(
+        detect_event(Screen::SortieMenu, 354, 414),
+        UiEvent::SelectMode {
+            mode: "出撃".to_string()
+        }
+    );
+}
+
+#[test]
+fn observed_sortie_area_tabs_are_distinct() {
+    let samples = [
+        (1098, 666, "期間限定海域"),
+        (806, 662, "中部海域"),
+        (692, 676, "南方海域"),
+        (585, 677, "西方海域"),
+        (476, 658, "南西海域"),
+        (387, 659, "北方海域"),
+        (279, 681, "南西諸島海域"),
+        (227, 673, "鎮守府海域"),
+    ];
+
+    for (x, y, area) in samples {
+        assert_eq!(
+            detect_event(Screen::SortieSelectChinjufu, x, y),
+            UiEvent::SortieAreaSelect {
+                area: area.to_string()
+            },
+            "sample ({x}, {y})"
+        );
+    }
+}
+
+#[test]
+fn southwest_area_tab_is_not_airbase_supply() {
+    assert_eq!(
+        detect_event(Screen::SortieSelectWestern, 476, 658),
+        UiEvent::SortieAreaSelect {
+            area: "南西海域".to_string()
+        }
+    );
+    assert_eq!(
+        detect_event(Screen::SortieSelectWestern, 350, 610),
+        UiEvent::UnknownClick { x: 350, y: 610 }
+    );
 }

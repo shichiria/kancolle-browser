@@ -1,5 +1,5 @@
 use log::info;
-use tauri::Emitter;
+use tauri::{Emitter, Manager};
 
 use crate::api;
 use crate::drive_sync;
@@ -591,10 +591,19 @@ pub(crate) fn get_action_log(limit: Option<usize>) -> Vec<serde_json::Value> {
 /// Get the currently inferred game screen (for the Debug tab).
 #[tauri::command]
 pub(crate) fn get_current_screen(state: tauri::State<'_, crate::AppState>) -> String {
-    format!(
-        "{:?}",
-        *crate::lock_or_recover(&state.navigation.current_screen, "current_screen")
+    crate::mouse_hook::debug_screen_name(
+        *crate::lock_or_recover(&state.navigation.current_screen, "current_screen"),
     )
+}
+
+/// Return counts and the storage directory for accumulated full-screen samples.
+#[tauri::command]
+pub(crate) fn get_screen_sample_summary(app: tauri::AppHandle) -> serde_json::Value {
+    let data_dir = app
+        .path()
+        .app_local_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+    crate::mouse_hook::screen_sample_summary(&data_dir)
 }
 
 /// Get the currently selected fleet (1-4) within fleet-compatible screens.
