@@ -5,7 +5,31 @@ use super::port::{
 };
 use super::{air_corps, battle, fleet, models, port, quest, ship};
 use log::{info, warn};
+use std::collections::HashMap;
 use tauri::{AppHandle, Emitter};
+
+fn apply_remodel_slot_inventory(
+    slotitems: &mut HashMap<i32, models::PlayerSlotItem>,
+    slot_id: i32,
+    after_slot: Option<models::PlayerSlotItem>,
+    used_slot_ids: &[i32],
+) -> Option<i32> {
+    let source_eq_id = slotitems.get(&slot_id).map(|item| item.slotitem_id);
+    let previous_alv = slotitems.get(&slot_id).and_then(|item| item.alv);
+
+    for used_slot_id in used_slot_ids {
+        slotitems.remove(used_slot_id);
+    }
+    if let Some(mut updated) = after_slot {
+        if updated.alv.is_none() {
+            updated.alv = previous_alv;
+        }
+        slotitems.remove(&slot_id);
+        slotitems.insert(updated.item_id, updated);
+    }
+
+    source_eq_id
+}
 
 pub(super) fn apply(
     state: &mut models::GameStateInner,
@@ -113,21 +137,19 @@ pub(super) fn apply(
             slot_id,
             success,
             eq_id,
+            after_slot,
+            used_slot_ids,
         } => {
             if success {
-                // Use eq_id from request body (api_id param), fallback to player_slotitems lookup
-                let resolved_eq_id = if eq_id > 0 {
-                    eq_id
-                } else if slot_id > 0 {
-                    state
-                        .profile
-                        .slotitems
-                        .get(&slot_id)
-                        .map(|item| item.slotitem_id)
-                        .unwrap_or(-1)
-                } else {
-                    -1
-                };
+                let source_eq_id = apply_remodel_slot_inventory(
+                    &mut state.profile.slotitems,
+                    slot_id,
+                    after_slot,
+                    &used_slot_ids,
+                );
+                // Prefer the source master ID. On equipment conversion,
+                // api_after_slot contains the new master ID instead.
+                let resolved_eq_id = source_eq_id.unwrap_or(eq_id);
                 if resolved_eq_id > 0 {
                     state.history.improved_equipment.insert(resolved_eq_id);
                     crate::improvement::save_improved_history(
@@ -139,6 +161,7 @@ pub(super) fn apply(
                         "Equipment improved: eq_id={} (instance={})",
                         resolved_eq_id, slot_id
                     );
+                    let _ = app.emit(crate::events::IMPROVEMENT_UPDATED, ());
                 } else {
                     warn!(
                             "remodel_slot success but could not resolve eq_id: slot_id={}, req_eq_id={}",
@@ -371,10 +394,7 @@ pub(super) fn apply(
                 state.mapinfo_gauges.len(),
                 state.event_map_statuses.len()
             );
-            let _ = app.emit(
-                crate::events::EVENT_MAP_UPDATED,
-                &state.event_map_statuses,
-            );
+            let _ = app.emit(crate::events::EVENT_MAP_UPDATED, &state.event_map_statuses);
             let bases = air_corps::parse_air_bases(
                 &air_bases,
                 &state.profile.slotitems,
@@ -397,10 +417,7 @@ pub(super) fn apply(
             } else {
                 state.event_map_statuses.push(status);
             }
-            let _ = app.emit(
-                crate::events::EVENT_MAP_UPDATED,
-                &state.event_map_statuses,
-            );
+            let _ = app.emit(crate::events::EVENT_MAP_UPDATED, &state.event_map_statuses);
         }
         ParsedApi::AirCorpsSetPlane {
             request_body,
@@ -462,5 +479,45 @@ pub(super) fn apply(
         }
         ParsedApi::LogOnly => {}
         ParsedApi::Other => {}
+    }
+}
+
+#[cfg(test)]
+mod remodel_inventory_tests {
+    use super::apply_remodel_slot_inventory;
+    use crate::api::models::PlayerSlotItem;
+    use std::collections::HashMap;
+
+    fn item(item_id: i32, master_id: i32, level: i32, locked: bool) -> PlayerSlotItem {
+        PlayerSlotItem {
+            item_id,
+            slotitem_id: master_id,
+            level,
+            alv: None,
+            locked,
+        }
+    }
+
+    #[test]
+    fn successful_remodel_updates_star_and_removes_consumed_instances() {
+        let mut slotitems = HashMap::from([
+            (100, item(100, 300, 0, true)),
+            (201, item(201, 301, 0, true)),
+            (202, item(202, 301, 0, false)),
+            (203, item(203, 301, 0, true)),
+        ]);
+
+        let source_eq_id = apply_remodel_slot_inventory(
+            &mut slotitems,
+            100,
+            Some(item(100, 300, 1, true)),
+            &[201, 202],
+        );
+
+        assert_eq!(source_eq_id, Some(300));
+        assert_eq!(slotitems.get(&100).map(|item| item.level), Some(1));
+        assert!(!slotitems.contains_key(&201));
+        assert!(!slotitems.contains_key(&202));
+        assert!(slotitems.contains_key(&203));
     }
 }

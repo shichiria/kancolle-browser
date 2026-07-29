@@ -374,7 +374,7 @@
                     });
                 });
                 airbaseWarning.style.display =
-                    screen === 'SortieSelect' && needsSupply ? 'flex' : 'none';
+                    screen === 'SortieSelectEvent' && needsSupply ? 'flex' : 'none';
             }).catch(function() {
                 airbaseWarning.style.display = 'none';
             });

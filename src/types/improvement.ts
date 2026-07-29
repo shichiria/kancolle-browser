@@ -4,7 +4,7 @@ export interface ConsumedEquipInfo {
   eq_id: number;
   name: string;
   counts: [number, number, number]; // [p1(★0-5), p2(★6-9), conv(更新)]
-  owned: number; // unlocked count
+  owned: number; // total count, including locked equipment
 }
 
 /** A ship that can act as today's 担当艦 (2nd-slot helper) for an improvement. */
@@ -17,6 +17,10 @@ export interface ImprovementHelperShip {
 export interface ImprovementItem {
   eq_id: number;
   name: string;
+  owned_count: number;
+  owned_levels: Array<[number, number]>;
+  equipment_ready: boolean;
+  can_improve_now: boolean;
   eq_type: number;
   type_name: string;
   sort_value: number;

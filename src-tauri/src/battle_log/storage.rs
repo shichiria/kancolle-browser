@@ -114,7 +114,9 @@ impl BattleLogger {
         for (i, record) in self.completed.iter_mut().enumerate() {
             if record.end_time.is_none() && active_id.as_deref() != Some(&record.id) {
                 // Use the file's last modified time if available, otherwise use start_time
-                let end_time = self.save_dir.as_ref()
+                let end_time = self
+                    .save_dir
+                    .as_ref()
                     .map(|dir| dir.join(format!("{}.json", record.id)))
                     .and_then(|path| path.metadata().ok())
                     .and_then(|meta| meta.modified().ok())

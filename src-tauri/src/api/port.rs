@@ -161,6 +161,7 @@ pub(super) fn process_port(
         state.profile.ships.len(),
         state.profile.slotitems.len(),
     );
+    crate::nozaki_timer::sync(app, state, true);
 
     // Build enriched fleet summaries
     let fleets: Vec<models::FleetSummary> = api_data

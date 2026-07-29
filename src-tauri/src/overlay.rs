@@ -23,7 +23,10 @@ pub(crate) fn set_formation_hint_enabled(
         crate::api::hide_formation_hint(&app);
     }
 
-    info!("Formation hint set to {}", if enabled { "enabled" } else { "disabled" });
+    info!(
+        "Formation hint set to {}",
+        if enabled { "enabled" } else { "disabled" }
+    );
     Ok(())
 }
 
@@ -38,11 +41,17 @@ pub(crate) fn set_taiha_alert_enabled(
     state: State<AppState>,
     enabled: bool,
 ) -> Result<(), String> {
-    state.prefs.taiha_alert_enabled.store(enabled, Ordering::Relaxed);
+    state
+        .prefs
+        .taiha_alert_enabled
+        .store(enabled, Ordering::Relaxed);
 
     crate::settings::persist_flag(&app, crate::settings::TAIHA_ALERT_ENABLED, enabled)?;
 
-    info!("Taiha alert set to {}", if enabled { "enabled" } else { "disabled" });
+    info!(
+        "Taiha alert set to {}",
+        if enabled { "enabled" } else { "disabled" }
+    );
     Ok(())
 }
 
@@ -66,11 +75,8 @@ pub(crate) fn set_battle_info_enabled(
 
     if enabled {
         // Re-show overlay with stored data if available
-        let stored = crate::lock_or_recover(
-            &state.overlay.last_battle_info,
-            "last_battle_info",
-        )
-        .clone();
+        let stored =
+            crate::lock_or_recover(&state.overlay.last_battle_info, "last_battle_info").clone();
         if let Some(data) = stored {
             info!("Battle info re-enabled, re-showing stored data");
             crate::api::battle_info::show_battle_info_overlay(&app, &data);
@@ -82,7 +88,10 @@ pub(crate) fn set_battle_info_enabled(
         }
     }
 
-    info!("Battle info overlay set to {}", if enabled { "enabled" } else { "disabled" });
+    info!(
+        "Battle info overlay set to {}",
+        if enabled { "enabled" } else { "disabled" }
+    );
     Ok(())
 }
 
@@ -94,9 +103,7 @@ pub(crate) fn get_battle_info_enabled(state: State<AppState>) -> bool {
 /// Show or hide the overlay webview.
 #[tauri::command]
 pub(crate) fn set_overlay_visible(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
-    let overlay = app
-        .get_webview("game-overlay")
-        .ok_or("Overlay not found")?;
+    let overlay = app.get_webview("game-overlay").ok_or("Overlay not found")?;
     if visible {
         let win = app.get_window("game").ok_or("Game window not found")?;
         let size = win.inner_size().map_err(|e| e.to_string())?;
@@ -152,8 +159,7 @@ pub fn show_minimap_overlay(app: &tauri::AppHandle) -> Result<(), String> {
     let zoom = *crate::lock_or_recover(&state.overlay.game_zoom, "game_zoom");
     let bar_h = CONTROL_BAR_HEIGHT * zoom;
 
-    let saved_pos =
-        *crate::lock_or_recover(&state.overlay.minimap_position, "minimap_position");
+    let saved_pos = *crate::lock_or_recover(&state.overlay.minimap_position, "minimap_position");
     let (x, y) = match saved_pos {
         Some((sx, sy)) => {
             let x = sx.max(0.0).min(logical.width - mw);
@@ -167,8 +173,12 @@ pub fn show_minimap_overlay(app: &tauri::AppHandle) -> Result<(), String> {
         }
     };
 
-    overlay.set_position(tauri::LogicalPosition::new(x, y)).map_err(|e| e.to_string())?;
-    overlay.set_size(tauri::LogicalSize::new(mw, mh)).map_err(|e| e.to_string())?;
+    overlay
+        .set_position(tauri::LogicalPosition::new(x, y))
+        .map_err(|e| e.to_string())?;
+    overlay
+        .set_size(tauri::LogicalSize::new(mw, mh))
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -181,7 +191,10 @@ pub(crate) async fn toggle_minimap(
 ) -> Result<bool, String> {
     let was_enabled = state.prefs.minimap_enabled.load(Ordering::Relaxed);
     let enabled = !was_enabled;
-    state.prefs.minimap_enabled.store(enabled, Ordering::Relaxed);
+    state
+        .prefs
+        .minimap_enabled
+        .store(enabled, Ordering::Relaxed);
 
     crate::settings::persist_flag(&app, crate::settings::MINIMAP_ENABLED, enabled)?;
 
@@ -195,7 +208,9 @@ pub(crate) async fn toggle_minimap(
         // If no active sortie, overlay stays 1x1 — nothing to show
     } else {
         let _ = overlay.eval("window.hideMinimap()");
-        overlay.set_size(tauri::LogicalSize::new(1.0, 1.0)).map_err(|e| e.to_string())?;
+        overlay
+            .set_size(tauri::LogicalSize::new(1.0, 1.0))
+            .map_err(|e| e.to_string())?;
     }
     Ok(enabled)
 }
@@ -207,7 +222,12 @@ pub(crate) fn get_minimap_enabled(state: State<AppState>) -> bool {
 
 /// Move minimap overlay by delta (called from overlay JS during drag)
 #[tauri::command]
-pub(crate) fn move_minimap(app: tauri::AppHandle, state: State<AppState>, dx: f64, dy: f64) -> Result<(), String> {
+pub(crate) fn move_minimap(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    dx: f64,
+    dy: f64,
+) -> Result<(), String> {
     let overlay = app.get_webview("game-overlay").ok_or("Overlay not found")?;
     let win = app.get_window("game").ok_or("Game window not found")?;
     let phys = win.inner_size().map_err(|e| e.to_string())?;
@@ -224,7 +244,9 @@ pub(crate) fn move_minimap(app: tauri::AppHandle, state: State<AppState>, dx: f6
     let x = (cur_logical.x + dx).max(0.0).min(logical.width - mw);
     let y = (cur_logical.y + dy).max(bar_h).min(logical.height - mh);
 
-    overlay.set_position(tauri::LogicalPosition::new(x, y)).map_err(|e| e.to_string())?;
+    overlay
+        .set_position(tauri::LogicalPosition::new(x, y))
+        .map_err(|e| e.to_string())?;
 
     *crate::lock_or_recover(&state.overlay.minimap_position, "minimap_position") = Some((x, y));
 
@@ -235,7 +257,11 @@ pub(crate) fn move_minimap(app: tauri::AppHandle, state: State<AppState>, dx: f6
 
 /// Resize minimap overlay (called from overlay JS during resize drag)
 #[tauri::command]
-pub(crate) fn resize_minimap(app: tauri::AppHandle, state: State<AppState>, w: f64) -> Result<(), String> {
+pub(crate) fn resize_minimap(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    w: f64,
+) -> Result<(), String> {
     let new_w = w.clamp(MINIMAP_MIN_W, MINIMAP_MAX_W);
     let new_h = (new_w * MINIMAP_ASPECT).round();
 
@@ -313,7 +339,10 @@ pub(crate) fn show_expedition_notification(
 
 /// Hide expedition completion notification
 #[tauri::command]
-pub(crate) fn hide_expedition_notification(app: tauri::AppHandle, state: State<AppState>) -> Result<(), String> {
+pub(crate) fn hide_expedition_notification(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+) -> Result<(), String> {
     if let Some(win) = app.get_window("expedition-notify") {
         let _ = win.hide();
     }
@@ -363,6 +392,99 @@ pub(crate) fn reposition_expedition_notification(app: &tauri::AppHandle) {
     }
 }
 
+const EXERCISE_NOTIFY_W: f64 = 360.0;
+const EXERCISE_NOTIFY_H: f64 = 70.0;
+const EXERCISE_NOTIFY_MARGIN: f64 = 8.0;
+
+/// Show the practice-refresh warning centered above the game.
+pub(crate) fn show_exercise_notification(
+    app: &tauri::AppHandle,
+    minutes_remaining: i64,
+) -> Result<(), String> {
+    let notify_win = app
+        .get_window("exercise-notify")
+        .ok_or("Exercise notification window not found")?;
+    let game_win = app.get_window("game").ok_or("Game window not found")?;
+
+    let scale = game_win.scale_factor().unwrap_or(1.0);
+    let phys_pos = game_win.inner_position().map_err(|e| e.to_string())?;
+    let phys_size = game_win.inner_size().map_err(|e| e.to_string())?;
+    let x = phys_pos.x + (phys_size.width as i32 - (EXERCISE_NOTIFY_W * scale) as i32) / 2;
+    let top_offset = MACOS_TITLEBAR_HEIGHT + CONTROL_BAR_HEIGHT + EXERCISE_NOTIFY_MARGIN;
+    let y = phys_pos.y + (top_offset * scale) as i32;
+
+    notify_win
+        .set_position(tauri::PhysicalPosition::new(x, y))
+        .map_err(|e| e.to_string())?;
+    notify_win
+        .set_size(tauri::LogicalSize::new(
+            EXERCISE_NOTIFY_W,
+            EXERCISE_NOTIFY_H,
+        ))
+        .map_err(|e| e.to_string())?;
+
+    if let Some(webview) = app.get_webview("exercise-notify-content") {
+        webview
+            .set_size(tauri::LogicalSize::new(
+                EXERCISE_NOTIFY_W,
+                EXERCISE_NOTIFY_H,
+            ))
+            .map_err(|e| e.to_string())?;
+        webview
+            .eval(format!(
+                "window.showExerciseAlert({})",
+                minutes_remaining.clamp(1, 15)
+            ))
+            .map_err(|e| e.to_string())?;
+    }
+
+    notify_win.show().map_err(|e| e.to_string())?;
+    app.state::<AppState>()
+        .overlay
+        .exercise_notify_visible
+        .store(true, Ordering::Relaxed);
+    Ok(())
+}
+
+pub(crate) fn hide_exercise_notification(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_window("exercise-notify") {
+        let _ = window.hide();
+    }
+    app.state::<AppState>()
+        .overlay
+        .exercise_notify_visible
+        .store(false, Ordering::Relaxed);
+}
+
+pub(crate) fn reposition_exercise_notification(app: &tauri::AppHandle) {
+    if !app
+        .state::<AppState>()
+        .overlay
+        .exercise_notify_visible
+        .load(Ordering::Relaxed)
+    {
+        return;
+    }
+
+    let Some(game_win) = app.get_window("game") else {
+        return;
+    };
+    let Some(notify_win) = app.get_window("exercise-notify") else {
+        return;
+    };
+    let Ok(phys_pos) = game_win.inner_position() else {
+        return;
+    };
+    let Ok(phys_size) = game_win.inner_size() else {
+        return;
+    };
+    let scale = game_win.scale_factor().unwrap_or(1.0);
+    let x = phys_pos.x + (phys_size.width as i32 - (EXERCISE_NOTIFY_W * scale) as i32) / 2;
+    let top_offset = MACOS_TITLEBAR_HEIGHT + CONTROL_BAR_HEIGHT + EXERCISE_NOTIFY_MARGIN;
+    let y = phys_pos.y + (top_offset * scale) as i32;
+    let _ = notify_win.set_position(tauri::PhysicalPosition::new(x, y));
+}
+
 /// Reposition the battle-info overlay to follow the game window.
 /// Mirrors the positioning math in `battle_info::show_battle_info_overlay` so
 /// that move/resize events keep the overlay anchored to the top-left of the
@@ -404,10 +526,7 @@ pub(crate) fn reposition_battle_info(app: &tauri::AppHandle) {
 /// Reposition the formation hint window to follow the game window
 pub(crate) fn reposition_formation_hint(app: &tauri::AppHandle) {
     let state = app.state::<AppState>();
-    let rect = *crate::lock_or_recover(
-        &state.overlay.formation_hint_rect,
-        "formation_hint_rect",
-    );
+    let rect = *crate::lock_or_recover(&state.overlay.formation_hint_rect, "formation_hint_rect");
     if !rect.visible {
         return;
     }

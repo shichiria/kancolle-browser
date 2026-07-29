@@ -9,6 +9,7 @@ pub(crate) fn process_exercise_result(
     app: &AppHandle,
 ) {
     info!("Exercise result: rank={}", data.api_win_rank);
+    crate::practice_alert::record_exercise(app);
     if data.api_get_exp > 0 {
         state.senka.add_battle_exp(data.api_get_exp, "演習");
         let summary = state.senka.summary();

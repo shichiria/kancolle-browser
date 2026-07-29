@@ -1,7 +1,7 @@
 {
   "name": "kancolle-browser",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.5.3",
   "type": "module",
   "description": "Cross-platform KanColle browser with real-time fleet tracking and battle analysis",
   "license": "MIT",
@@ -15,11 +15,15 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "vitest run && cd src-tauri && cargo check && cargo test"
+    "test": "vitest run && cd src-tauri && cargo check && cargo test",
+    "audit:improvements": "node scripts/audit-akashi-improvements.mjs",
+    "sync:improvements": "node scripts/sync-improvements-from-akashi.mjs",
+    "report:improvement-cost-diff": "node scripts/report-improvement-cost-diff.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
+    "lz-string": "^1.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

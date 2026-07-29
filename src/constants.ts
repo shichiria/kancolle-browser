@@ -17,6 +17,7 @@ export const EVENTS = {
   PROXY_READY: "proxy-ready",
   KANCOLLE_API: "kancolle-api",
   PORT_DATA: "port-data",
+  IMPROVEMENT_UPDATED: "improvement-updated",
   SORTIE_UPDATE: "sortie-update",
   SORTIE_COMPLETE: "sortie-complete",
   SENKA_UPDATED: "senka-updated",

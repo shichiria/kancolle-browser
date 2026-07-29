@@ -82,12 +82,9 @@ pub struct ApiChargeResponse {
 #[derive(Debug, Deserialize, Clone)]
 pub struct ApiRemodelSlotResponse {
     pub api_remodel_flag: Option<i32>,
-    pub api_after_slot: Option<ApiAfterSlot>,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct ApiAfterSlot {
-    pub api_slotitem_id: Option<i32>,
+    pub api_after_slot: Option<PlayerSlotItemApi>,
+    #[serde(default)]
+    pub api_use_slot_id: Vec<i32>,
 }
 
 // =============================================================================

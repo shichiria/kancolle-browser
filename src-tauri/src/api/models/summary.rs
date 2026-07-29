@@ -164,3 +164,20 @@ pub struct EquipListResponse {
     pub items: Vec<EquipListItem>,
     pub equip_types: Vec<(i32, String)>,
 }
+
+/// One concrete equipment instance available in the player's inventory.
+#[derive(Debug, Serialize)]
+pub struct OwnedFormationItem {
+    pub instance_id: i32,
+    pub master_id: i32,
+    pub remodel: i32,
+    /// Aircraft proficiency as the API's 0-7 display rank.
+    pub proficiency: i32,
+}
+
+/// Inventory used when adapting an imported kc-web formation.
+#[derive(Debug, Serialize)]
+pub struct OwnedFormationInventory {
+    pub hq_level: i32,
+    pub items: Vec<OwnedFormationItem>,
+}

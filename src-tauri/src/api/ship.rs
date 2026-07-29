@@ -1,19 +1,19 @@
 use log::{info, warn};
 use tauri::AppHandle;
 
+use super::fleet::emit_fleet_update;
 use super::models;
 use super::models::ShipInfo;
-use super::fleet::emit_fleet_update;
 
 // Ship type (stype) ID constants
-pub(super) const STYPE_DE: i32 = 1;    // 海防艦
-pub(super) const STYPE_DD: i32 = 2;    // 駆逐艦
-pub(super) const STYPE_CL: i32 = 3;    // 軽巡洋艦
-pub(super) const STYPE_CLT: i32 = 4;   // 重雷装巡洋艦
-pub(super) const STYPE_CVL: i32 = 7;   // 軽空母
-pub(super) const STYPE_BBV: i32 = 10;  // 航空戦艦
-pub(super) const STYPE_CT: i32 = 21;   // 練習巡洋艦
-pub(super) const STYPE_AO: i32 = 22;   // 補給艦
+pub(super) const STYPE_DE: i32 = 1; // 海防艦
+pub(super) const STYPE_DD: i32 = 2; // 駆逐艦
+pub(super) const STYPE_CL: i32 = 3; // 軽巡洋艦
+pub(super) const STYPE_CLT: i32 = 4; // 重雷装巡洋艦
+pub(super) const STYPE_CVL: i32 = 7; // 軽空母
+pub(super) const STYPE_BBV: i32 = 10; // 航空戦艦
+pub(super) const STYPE_CT: i32 = 21; // 練習巡洋艦
+pub(super) const STYPE_AO: i32 = 22; // 補給艦
 
 /// Extract stat value from api_karyoku / api_taiku / etc.
 /// These are arrays where index 0 is the equipped total value.
@@ -38,7 +38,10 @@ pub(super) fn extract_slot_ids(val: &serde_json::Value) -> Vec<i32> {
 
 /// Build a ShipInfo from a PlayerShip and optional MasterShip data.
 /// Used by process_port, process_ship3, and process_slot_deprive.
-pub(super) fn build_ship_info(ship: &models::PlayerShip, master: Option<&models::MasterShipInfo>) -> ShipInfo {
+pub(super) fn build_ship_info(
+    ship: &models::PlayerShip,
+    master: Option<&models::MasterShipInfo>,
+) -> ShipInfo {
     let name = master
         .map(|m| m.name.clone())
         .unwrap_or_else(|| format!("Unknown({})", ship.api_ship_id));
@@ -106,7 +109,10 @@ pub(super) fn process_powerup(
 ) {
     let ship = &api_data.api_ship;
     let master = state.master.ships.get(&ship.api_ship_id);
-    state.profile.ships.insert(ship.api_id, build_ship_info(ship, master));
+    state
+        .profile
+        .ships
+        .insert(ship.api_id, build_ship_info(ship, master));
     info!(
         "powerup: updated ship {} (flag={})",
         ship.api_id, api_data.api_powerup_flag
@@ -114,7 +120,12 @@ pub(super) fn process_powerup(
 
     // Update fleets from response
     for fleet in &api_data.api_deck {
-        let ship_ids: Vec<i32> = fleet.api_ship.iter().filter(|&&id| id > 0).copied().collect();
+        let ship_ids: Vec<i32> = fleet
+            .api_ship
+            .iter()
+            .filter(|&&id| id > 0)
+            .copied()
+            .collect();
         let fidx = fleet.api_id as usize;
         while state.profile.fleets.len() < fidx {
             state.profile.fleets.push(Vec::new());
@@ -135,7 +146,10 @@ pub(super) fn process_slot_exchange(
 ) {
     let ship = &api_data.api_ship_data;
     let master = state.master.ships.get(&ship.api_ship_id);
-    state.profile.ships.insert(ship.api_id, build_ship_info(ship, master));
+    state
+        .profile
+        .ships
+        .insert(ship.api_id, build_ship_info(ship, master));
     info!("slot_exchange: updated ship {}", ship.api_id);
 
     emit_fleet_update(state, app);
@@ -149,8 +163,14 @@ pub(super) fn process_getship(
 ) {
     let ship = &api_data.api_ship;
     let master = state.master.ships.get(&ship.api_ship_id);
-    state.profile.ships.insert(ship.api_id, build_ship_info(ship, master));
-    info!("getship: added ship {} (master_id={})", ship.api_id, ship.api_ship_id);
+    state
+        .profile
+        .ships
+        .insert(ship.api_id, build_ship_info(ship, master));
+    info!(
+        "getship: added ship {} (master_id={})",
+        ship.api_id, ship.api_ship_id
+    );
 
     // Add starting equipment
     for item in &api_data.api_slotitem {
@@ -165,7 +185,10 @@ pub(super) fn process_getship(
             },
         );
     }
-    info!("getship: added {} equipment items", api_data.api_slotitem.len());
+    info!(
+        "getship: added {} equipment items",
+        api_data.api_slotitem.len()
+    );
 
     emit_fleet_update(state, app);
 }
@@ -179,10 +202,10 @@ pub(super) fn process_ship3(
     // Update ships from api_ship_data
     for ship in &api_data.api_ship_data {
         let master = state.master.ships.get(&ship.api_ship_id);
-        state.profile.ships.insert(
-            ship.api_id,
-            build_ship_info(ship, master),
-        );
+        state
+            .profile
+            .ships
+            .insert(ship.api_id, build_ship_info(ship, master));
     }
     info!("ship3: updated {} ships", api_data.api_ship_data.len());
 
@@ -216,12 +239,18 @@ pub(super) fn process_slot_deprive(
     // Update receiving ship
     let set_ship = &api_data.api_ship_data.api_set_ship;
     let master = state.master.ships.get(&set_ship.api_ship_id);
-    state.profile.ships.insert(set_ship.api_id, build_ship_info(set_ship, master));
+    state
+        .profile
+        .ships
+        .insert(set_ship.api_id, build_ship_info(set_ship, master));
 
     // Update giving ship
     let unset_ship = &api_data.api_ship_data.api_unset_ship;
     let master = state.master.ships.get(&unset_ship.api_ship_id);
-    state.profile.ships.insert(unset_ship.api_id, build_ship_info(unset_ship, master));
+    state
+        .profile
+        .ships
+        .insert(unset_ship.api_id, build_ship_info(unset_ship, master));
 
     info!("slot_deprive: updated 2 ships");
 
@@ -449,23 +478,23 @@ fn check_opening_asw(
 
     // 1. Unconditional ships (always OASW regardless of equipment)
     const UNCONDITIONAL: &[i32] = &[
-        141,  // 五十鈴改二
-        478,  // 龍田改二
-        624,  // 夕張改二丁
-        394,  // Jervis改
-        893,  // Jervis Mk.II
-        681,  // Janus改
-        875,  // Janus Mk.II
-        562,  // Fletcher
-        596,  // Fletcher改 Mod.2
-        628,  // Fletcher Mk.II
-        629,  // Fletcher Mk.II (extra)
-        563,  // Johnston
-        597,  // Johnston改
-        692,  // Johnston Mk.II
-        700,  // Samuel B.Roberts Mk.II
-        911,  // Heywood L.Edwards改
-        916,  // Richard P.Leary改
+        141, // 五十鈴改二
+        478, // 龍田改二
+        624, // 夕張改二丁
+        394, // Jervis改
+        893, // Jervis Mk.II
+        681, // Janus改
+        875, // Janus Mk.II
+        562, // Fletcher
+        596, // Fletcher改 Mod.2
+        628, // Fletcher Mk.II
+        629, // Fletcher Mk.II (extra)
+        563, // Johnston
+        597, // Johnston改
+        692, // Johnston Mk.II
+        700, // Samuel B.Roberts Mk.II
+        911, // Heywood L.Edwards改
+        916, // Richard P.Leary改
     ];
     if UNCONDITIONAL.contains(&sid) {
         return true;
@@ -526,7 +555,12 @@ fn check_opening_asw(
     }
 
     // 7. General ships: DD(2), CL(3), CLT(4), CT(21), AO(22): ASW>=100 + sonar
-    if stype == STYPE_DD || stype == STYPE_CL || stype == STYPE_CLT || stype == STYPE_CT || stype == STYPE_AO {
+    if stype == STYPE_DD
+        || stype == STYPE_CL
+        || stype == STYPE_CLT
+        || stype == STYPE_CT
+        || stype == STYPE_AO
+    {
         return asw >= 100 && has_sonar;
     }
 

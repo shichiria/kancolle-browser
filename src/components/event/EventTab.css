@@ -159,6 +159,89 @@
   font-size: 22px;
 }
 
+.event-formation-links {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid #31425f;
+  border-radius: 7px;
+  background: #111c30;
+}
+
+.event-formation-links > span {
+  flex: 0 0 auto;
+  padding-top: 5px;
+  color: #8da5c6;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.event-formation-links > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.event-formation-links button {
+  padding: 4px 8px;
+  border: 1px solid #55749c;
+  border-radius: 5px;
+  background: #182b47;
+  color: #b9d6fa;
+  cursor: pointer;
+  font-size: 10px;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.event-formation-links button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.event-formation-links button:hover {
+  border-color: #e0b455;
+  background: #2b2940;
+  color: #ffe0a0;
+}
+
+.event-formation-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.event-formation-link small {
+  max-width: 110px;
+  overflow: hidden;
+  color: #83c6a2;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-formation-link small.is-error {
+  color: #ff9a9a;
+}
+
+.event-formation-links button b {
+  margin-left: 5px;
+  color: #e0b455;
+  font-size: 9px;
+}
+
+.event-formation-note {
+  margin: 7px 2px 0;
+  color: #d9b875;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
 .auto-status {
   display: flex;
   justify-content: space-between;

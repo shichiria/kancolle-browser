@@ -151,8 +151,32 @@
 
 .debug-screen-cell {
   color: #4a90e2;
-  width: 130px;
+  width: 105px;
   font-size: 10px;
+}
+
+.debug-click-kind {
+  width: 150px;
+  font-size: 10px;
+}
+
+.debug-transition {
+  color: #ffb74d;
+  font-weight: 700;
+}
+
+.debug-operation {
+  color: #90a4ae;
+}
+
+.debug-unknown-row {
+  background: rgba(233, 69, 96, 0.11);
+}
+
+.debug-unknown-row .debug-screen-cell {
+  color: #ff5d73;
+  font-size: 14px;
+  font-weight: 900;
 }
 
 .debug-event {
@@ -175,13 +199,13 @@
 }
 
 .debug-shot {
-  width: 96px;
+  width: 170px;
   text-align: center;
 }
 
 .debug-shot-thumb {
-  width: 88px;
-  height: 88px;
+  width: 160px;
+  height: 96px;
   object-fit: contain;
   background: #000;
   border: 1px solid #1a4080;
@@ -192,8 +216,8 @@
 }
 
 .debug-shot-thumb:hover {
-  width: 200px;
-  height: 200px;
+  width: 480px;
+  height: 288px;
   position: relative;
   z-index: 10;
   border-color: #4a90e2;

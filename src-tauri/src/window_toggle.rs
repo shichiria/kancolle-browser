@@ -3,8 +3,14 @@
 use log::info;
 use tauri::Manager;
 
-pub const AUXILIARY_WINDOWS: &[&str] =
-    &["management", "kantai", "quests", "improvement", "ships", "event"];
+pub const AUXILIARY_WINDOWS: &[&str] = &[
+    "management",
+    "kantai",
+    "quests",
+    "improvement",
+    "ships",
+    "event",
+];
 
 fn window(app: &tauri::AppHandle, label: &str) -> Result<tauri::Window, String> {
     app.get_window(label)

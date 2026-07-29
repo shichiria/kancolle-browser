@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { EVENTS } from "../../constants";
+import {
+  getArmorBreakFormationLinks,
+  getEventFormationLinks,
+  type EventFormationLink,
+} from "../../data/eventFormations";
+import type { OwnedFormationInventory } from "../../utils/ownedFormation";
 import type {
   BattleLogsResponse,
   EventMapStatus,
@@ -10,6 +17,9 @@ import type {
 import "./EventTab.css";
 
 export type Difficulty = "甲" | "乙" | "丙" | "丁";
+export const EVENT_FORMATION_HEADING = "推奨編成";
+export const EVENT_FORMATION_NOTE =
+  "注意：索敵や制空が不足する場合は、自分で調整してください。";
 type VictoryRank = "S" | "A";
 type RequirementKind = "victory" | "air" | "arrival" | "defense";
 
@@ -69,6 +79,92 @@ interface GimmickProgress {
   counts: Record<string, number>;
   complete: boolean;
   completedAt: string | null;
+}
+
+function FormationLinkButton({
+  formation,
+}: {
+  formation: EventFormationLink;
+}) {
+  const [status, setStatus] = useState<"idle" | "loading" | "opened" | "error">(
+    "idle",
+  );
+  const [detail, setDetail] = useState("");
+
+  const openOwnedFormation = useCallback(async () => {
+    if (status === "loading") return;
+    setStatus("loading");
+    setDetail("");
+    try {
+      const [compressedData, inventory] = await Promise.all([
+        invoke<string>("resolve_event_formation_data", {
+          sourceUrl: formation.url,
+        }),
+        invoke<OwnedFormationInventory>("get_owned_formation_inventory"),
+      ]);
+      const { adaptOwnedFormationData } = await import(
+        "../../utils/ownedFormation"
+      );
+      const result = adaptOwnedFormationData(compressedData, inventory);
+      await openUrl(result.url);
+      setStatus("opened");
+      const missingNames = result.missing_items
+        .map((item) => `${item.name}${item.count > 1 ? `×${item.count}` : ""}`)
+        .join("、");
+      setDetail(
+        result.missing > 0
+          ? `不足 ${result.missing}枠: ${missingNames}`
+          : `${result.assigned}枠を所持装備で再現`,
+      );
+    } catch (error) {
+      setStatus("error");
+      setDetail(error instanceof Error ? error.message : String(error));
+    }
+  }, [formation.url, status]);
+
+  return (
+    <span className="event-formation-link">
+      <button
+        disabled={status === "loading"}
+        onClick={() => void openOwnedFormation()}
+        title="推奨編成を、現在の所持数を超えない範囲で同カテゴリの最適装備に置き換えます"
+        type="button"
+      >
+        {status === "loading" ? "編成中…" : formation.label}
+        <b aria-hidden="true">↗</b>
+      </button>
+      {detail && (
+        <small
+          aria-live="polite"
+          className={status === "error" ? "is-error" : ""}
+          title={detail}
+        >
+          {detail}
+        </small>
+      )}
+    </span>
+  );
+}
+
+function FormationLinks({
+  eyebrow,
+  formations,
+}: {
+  eyebrow: string;
+  formations: EventFormationLink[];
+}) {
+  if (formations.length === 0) return null;
+
+  return (
+    <div className="event-formation-links">
+      <span>{eyebrow}</span>
+      <div>
+        {formations.map((formation) => (
+          <FormationLinkButton formation={formation} key={formation.url} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 const RANK_VALUE: Record<string, number> = {
@@ -1068,6 +1164,16 @@ export function EventTab() {
   );
   const hpProgress = gaugeProgress(selectedStatus);
   const mapCleared = selectedStatus?.cleared === true;
+  const formations = getEventFormationLinks(
+    selectedMap.mapNo,
+    currentStage.id,
+  );
+  const armorBreakFormations =
+    currentStage.kind === "gauge" &&
+    currentStage === selectedMap.stages[selectedMap.stages.length - 1] &&
+    lastDance
+      ? getArmorBreakFormationLinks(selectedMap.mapNo)
+      : [];
 
   return (
     <div className="event-tab">
@@ -1120,6 +1226,24 @@ export function EventTab() {
             <span className="event-card-eyebrow">現在やること</span>
             <h2>{mapCleared ? "海域突破済み" : currentStage.detail}</h2>
           </div>
+
+          {!mapCleared && (
+            <>
+              <FormationLinks
+                eyebrow={EVENT_FORMATION_HEADING}
+                formations={formations}
+              />
+              <FormationLinks
+                eyebrow="装甲破砕・推奨編成"
+                formations={armorBreakFormations}
+              />
+              {(formations.length > 0 || armorBreakFormations.length > 0) && (
+                <p className="event-formation-note">
+                  {EVENT_FORMATION_NOTE}
+                </p>
+              )}
+            </>
+          )}
 
           {mapCleared ? (
             <div className="gauge-status">

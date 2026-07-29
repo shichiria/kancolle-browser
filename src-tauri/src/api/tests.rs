@@ -102,10 +102,7 @@ mod a02_port {
         let data = parsed.api_data.expect("api_data should exist");
 
         // Ships
-        assert!(
-            !data.api_ship.is_empty(),
-            "Should have at least one ship"
-        );
+        assert!(!data.api_ship.is_empty(), "Should have at least one ship");
         let ship = &data.api_ship[0];
         assert!(ship.api_id > 0, "Ship instance ID should be positive");
         assert!(ship.api_ship_id > 0, "Ship master ID should be positive");
@@ -139,7 +136,10 @@ mod a02_port {
         assert_eq!(data.api_ndock.len(), 4, "Should have 4 repair docks");
 
         // Admiral basic
-        assert!(data.api_basic.api_level > 0, "Admiral level should be positive");
+        assert!(
+            data.api_basic.api_level > 0,
+            "Admiral level should be positive"
+        );
     }
 
     #[test]
@@ -152,7 +152,11 @@ mod a02_port {
 
         assert_eq!(get_material(&materials, 1), 100);
         assert_eq!(get_material(&materials, 2), 200);
-        assert_eq!(get_material(&materials, 99), 0, "Missing material should return 0");
+        assert_eq!(
+            get_material(&materials, 99),
+            0,
+            "Missing material should return 0"
+        );
     }
 }
 
@@ -202,9 +206,8 @@ mod a04_require_info {
             .get("api_slot_item")
             .expect("require_info should contain api_slot_item");
 
-        let items: Vec<models::PlayerSlotItemApi> =
-            serde_json::from_value(slot_item_val.clone())
-                .expect("Failed to parse api_slot_item from require_info");
+        let items: Vec<models::PlayerSlotItemApi> = serde_json::from_value(slot_item_val.clone())
+            .expect("Failed to parse api_slot_item from require_info");
 
         assert!(
             items.len() > 100,
@@ -247,9 +250,18 @@ mod a05_questlist {
             .iter()
             .find(|item| item.get("api_no").is_some())
             .expect("Should have a quest");
-        assert!(quest.get("api_state").is_some(), "Quest should have api_state");
-        assert!(quest.get("api_title").is_some(), "Quest should have api_title");
-        assert!(quest.get("api_category").is_some(), "Quest should have api_category");
+        assert!(
+            quest.get("api_state").is_some(),
+            "Quest should have api_state"
+        );
+        assert!(
+            quest.get("api_title").is_some(),
+            "Quest should have api_title"
+        );
+        assert!(
+            quest.get("api_category").is_some(),
+            "Quest should have api_category"
+        );
     }
 }
 
@@ -261,8 +273,7 @@ mod a06_ship3 {
     fn test_parse_ship3() {
         let fixture = load_fixture("api_get_member_ship3.json");
         let parsed: models::ApiResponse<dto::member::ApiShip3Response> =
-            serde_json::from_value(response_body(&fixture).clone())
-                .expect("Failed to parse ship3");
+            serde_json::from_value(response_body(&fixture).clone()).expect("Failed to parse ship3");
 
         assert_eq!(parsed.api_result, 1);
         let data = parsed.api_data.expect("api_data should exist");
@@ -279,7 +290,10 @@ mod a06_ship3 {
         // Verify ship_data has expected fields
         let ship = &data.api_ship_data[0];
         assert!(ship.api_id > 0, "Ship should have positive api_id");
-        assert!(ship.api_ship_id > 0, "Ship should have positive api_ship_id");
+        assert!(
+            ship.api_ship_id > 0,
+            "Ship should have positive api_ship_id"
+        );
         assert!(ship.api_lv > 0, "Ship should have positive api_lv");
 
         // Verify deck_data has expected fields
@@ -301,7 +315,11 @@ mod a07_hensei_change {
         let req: dto::request::HenseiChangeReq =
             serde_urlencoded::from_str(req_body).expect("Failed to parse hensei change request");
 
-        assert!(req.api_id >= 1 && req.api_id <= 4, "Fleet ID should be 1-4, got {}", req.api_id);
+        assert!(
+            req.api_id >= 1 && req.api_id <= 4,
+            "Fleet ID should be 1-4, got {}",
+            req.api_id
+        );
         assert!(req.api_ship_idx >= -1, "Ship index should be >= -1");
     }
 }
@@ -352,14 +370,20 @@ mod a09_remodel_slot {
         let data = parsed.api_data.expect("api_data should exist");
 
         let flag = data.api_remodel_flag.expect("Should have remodel_flag");
-        assert!(flag == 0 || flag == 1, "remodel_flag should be 0 or 1, got {}", flag);
+        assert!(
+            flag == 0 || flag == 1,
+            "remodel_flag should be 0 or 1, got {}",
+            flag
+        );
 
         if flag == 1 {
-            let after_slot = data.api_after_slot.as_ref().expect("Success should have api_after_slot");
-            assert!(
-                after_slot.api_slotitem_id.is_some(),
-                "api_after_slot should have api_slotitem_id"
-            );
+            let after_slot = data
+                .api_after_slot
+                .as_ref()
+                .expect("Success should have api_after_slot");
+            assert!(after_slot.api_slotitem_id > 0);
+            assert!(after_slot.api_level > 0);
+            assert!(!data.api_use_slot_id.is_empty());
         }
     }
 
@@ -430,7 +454,11 @@ mod a12_quest_clearitemget {
             .expect("Failed to serialize response_body");
 
         let bonus = extract_senka_from_clearitemget(&response);
-        assert!(bonus >= 0, "Senka bonus should be non-negative, got {}", bonus);
+        assert!(
+            bonus >= 0,
+            "Senka bonus should be non-negative, got {}",
+            bonus
+        );
     }
 }
 
@@ -500,7 +528,10 @@ mod a15_ranking {
             data.api_count.unwrap_or(0) > 0,
             "Ranking count should be positive"
         );
-        assert!(!data.api_list.is_empty(), "Ranking list should not be empty");
+        assert!(
+            !data.api_list.is_empty(),
+            "Ranking list should not be empty"
+        );
 
         // Verify entry has encrypted fields
         let entry = &data.api_list[0];
@@ -531,21 +562,45 @@ mod a16_sortie_battle {
 
         // Formation
         let formation = data.api_formation.as_ref().expect("Should have formation");
-        assert_eq!(formation.len(), 3, "Formation should have 3 elements [friend, enemy, engagement]");
+        assert_eq!(
+            formation.len(),
+            3,
+            "Formation should have 3 elements [friend, enemy, engagement]"
+        );
 
         // Enemy ships
         let enemy_ships = data.api_ship_ke.as_ref().expect("Should have api_ship_ke");
         assert!(!enemy_ships.is_empty(), "Should have enemy ships");
 
         // HP arrays
-        let f_nowhps = data.api_f_nowhps.as_ref().expect("Should have api_f_nowhps");
-        let f_maxhps = data.api_f_maxhps.as_ref().expect("Should have api_f_maxhps");
-        let e_nowhps = data.api_e_nowhps.as_ref().expect("Should have api_e_nowhps");
-        let e_maxhps = data.api_e_maxhps.as_ref().expect("Should have api_e_maxhps");
+        let f_nowhps = data
+            .api_f_nowhps
+            .as_ref()
+            .expect("Should have api_f_nowhps");
+        let f_maxhps = data
+            .api_f_maxhps
+            .as_ref()
+            .expect("Should have api_f_maxhps");
+        let e_nowhps = data
+            .api_e_nowhps
+            .as_ref()
+            .expect("Should have api_e_nowhps");
+        let e_maxhps = data
+            .api_e_maxhps
+            .as_ref()
+            .expect("Should have api_e_maxhps");
 
         assert!(!f_nowhps.is_empty(), "Friend HP should not be empty");
-        assert_eq!(f_nowhps.len(), f_maxhps.len(), "Friend HP arrays should match length");
-        assert_eq!(e_nowhps.len(), e_maxhps.len(), "Enemy HP arrays should match length");
+        assert_eq!(
+            f_nowhps.len(),
+            f_maxhps.len(),
+            "Friend HP arrays should match length"
+        );
+        assert_eq!(
+            e_nowhps.len(),
+            e_maxhps.len(),
+            "Enemy HP arrays should match length"
+        );
     }
 
     #[test]
@@ -584,7 +639,10 @@ mod a17_airbattle {
         assert_eq!(parsed.api_result, 1);
         let data = parsed.api_data.expect("api_data should exist");
 
-        let kouku = data.api_kouku.as_ref().expect("Airbattle should have api_kouku");
+        let kouku = data
+            .api_kouku
+            .as_ref()
+            .expect("Airbattle should have api_kouku");
         assert!(
             kouku.api_stage1.is_some(),
             "Kouku should have stage1 (air superiority)"
@@ -683,7 +741,10 @@ mod a34_battleresult {
         let mvp = data.api_mvp.expect("Should have MVP");
         assert!(mvp >= 1, "MVP index should be >= 1");
 
-        assert!(data.api_get_base_exp.is_some(), "Should have base experience");
+        assert!(
+            data.api_get_base_exp.is_some(),
+            "Should have base experience"
+        );
     }
 
     #[test]
@@ -692,12 +753,8 @@ mod a34_battleresult {
         let data = api_data(&fixture);
 
         if let Some(get_ship) = data.get("api_get_ship") {
-            let ship_id = get_ship
-                .get("api_ship_id")
-                .and_then(|v| v.as_i64());
-            let ship_name = get_ship
-                .get("api_ship_name")
-                .and_then(|v| v.as_str());
+            let ship_id = get_ship.get("api_ship_id").and_then(|v| v.as_i64());
+            let ship_name = get_ship.get("api_ship_name").and_then(|v| v.as_str());
 
             if let Some(id) = ship_id {
                 assert!(id > 0, "Dropped ship ID should be positive");
@@ -746,17 +803,20 @@ mod a36_map_start {
             req_body.contains("api_mapinfo_no="),
             "Should have mapinfo_no"
         );
-        assert!(
-            req_body.contains("api_deck_id="),
-            "Should have deck_id"
-        );
+        assert!(req_body.contains("api_deck_id="), "Should have deck_id");
 
         let params: std::collections::HashMap<String, String> =
             serde_urlencoded::from_str(req_body).expect("Failed to parse map_start request");
 
-        let maparea: i32 = params["api_maparea_id"].parse().expect("maparea should be int");
-        let mapinfo: i32 = params["api_mapinfo_no"].parse().expect("mapinfo should be int");
-        let deck: i32 = params["api_deck_id"].parse().expect("deck_id should be int");
+        let maparea: i32 = params["api_maparea_id"]
+            .parse()
+            .expect("maparea should be int");
+        let mapinfo: i32 = params["api_mapinfo_no"]
+            .parse()
+            .expect("mapinfo should be int");
+        let deck: i32 = params["api_deck_id"]
+            .parse()
+            .expect("deck_id should be int");
 
         assert!(maparea >= 1, "Map area should be >= 1");
         assert!(mapinfo >= 1, "Map info should be >= 1");
@@ -828,10 +888,8 @@ mod cross_cutting {
 
         for filename in &battle_fixtures {
             let fixture = load_fixture(filename);
-            let result: Result<
-                models::ApiResponse<dto::battle::ApiBattleResponse>,
-                _,
-            > = serde_json::from_value(response_body(&fixture).clone());
+            let result: Result<models::ApiResponse<dto::battle::ApiBattleResponse>, _> =
+                serde_json::from_value(response_body(&fixture).clone());
 
             assert!(
                 result.is_ok(),
@@ -841,11 +899,7 @@ mod cross_cutting {
             );
 
             let data = result.unwrap().api_data;
-            assert!(
-                data.is_some(),
-                "{}: api_data should not be None",
-                filename
-            );
+            assert!(data.is_some(), "{}: api_data should not be None", filename);
         }
     }
 
@@ -912,7 +966,11 @@ mod cross_cutting {
             assert_eq!(api_result, 1, "{}: should succeed", filename);
 
             let req_body = request_body_str(&fixture);
-            assert!(!req_body.is_empty(), "{}: Should have request_body", filename);
+            assert!(
+                !req_body.is_empty(),
+                "{}: Should have request_body",
+                filename
+            );
         }
     }
 
@@ -920,10 +978,8 @@ mod cross_cutting {
     #[test]
     fn test_practice_battle_parses() {
         let fixture = load_fixture("api_req_practice_battle.json");
-        let result: Result<
-            models::ApiResponse<dto::battle::ApiBattleResponse>,
-            _,
-        > = serde_json::from_value(response_body(&fixture).clone());
+        let result: Result<models::ApiResponse<dto::battle::ApiBattleResponse>, _> =
+            serde_json::from_value(response_body(&fixture).clone());
 
         assert!(
             result.is_ok(),
@@ -986,7 +1042,11 @@ mod b01_charge {
         let data = parsed.api_data.expect("api_data should exist");
 
         for ship in &data.api_ship {
-            assert!(ship.api_id > 0, "Ship id should be positive, got {}", ship.api_id);
+            assert!(
+                ship.api_id > 0,
+                "Ship id should be positive, got {}",
+                ship.api_id
+            );
             assert!(ship.api_fuel >= 0, "Fuel should be non-negative");
             assert!(ship.api_bull >= 0, "Bull should be non-negative");
         }
@@ -1001,9 +1061,18 @@ mod b01_charge {
 
         let data = parsed.api_data.expect("api_data should exist");
 
-        assert_eq!(data.api_material.len(), 4, "Must have exactly 4 material values");
+        assert_eq!(
+            data.api_material.len(),
+            4,
+            "Must have exactly 4 material values"
+        );
         for (i, &val) in data.api_material.iter().enumerate() {
-            assert!(val >= 0, "Material[{}] should be non-negative, got {}", i, val);
+            assert!(
+                val >= 0,
+                "Material[{}] should be non-negative, got {}",
+                i,
+                val
+            );
         }
     }
 }
@@ -1041,7 +1110,10 @@ mod b03_powerup {
         assert_eq!(parsed.api_result, 1);
         let data = parsed.api_data.expect("api_data should exist");
         assert!(data.api_ship.api_id > 0, "Ship should have valid id");
-        assert!(data.api_powerup_flag == 0 || data.api_powerup_flag == 1, "Flag should be 0 or 1");
+        assert!(
+            data.api_powerup_flag == 0 || data.api_powerup_flag == 1,
+            "Flag should be 0 or 1"
+        );
     }
 }
 
@@ -1076,7 +1148,10 @@ mod b05_getship {
         assert_eq!(parsed.api_result, 1);
         let data = parsed.api_data.expect("api_data should exist");
         assert!(data.api_ship.api_id > 0, "New ship should have valid id");
-        assert!(data.api_ship.api_ship_id > 0, "New ship should have valid master id");
+        assert!(
+            data.api_ship.api_ship_id > 0,
+            "New ship should have valid master id"
+        );
     }
 }
 
@@ -1092,8 +1167,15 @@ mod b06_destroyitem2 {
         let req: dto::member::DestroyItem2Req =
             serde_urlencoded::from_str(req_body).expect("Failed to parse destroyitem2 request");
 
-        let ids: Vec<i32> = req.api_slotitem_ids.split(',').filter_map(|s| s.parse().ok()).collect();
-        assert!(!ids.is_empty(), "Should have at least one item ID to destroy");
+        let ids: Vec<i32> = req
+            .api_slotitem_ids
+            .split(',')
+            .filter_map(|s| s.parse().ok())
+            .collect();
+        assert!(
+            !ids.is_empty(),
+            "Should have at least one item ID to destroy"
+        );
         for &id in &ids {
             assert!(id > 0, "Item ID should be positive");
         }
@@ -1112,8 +1194,12 @@ mod b07_destroyship {
         let req: dto::member::DestroyShipReq =
             serde_urlencoded::from_str(req_body).expect("Failed to parse destroyship request");
 
-        let ship_id: i32 = req.api_ship_id.split(',').next()
-            .and_then(|s| s.parse().ok()).unwrap_or(0);
+        let ship_id: i32 = req
+            .api_ship_id
+            .split(',')
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
         assert!(ship_id > 0, "Ship ID should be positive");
     }
 }
@@ -1131,7 +1217,10 @@ mod b08_createitem {
 
         assert_eq!(parsed.api_result, 1);
         let data = parsed.api_data.expect("api_data should exist");
-        assert!(data.api_create_flag == 0 || data.api_create_flag == 1, "Flag should be 0 or 1");
+        assert!(
+            data.api_create_flag == 0 || data.api_create_flag == 1,
+            "Flag should be 0 or 1"
+        );
     }
 }
 
@@ -1152,7 +1241,11 @@ mod b09_material {
 
         // Verify IDs 1-8 exist
         for id in 1..=8 {
-            assert!(materials.iter().any(|m| m.api_id == id), "Material ID {} missing", id);
+            assert!(
+                materials.iter().any(|m| m.api_id == id),
+                "Material ID {} missing",
+                id
+            );
         }
     }
 }
@@ -1165,15 +1258,17 @@ mod b10_ndock {
     fn test_parse_member_ndock() {
         let fixture = load_fixture("api_get_member_ndock.json");
         let parsed: models::ApiResponse<Vec<models::RepairDock>> =
-            serde_json::from_value(response_body(&fixture).clone())
-                .expect("Failed to parse ndock");
+            serde_json::from_value(response_body(&fixture).clone()).expect("Failed to parse ndock");
 
         assert_eq!(parsed.api_result, 1);
         let ndock = parsed.api_data.expect("api_data should exist");
         assert_eq!(ndock.len(), 4, "Should have 4 repair docks");
 
         for dock in &ndock {
-            assert!(dock.api_id >= 1 && dock.api_id <= 4, "Dock ID should be 1-4");
+            assert!(
+                dock.api_id >= 1 && dock.api_id <= 4,
+                "Dock ID should be 1-4"
+            );
         }
     }
 }
@@ -1186,8 +1281,7 @@ mod b11_deck {
     fn test_parse_member_deck() {
         let fixture = load_fixture("api_get_member_deck.json");
         let parsed: models::ApiResponse<Vec<models::Fleet>> =
-            serde_json::from_value(response_body(&fixture).clone())
-                .expect("Failed to parse deck");
+            serde_json::from_value(response_body(&fixture).clone()).expect("Failed to parse deck");
 
         assert_eq!(parsed.api_result, 1);
         let decks = parsed.api_data.expect("api_data should exist");
@@ -1212,7 +1306,10 @@ mod b12_mission_result {
 
         assert_eq!(parsed.api_result, 1);
         let data = parsed.api_data.expect("api_data should exist");
-        assert!(data.api_clear_result >= 0, "Clear result should be non-negative");
+        assert!(
+            data.api_clear_result >= 0,
+            "Clear result should be non-negative"
+        );
     }
 }
 
@@ -1241,7 +1338,10 @@ mod b13_practice_battles {
 
         assert_eq!(parsed.api_result, 1);
         let data = parsed.api_data.expect("api_data should exist");
-        assert!(data.api_hougeki.is_some(), "Should have night battle hougeki");
+        assert!(
+            data.api_hougeki.is_some(),
+            "Should have night battle hougeki"
+        );
     }
 }
 
@@ -1451,7 +1551,12 @@ mod suite5_quest_progress {
         FixedOffset::east_opt(9 * 3600).unwrap()
     }
 
-    fn make_entry(quest_id: i32, count: i32, count_max: i32, last: chrono::DateTime<FixedOffset>) -> QuestProgressEntry {
+    fn make_entry(
+        quest_id: i32,
+        count: i32,
+        count_max: i32,
+        last: chrono::DateTime<FixedOffset>,
+    ) -> QuestProgressEntry {
         QuestProgressEntry {
             quest_id,
             quest_id_str: format!("test_{}", quest_id),
@@ -1565,33 +1670,65 @@ mod suite4_sortie_sequences {
 
         for f in &files {
             let fixture = load_sequence_file(seq_dir, f);
-            assert!(fixture.get("endpoint").is_some(), "{}/{}: missing endpoint", seq_dir, f);
+            assert!(
+                fixture.get("endpoint").is_some(),
+                "{}/{}: missing endpoint",
+                seq_dir,
+                f
+            );
         }
 
         // First file = map_start
-        assert!(files[0].contains("map_start"), "{}: first file should be map_start", seq_dir);
+        assert!(
+            files[0].contains("map_start"),
+            "{}: first file should be map_start",
+            seq_dir
+        );
         let start = load_sequence_file(seq_dir, &files[0]);
-        let req = start.get("request_body").and_then(|v| v.as_str()).unwrap_or("");
-        assert!(req.contains(&format!("api_maparea_id={}", expected_area)), "{}: wrong area", seq_dir);
-        assert!(req.contains(&format!("api_mapinfo_no={}", expected_no)), "{}: wrong map", seq_dir);
+        let req = start
+            .get("request_body")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        assert!(
+            req.contains(&format!("api_maparea_id={}", expected_area)),
+            "{}: wrong area",
+            seq_dir
+        );
+        assert!(
+            req.contains(&format!("api_mapinfo_no={}", expected_no)),
+            "{}: wrong map",
+            seq_dir
+        );
 
         // Last file = port
-        assert!(files.last().unwrap().contains("port"), "{}: last should be port", seq_dir);
+        assert!(
+            files.last().unwrap().contains("port"),
+            "{}: last should be port",
+            seq_dir
+        );
 
         // Has battleresult
-        assert!(files.iter().any(|f| f.contains("battleresult")), "{}: needs battleresult", seq_dir);
+        assert!(
+            files.iter().any(|f| f.contains("battleresult")),
+            "{}: needs battleresult",
+            seq_dir
+        );
     }
 
     fn get_gauge_num(seq_dir: &str) -> Option<i64> {
         let files = list_sequence_files(seq_dir);
         let start = load_sequence_file(seq_dir, &files[0]);
-        start.get("_test_meta").and_then(|m| m.get("gauge_num")).and_then(|v| v.as_i64())
+        start
+            .get("_test_meta")
+            .and_then(|m| m.get("gauge_num"))
+            .and_then(|v| v.as_i64())
     }
 
     /// Get gauge_num from mapinfo.json for a specific map (e.g. map_id=72 for 7-2)
     fn get_gauge_from_mapinfo(seq_dir: &str, map_id: i64) -> Option<i64> {
         let mapinfo = load_sequence_file(seq_dir, "mapinfo.json");
-        let map_info = mapinfo.get("response_body")?
+        let map_info = mapinfo
+            .get("response_body")?
             .get("api_data")?
             .get("api_map_info")?
             .as_array()?;
@@ -1635,7 +1772,10 @@ mod suite4_sortie_sequences {
         assert_eq!(get_gauge_from_mapinfo("sortie_7-5_gauge1", 75), Some(1));
 
         let files = list_sequence_files("sortie_7-5_gauge1");
-        assert!(!files.iter().any(|f| f.contains("midnight")), "K boss: no midnight");
+        assert!(
+            !files.iter().any(|f| f.contains("midnight")),
+            "K boss: no midnight"
+        );
     }
 
     #[test]
@@ -1645,7 +1785,10 @@ mod suite4_sortie_sequences {
         assert_eq!(get_gauge_from_mapinfo("sortie_7-5_gauge2", 75), Some(2));
 
         let files = list_sequence_files("sortie_7-5_gauge2");
-        assert!(files.iter().any(|f| f.contains("midnight")), "Q boss: has midnight");
+        assert!(
+            files.iter().any(|f| f.contains("midnight")),
+            "Q boss: has midnight"
+        );
     }
 
     #[test]
@@ -1666,17 +1809,22 @@ mod suite4_sortie_sequences {
     #[test]
     fn test_all_boss_results_parseable() {
         for seq_dir in &[
-            "sortie_7-2_gauge2", "sortie_7-5_gauge1",
-            "sortie_7-5_gauge2", "sortie_7-5_gauge3",
+            "sortie_7-2_gauge2",
+            "sortie_7-5_gauge1",
+            "sortie_7-5_gauge2",
+            "sortie_7-5_gauge3",
         ] {
             let files = list_sequence_files(seq_dir);
-            let boss_file = files.iter().rev()
+            let boss_file = files
+                .iter()
+                .rev()
                 .find(|f| f.contains("battleresult"))
                 .unwrap_or_else(|| panic!("{}: no battleresult", seq_dir));
 
             let fixture = load_sequence_file(seq_dir, boss_file);
             let resp = response_body(&fixture);
-            let rank = resp.get("api_data")
+            let rank = resp
+                .get("api_data")
                 .and_then(|d| d.get("api_win_rank"))
                 .and_then(|v| v.as_str());
             assert!(rank.is_some(), "{}: boss result should have rank", seq_dir);
@@ -1694,13 +1842,19 @@ mod suite4_sortie_sequences {
 
         // Load mapinfo for 7-2 gauge 2
         let mapinfo = load_sequence_file("sortie_7-2_gauge2", "mapinfo.json");
-        let map_info_arr = mapinfo.get("response_body").unwrap()
-            .get("api_data").unwrap()
-            .get("api_map_info").unwrap()
-            .as_array().unwrap();
+        let map_info_arr = mapinfo
+            .get("response_body")
+            .unwrap()
+            .get("api_data")
+            .unwrap()
+            .get("api_map_info")
+            .unwrap()
+            .as_array()
+            .unwrap();
 
         // Build mapinfo_gauges cache (simulating what process_api should do)
-        let mut mapinfo_gauges: std::collections::HashMap<i32, i32> = std::collections::HashMap::new();
+        let mut mapinfo_gauges: std::collections::HashMap<i32, i32> =
+            std::collections::HashMap::new();
         for m in map_info_arr {
             let map_id = m.get("api_id").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
             if let Some(gauge) = m.get("api_gauge_num").and_then(|v| v.as_i64()) {
@@ -1711,7 +1865,11 @@ mod suite4_sortie_sequences {
         }
 
         // 7-2 (map_id=72) should have gauge_num=2
-        assert_eq!(mapinfo_gauges.get(&72), Some(&2), "7-2 should have gauge 2 from mapinfo");
+        assert_eq!(
+            mapinfo_gauges.get(&72),
+            Some(&2),
+            "7-2 should have gauge 2 from mapinfo"
+        );
 
         // Simulate gauge suffix generation (this is what battle.rs does)
         let map_area = 7;
@@ -1731,7 +1889,10 @@ mod suite4_sortie_sequences {
         };
         let map_area_str = format!("{}-{}{}", map_area, map_no, gauge_suffix);
 
-        assert_eq!(map_area_str, "7-2(2nd)", "Area key should include gauge suffix");
+        assert_eq!(
+            map_area_str, "7-2(2nd)",
+            "Area key should include gauge suffix"
+        );
     }
 
     #[test]
@@ -1745,16 +1906,23 @@ mod suite4_sortie_sequences {
 
         for (seq_dir, map_id, expected_key) in &expected {
             let mapinfo = load_sequence_file(seq_dir, "mapinfo.json");
-            let map_info_arr = mapinfo.get("response_body").unwrap()
-                .get("api_data").unwrap()
-                .get("api_map_info").unwrap()
-                .as_array().unwrap();
+            let map_info_arr = mapinfo
+                .get("response_body")
+                .unwrap()
+                .get("api_data")
+                .unwrap()
+                .get("api_map_info")
+                .unwrap()
+                .as_array()
+                .unwrap();
 
             let mut gauges: std::collections::HashMap<i32, i32> = std::collections::HashMap::new();
             for m in map_info_arr {
                 let mid = m.get("api_id").and_then(|v| v.as_i64()).unwrap_or(0) as i32;
                 if let Some(g) = m.get("api_gauge_num").and_then(|v| v.as_i64()) {
-                    if g > 0 { gauges.insert(mid, g as i32); }
+                    if g > 0 {
+                        gauges.insert(mid, g as i32);
+                    }
                 }
             }
 

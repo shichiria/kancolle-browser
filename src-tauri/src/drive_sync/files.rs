@@ -18,17 +18,15 @@ pub type Hub = DriveHub<Connector>;
 
 /// Build a DriveHub from an authenticator.
 pub fn build_hub(auth: DriveAuthenticator) -> Hub {
-    let client = hyper_util::client::legacy::Client::builder(
-        hyper_util::rt::TokioExecutor::new(),
-    )
-    .build(
-        hyper_rustls::HttpsConnectorBuilder::new()
-            .with_native_roots()
-            .unwrap()
-            .https_or_http()
-            .enable_http1()
-            .build(),
-    );
+    let client = hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+        .build(
+            hyper_rustls::HttpsConnectorBuilder::new()
+                .with_native_roots()
+                .unwrap()
+                .https_or_http()
+                .enable_http1()
+                .build(),
+        );
     DriveHub::new(client, auth)
 }
 

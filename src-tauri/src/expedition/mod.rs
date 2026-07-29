@@ -27,16 +27,37 @@ pub enum GreatSuccessType {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type")]
 pub enum ExpeditionCondition {
-    FlagshipLevel { value: i32 },
-    LevelSum { value: i32 },
-    ShipCount { value: i32 },
-    SmallShipCount { value: i32 },
-    ShipTypeCount { ship_type: String, stypes: Vec<i32>, value: i32 },
-    FlagshipType { ship_type: String, stypes: Vec<i32> },
-    SubmarineCount { value: i32 },
-    AircraftCarrierCount { value: i32 },
+    FlagshipLevel {
+        value: i32,
+    },
+    LevelSum {
+        value: i32,
+    },
+    ShipCount {
+        value: i32,
+    },
+    SmallShipCount {
+        value: i32,
+    },
+    ShipTypeCount {
+        ship_type: String,
+        stypes: Vec<i32>,
+        value: i32,
+    },
+    FlagshipType {
+        ship_type: String,
+        stypes: Vec<i32>,
+    },
+    SubmarineCount {
+        value: i32,
+    },
+    AircraftCarrierCount {
+        value: i32,
+    },
     /// 空母(水母,護母可): CV/CVL/CVB + AV(水母)
-    AircraftCarrierOrAVCount { value: i32 },
+    AircraftCarrierOrAVCount {
+        value: i32,
+    },
     EscortFleet,
     EscortFleetDD3,
     EscortFleetDD4,
@@ -44,12 +65,24 @@ pub enum ExpeditionCondition {
     EscortFleetSmall3,
     /// ミ船団護衛(二号船団): 護空1+(DD2 or DE2)+自由3(旗艦:護空) OR 軽空1+軽巡1+DD4(旗艦:軽空)
     MiConvoyEscort2,
-    DrumShipCount { value: i32 },
-    DrumTotal { value: i32 },
-    Firepower { value: i32 },
-    AA { value: i32 },
-    ASW { value: i32 },
-    LOS { value: i32 },
+    DrumShipCount {
+        value: i32,
+    },
+    DrumTotal {
+        value: i32,
+    },
+    Firepower {
+        value: i32,
+    },
+    AA {
+        value: i32,
+    },
+    ASW {
+        value: i32,
+    },
+    LOS {
+        value: i32,
+    },
 }
 
 /// Definition of a single expedition (loaded from JSON)
@@ -134,7 +167,10 @@ fn is_aircraft_carrier_or_av(stype: i32) -> bool {
 }
 
 fn count_by_stypes(ships: &[FleetShipData], stypes: &[i32]) -> i32 {
-    ships.iter().filter(|s| stypes.contains(&s.ship_type)).count() as i32
+    ships
+        .iter()
+        .filter(|s| stypes.contains(&s.ship_type))
+        .count() as i32
 }
 
 /// Escort fleet (6 patterns):
@@ -171,14 +207,14 @@ fn check_escort_fleet_small(ships: &[FleetShipData], min_small: i32) -> bool {
 
 /// 護衛空母 (CVE) master ship IDs
 const CVE_SHIP_IDS: &[i32] = &[
-    894, 899,           // 鳳翔改二, 鳳翔改二戦
-    883, 888,           // 龍鳳改二戊, 龍鳳改二
-    560,                // 瑞鳳改二乙
-    526, 380, 529,      // 大鷹, 大鷹改, 大鷹改二
-    884, 382, 889,      // 雲鷹, 雲鷹改, 雲鷹改二
-    534, 381, 536,      // 神鷹, 神鷹改, 神鷹改二
-    925, 930,           // Langley, Langley改
-    544, 396, 707,      // Gambier Bay, Gambier Bay改, Gambier Bay Mk.II
+    894, 899, // 鳳翔改二, 鳳翔改二戦
+    883, 888, // 龍鳳改二戊, 龍鳳改二
+    560, // 瑞鳳改二乙
+    526, 380, 529, // 大鷹, 大鷹改, 大鷹改二
+    884, 382, 889, // 雲鷹, 雲鷹改, 雲鷹改二
+    534, 381, 536, // 神鷹, 神鷹改, 神鷹改二
+    925, 930, // Langley, Langley改
+    544, 396, 707, // Gambier Bay, Gambier Bay改, Gambier Bay Mk.II
 ];
 
 fn is_cve(ship: &FleetShipData) -> bool {
@@ -218,9 +254,11 @@ static EXPEDITIONS_DATA: std::sync::OnceLock<Vec<ExpeditionDef>> = std::sync::On
 
 /// Load all expedition definitions from the embedded JSON (cached after first call).
 pub fn get_all_expeditions() -> Vec<ExpeditionDef> {
-    EXPEDITIONS_DATA.get_or_init(|| {
-        serde_json::from_str(EXPEDITIONS_JSON).expect("Failed to parse expeditions.json")
-    }).clone()
+    EXPEDITIONS_DATA
+        .get_or_init(|| {
+            serde_json::from_str(EXPEDITIONS_JSON).expect("Failed to parse expeditions.json")
+        })
+        .clone()
 }
 
 // =============================================================================
@@ -257,7 +295,11 @@ fn check_condition(cond: &ExpeditionCondition, fleet: &FleetCheckData) -> Condit
             }
         }
         ExpeditionCondition::SmallShipCount { value } => {
-            let current = fleet.ships.iter().filter(|s| is_small_ship(s.ship_type)).count() as i32;
+            let current = fleet
+                .ships
+                .iter()
+                .filter(|s| is_small_ship(s.ship_type))
+                .count() as i32;
             ConditionResult {
                 condition: "駆逐/海防".into(),
                 satisfied: current >= *value,
@@ -265,7 +307,11 @@ fn check_condition(cond: &ExpeditionCondition, fleet: &FleetCheckData) -> Condit
                 required_value: format!("{}隻", value),
             }
         }
-        ExpeditionCondition::ShipTypeCount { ship_type, stypes, value } => {
+        ExpeditionCondition::ShipTypeCount {
+            ship_type,
+            stypes,
+            value,
+        } => {
             let current = count_by_stypes(&fleet.ships, stypes);
             ConditionResult {
                 condition: ship_type.clone(),
@@ -285,7 +331,11 @@ fn check_condition(cond: &ExpeditionCondition, fleet: &FleetCheckData) -> Condit
             }
         }
         ExpeditionCondition::SubmarineCount { value } => {
-            let current = fleet.ships.iter().filter(|s| is_submarine(s.ship_type)).count() as i32;
+            let current = fleet
+                .ships
+                .iter()
+                .filter(|s| is_submarine(s.ship_type))
+                .count() as i32;
             ConditionResult {
                 condition: "潜水艦".into(),
                 satisfied: current >= *value,
@@ -294,7 +344,11 @@ fn check_condition(cond: &ExpeditionCondition, fleet: &FleetCheckData) -> Condit
             }
         }
         ExpeditionCondition::AircraftCarrierCount { value } => {
-            let current = fleet.ships.iter().filter(|s| is_aircraft_carrier_no_av(s.ship_type)).count() as i32;
+            let current = fleet
+                .ships
+                .iter()
+                .filter(|s| is_aircraft_carrier_no_av(s.ship_type))
+                .count() as i32;
             ConditionResult {
                 condition: "空母".into(),
                 satisfied: current >= *value,
@@ -303,7 +357,11 @@ fn check_condition(cond: &ExpeditionCondition, fleet: &FleetCheckData) -> Condit
             }
         }
         ExpeditionCondition::AircraftCarrierOrAVCount { value } => {
-            let current = fleet.ships.iter().filter(|s| is_aircraft_carrier_or_av(s.ship_type)).count() as i32;
+            let current = fleet
+                .ships
+                .iter()
+                .filter(|s| is_aircraft_carrier_or_av(s.ship_type))
+                .count() as i32;
             ConditionResult {
                 condition: "空母(水母可)".into(),
                 satisfied: current >= *value,
@@ -442,7 +500,11 @@ pub fn check_expedition(expedition_id: i32, fleet: &FleetCheckData) -> Expeditio
         }
     };
 
-    let conditions: Vec<ConditionResult> = exp.conditions.iter().map(|c| check_condition(c, fleet)).collect();
+    let conditions: Vec<ConditionResult> = exp
+        .conditions
+        .iter()
+        .map(|c| check_condition(c, fleet))
+        .collect();
     let all_satisfied = conditions.iter().all(|c| c.satisfied);
 
     let sparkled_count = fleet.ships.iter().filter(|s| s.cond >= 50).count();
@@ -487,8 +549,30 @@ mod tests {
     fn test_simple_check() {
         let fleet = FleetCheckData {
             ships: vec![
-                FleetShipData { ship_type: 2, ship_id: 0, level: 50, firepower: 30, aa: 30, asw: 50, los: 10, cond: 49, has_drum: false, drum_count: 0 },
-                FleetShipData { ship_type: 2, ship_id: 0, level: 30, firepower: 25, aa: 25, asw: 40, los: 8, cond: 49, has_drum: false, drum_count: 0 },
+                FleetShipData {
+                    ship_type: 2,
+                    ship_id: 0,
+                    level: 50,
+                    firepower: 30,
+                    aa: 30,
+                    asw: 50,
+                    los: 10,
+                    cond: 49,
+                    has_drum: false,
+                    drum_count: 0,
+                },
+                FleetShipData {
+                    ship_type: 2,
+                    ship_id: 0,
+                    level: 30,
+                    firepower: 25,
+                    aa: 25,
+                    asw: 40,
+                    los: 8,
+                    cond: 49,
+                    has_drum: false,
+                    drum_count: 0,
+                },
             ],
         };
         let result = check_expedition(1, &fleet);
@@ -499,8 +583,30 @@ mod tests {
     fn test_great_success() {
         let fleet = FleetCheckData {
             ships: vec![
-                FleetShipData { ship_type: 2, ship_id: 0, level: 50, firepower: 30, aa: 30, asw: 50, los: 10, cond: 53, has_drum: false, drum_count: 0 },
-                FleetShipData { ship_type: 2, ship_id: 0, level: 30, firepower: 25, aa: 25, asw: 40, los: 8, cond: 50, has_drum: false, drum_count: 0 },
+                FleetShipData {
+                    ship_type: 2,
+                    ship_id: 0,
+                    level: 50,
+                    firepower: 30,
+                    aa: 30,
+                    asw: 50,
+                    los: 10,
+                    cond: 53,
+                    has_drum: false,
+                    drum_count: 0,
+                },
+                FleetShipData {
+                    ship_type: 2,
+                    ship_id: 0,
+                    level: 30,
+                    firepower: 25,
+                    aa: 25,
+                    asw: 40,
+                    los: 8,
+                    cond: 50,
+                    has_drum: false,
+                    drum_count: 0,
+                },
             ],
         };
         let result = check_expedition(1, &fleet);
