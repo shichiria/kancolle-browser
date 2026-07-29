@@ -3,9 +3,7 @@ use std::collections::HashMap;
 
 use crate::api::models::MasterShipInfo;
 
-use super::{
-    AirBattleResult, BattleDetail, BattleLogger, EnemyShip, HpState, PendingBattle,
-};
+use super::{AirBattleResult, BattleDetail, BattleLogger, EnemyShip, HpState, PendingBattle};
 
 impl BattleLogger {
     pub fn on_battle(
@@ -59,7 +57,9 @@ impl BattleLogger {
         if let Some(arr) = &data.api_e_slot {
             pending.enemy_ship_slots = arr
                 .iter()
-                .map(|ship_slots: &Vec<i32>| ship_slots.iter().copied().filter(|&id| id > 0).collect())
+                .map(|ship_slots: &Vec<i32>| {
+                    ship_slots.iter().copied().filter(|&id| id > 0).collect()
+                })
                 .collect();
         }
 
@@ -537,7 +537,12 @@ fn apply_hougeki_damage_enemy(hp: &mut [i32], api_data: &serde_json::Value, key:
 /// Apply torpedo/opening attack damage to friendly fleet with offset.
 /// `offset` shifts the target index (used for api_raigeki_combined where indices
 /// 0-5 in api_fdam correspond to escort fleet ships at hp[6..12]).
-fn apply_raigeki_damage_with_offset(hp: &mut [i32], api_data: &serde_json::Value, key: &str, offset: usize) {
+fn apply_raigeki_damage_with_offset(
+    hp: &mut [i32],
+    api_data: &serde_json::Value,
+    key: &str,
+    offset: usize,
+) {
     let raigeki = match api_data.get(key) {
         Some(v) if !v.is_null() => v,
         _ => return,
@@ -560,7 +565,12 @@ fn apply_raigeki_damage(hp: &mut [i32], api_data: &serde_json::Value, key: &str)
 }
 
 /// Apply torpedo/opening attack damage to enemy fleet with offset.
-fn apply_raigeki_damage_enemy_with_offset(hp: &mut [i32], api_data: &serde_json::Value, key: &str, offset: usize) {
+fn apply_raigeki_damage_enemy_with_offset(
+    hp: &mut [i32],
+    api_data: &serde_json::Value,
+    key: &str,
+    offset: usize,
+) {
     let raigeki = match api_data.get(key) {
         Some(v) if !v.is_null() => v,
         _ => return,
@@ -585,7 +595,12 @@ fn apply_raigeki_damage_enemy(hp: &mut [i32], api_data: &serde_json::Value, key:
 /// Apply air battle damage to friendly fleet.
 /// `offset` shifts the target index (used for api_kouku_combined where indices
 /// 0-5 in api_fdam correspond to escort fleet ships at hp[6..12]).
-fn apply_kouku_damage_with_offset(hp: &mut [i32], api_data: &serde_json::Value, key: &str, offset: usize) {
+fn apply_kouku_damage_with_offset(
+    hp: &mut [i32],
+    api_data: &serde_json::Value,
+    key: &str,
+    offset: usize,
+) {
     let kouku = match api_data.get(key) {
         Some(v) if !v.is_null() => v,
         _ => return,
@@ -610,7 +625,12 @@ fn apply_kouku_damage(hp: &mut [i32], api_data: &serde_json::Value, key: &str) {
 
 /// Apply air battle damage to enemy fleet.
 /// `offset` shifts the target index (used for api_kouku_combined).
-fn apply_kouku_damage_enemy_with_offset(hp: &mut [i32], api_data: &serde_json::Value, key: &str, offset: usize) {
+fn apply_kouku_damage_enemy_with_offset(
+    hp: &mut [i32],
+    api_data: &serde_json::Value,
+    key: &str,
+    offset: usize,
+) {
     let kouku = match api_data.get(key) {
         Some(v) if !v.is_null() => v,
         _ => return,

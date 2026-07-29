@@ -3,6 +3,7 @@
 pub const PROXY_READY: &str = "proxy-ready";
 pub const KANCOLLE_API: &str = "kancolle-api";
 pub const PORT_DATA: &str = "port-data";
+pub const IMPROVEMENT_UPDATED: &str = "improvement-updated";
 pub const SORTIE_UPDATE: &str = "sortie-update";
 pub const SORTIE_COMPLETE: &str = "sortie-complete";
 pub const SENKA_UPDATED: &str = "senka-updated";
@@ -34,6 +35,7 @@ mod tests {
             PROXY_READY,
             KANCOLLE_API,
             PORT_DATA,
+            IMPROVEMENT_UPDATED,
             SORTIE_UPDATE,
             SORTIE_COMPLETE,
             SENKA_UPDATED,

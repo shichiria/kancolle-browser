@@ -31,6 +31,8 @@ pub(super) enum ParsedApi {
         slot_id: i32,
         success: bool,
         eq_id: i32,
+        after_slot: Option<models::PlayerSlotItem>,
+        used_slot_ids: Vec<i32>,
     },
     QuestStart {
         quest_id: i32,
@@ -206,18 +208,17 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
             let req_eq_id = req.as_ref().map(|r| r.api_id).unwrap_or(-1);
 
             // Extract eq_id + success from response
-            let (success, resp_eq_id) = match serde_json::from_str::<
+            let (success, resp_eq_id, after_slot, used_slot_ids) = match serde_json::from_str::<
                 models::ApiResponse<dto::member::ApiRemodelSlotResponse>,
             >(json_str)
             {
                 Ok(data) => {
                     let api_data = &data.api_data;
                     let flag = api_data.as_ref().and_then(|d| d.api_remodel_flag);
+                    let after_slot_api = api_data.as_ref().and_then(|d| d.api_after_slot.as_ref());
                     // Get master eq_id from api_after_slot.api_slotitem_id in response
-                    let mut eq_id = api_data
-                        .as_ref()
-                        .and_then(|d| d.api_after_slot.as_ref())
-                        .and_then(|s| s.api_slotitem_id)
+                    let mut eq_id = after_slot_api
+                        .map(|slot| slot.api_slotitem_id)
                         .unwrap_or(-1);
 
                     if eq_id <= 0 {
@@ -227,17 +228,35 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
                         "remodel_slot: slot_id={}, resp_eq_id={}, flag={:?}",
                         slot_id, eq_id, flag
                     );
-                    (flag.map(|f| f == 1).unwrap_or(false), eq_id)
+                    let after_slot = after_slot_api.map(|slot| models::PlayerSlotItem {
+                        item_id: slot.api_id,
+                        slotitem_id: slot.api_slotitem_id,
+                        level: slot.api_level,
+                        alv: slot.api_alv,
+                        locked: slot.api_locked == 1,
+                    });
+                    let used_slot_ids = api_data
+                        .as_ref()
+                        .map(|d| d.api_use_slot_id.clone())
+                        .unwrap_or_default();
+                    (
+                        flag.map(|f| f == 1).unwrap_or(false),
+                        eq_id,
+                        after_slot,
+                        used_slot_ids,
+                    )
                 }
                 Err(e) => {
                     error!("Failed to parse remodel_slot response: {}", e);
-                    (false, -1)
+                    (false, -1, None, Vec::new())
                 }
             };
             ParsedApi::RemodelSlot {
                 slot_id,
                 success,
                 eq_id: resp_eq_id,
+                after_slot,
+                used_slot_ids,
             }
         }
         "/kcsapi/api_req_quest/start" => {
@@ -462,8 +481,7 @@ pub(super) fn parse(endpoint: &str, json_str: &str, request_body: &str) -> Parse
         "/kcsapi/api_req_map/select_eventmap_rank" => {
             info!("Processing api_req_map/select_eventmap_rank");
             let request = serde_urlencoded::from_str::<SelectEventMapRankRequest>(request_body);
-            let response =
-                serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str);
+            let response = serde_json::from_str::<models::ApiResponse<serde_json::Value>>(json_str);
             match (request, response) {
                 (Ok(request), Ok(response)) => {
                     let maphp = response
@@ -723,11 +741,9 @@ mod tests {
         }"#;
         let request = "api_maparea_id=62&api_map_no=3&api_rank=4";
 
-        let ParsedApi::EventMapRankSelected(status) = parse(
-            "/kcsapi/api_req_map/select_eventmap_rank",
-            json,
-            request,
-        ) else {
+        let ParsedApi::EventMapRankSelected(status) =
+            parse("/kcsapi/api_req_map/select_eventmap_rank", json, request)
+        else {
             panic!("rank selection did not produce EventMapRankSelected");
         };
 

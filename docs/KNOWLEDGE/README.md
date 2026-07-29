@@ -11,6 +11,9 @@ KanColle Browser のドメイン知識。コードレビュー・バグ検出時
 | [expedition.md](expedition.md) | 遠征: 条件タイプ、CVE判定、ドラム缶、大成功 |
 | [senka.md](senka.md) | 戦果: 計算式、月境界、EOボーナス、ランキング復号 |
 | [equipment.md](equipment.md) | 装備: スロット構造、タイプ配列、ソナー/爆雷分類、改修 (明石工廠) |
+| [event-formation-optimization.md](event-formation-optimization.md) | イベント編成: 敵・到達半径・装備特性・改修・所持数を考慮した編成アレンジ |
+| [event-equipment-standards.md](event-equipment-standards.md) | イベント装備最適化: 全37カテゴリの評価基準と役割制約 |
+| [event-equipment-index.md](event-equipment-index.md) | 2026夏イベント82編成で使う193装備のWiki・役割索引（自動生成） |
 | [oasw.md](oasw.md) | 先制対潜: 無条件艦、艦種別条件、ソナー/対潜機判定 |
 | [ship-types.md](ship-types.md) | 艦種: stype一覧、敵艦種マッチング |
 | [sally-area.md](sally-area.md) | 出撃札: `api_sally_area`、平時のキー欠落、札名がAPIに無いこと |

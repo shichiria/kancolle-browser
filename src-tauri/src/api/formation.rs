@@ -202,13 +202,9 @@ fn get_smoke_button_rect(
     if is_combined {
         (568.0, 440.0, 52.0, 52.0)
     } else {
-        let formation_left = get_formation_button_rect(
-            4,
-            ship_count,
-            alert_formation_available,
-        )
-        .map(|rect| rect.0)
-        .unwrap_or(586.0);
+        let formation_left = get_formation_button_rect(4, ship_count, alert_formation_available)
+            .map(|rect| rect.0)
+            .unwrap_or(586.0);
         (formation_left - 64.0, 496.0, 52.0, 52.0)
     }
 }
@@ -266,19 +262,14 @@ pub(crate) fn show_formation_hint(
 
     let formation_rect =
         match get_formation_button_rect(formation, ship_count, alert_formation_available) {
-        Some(r) => r,
-        None => {
-            log::warn!("[FormationHint] no button rect for formation={}", formation);
-            return;
-        }
-    };
-    let smoke_rect = smoke.then(|| {
-        get_smoke_button_rect(
-            formation >= 11,
-            ship_count,
-            alert_formation_available,
-        )
-    });
+            Some(r) => r,
+            None => {
+                log::warn!("[FormationHint] no button rect for formation={}", formation);
+                return;
+            }
+        };
+    let smoke_rect = smoke
+        .then(|| get_smoke_button_rect(formation >= 11, ship_count, alert_formation_available));
     let (bx, by, bw, bh) = smoke_rect
         .map(|rect| union_rect(formation_rect, rect))
         .unwrap_or(formation_rect);

@@ -42,13 +42,12 @@ impl HttpHandler for KanColleHandler {
     /// Only MITM (intercept) HTTPS connections to game servers.
     /// Game servers use domains like wXXy.kancolle-server.com (since Dec 2024).
     /// DMM login/CDN connections are tunneled through without decryption.
-    async fn should_intercept(
-        &mut self,
-        _ctx: &HttpContext,
-        req: &Request<Body>,
-    ) -> bool {
+    async fn should_intercept(&mut self, _ctx: &HttpContext, req: &Request<Body>) -> bool {
         // CONNECT requests have URI in "host:port" format
-        let host = req.uri().authority().map(|a| a.host().to_string())
+        let host = req
+            .uri()
+            .authority()
+            .map(|a| a.host().to_string())
             .or_else(|| {
                 let s = req.uri().to_string();
                 s.split(':').next().map(|h| h.to_string())
@@ -66,11 +65,7 @@ impl HttpHandler for KanColleHandler {
         intercept
     }
 
-    async fn handle_request(
-        &mut self,
-        ctx: &HttpContext,
-        req: Request<Body>,
-    ) -> RequestOrResponse {
+    async fn handle_request(&mut self, ctx: &HttpContext, req: Request<Body>) -> RequestOrResponse {
         let uri = req.uri().to_string();
 
         // Capture request body for battle log (POST data contains api_deck_id, etc.)
@@ -95,21 +90,17 @@ impl HttpHandler for KanColleHandler {
         }
     }
 
-    async fn handle_response(
-        &mut self,
-        ctx: &HttpContext,
-        res: Response<Body>,
-    ) -> Response<Body> {
+    async fn handle_response(&mut self, ctx: &HttpContext, res: Response<Body>) -> Response<Body> {
         // Retrieve and remove per-connection request data to prevent memory leaks
-        let (uri, req_body) = match crate::lock_or_recover(
-            &self.request_data,
-            "proxy_request_data",
-        )
-        .remove(&ctx.client_addr)
+        let (uri, req_body) = match crate::lock_or_recover(&self.request_data, "proxy_request_data")
+            .remove(&ctx.client_addr)
         {
             Some(data) => data,
             None => {
-                log::debug!("[Proxy] no request_data for client {}, using default", ctx.client_addr);
+                log::debug!(
+                    "[Proxy] no request_data for client {}, using default",
+                    ctx.client_addr
+                );
                 Default::default()
             }
         };
@@ -121,7 +112,6 @@ impl HttpHandler for KanColleHandler {
             self.handle_api_response(uri, req_body, res).await
         }
     }
-
 }
 
 impl KanColleHandler {
@@ -286,7 +276,11 @@ impl KanColleHandler {
                 }
             }
             match tokio::fs::write(&cache_path_owned, &data_to_cache).await {
-                Ok(_) => info!("Cached resource: {} ({} bytes)", rel_path_owned, data_to_cache.len()),
+                Ok(_) => info!(
+                    "Cached resource: {} ({} bytes)",
+                    rel_path_owned,
+                    data_to_cache.len()
+                ),
                 Err(e) => error!("Failed to cache resource {}: {}", rel_path_owned, e),
             }
         });
@@ -398,10 +392,11 @@ pub async fn start_proxy(
     // Use a fixed port so WKWebView treats proxy as the same origin across restarts
     // (preserving cookies/sessions). Fall back to OS-assigned port if 19080 is in use.
     const PREFERRED_PORT: u16 = 19080;
-    let listener = match tokio::net::TcpListener::bind(format!("127.0.0.1:{}", PREFERRED_PORT)).await {
-        Ok(l) => l,
-        Err(_) => tokio::net::TcpListener::bind("127.0.0.1:0").await?,
-    };
+    let listener =
+        match tokio::net::TcpListener::bind(format!("127.0.0.1:{}", PREFERRED_PORT)).await {
+            Ok(l) => l,
+            Err(_) => tokio::net::TcpListener::bind("127.0.0.1:0").await?,
+        };
     let actual_port = listener.local_addr()?.port();
     drop(listener);
 

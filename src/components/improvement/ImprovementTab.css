@@ -47,6 +47,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.improvement-event-count {
+  color: #e6bd64;
+  font-size: 9px;
+  font-weight: 700;
+}
+
 /* Filter toggle buttons */
 .improvement-filters {
   display: flex;
@@ -95,6 +101,14 @@
   background: rgba(233, 69, 96, 0.25);
 }
 
+.imp-cost-legend {
+  align-self: center;
+  margin-left: auto;
+  color: #77869d;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
 /* Equipment list */
 .improvement-list {
   flex: 1;
@@ -132,6 +146,22 @@
   background: rgba(38, 198, 218, 0.12);
 }
 
+.imp-row.imp-event-used {
+  border-left: 3px solid #e0b455;
+  padding-left: 7px;
+  background:
+    linear-gradient(90deg, rgba(224, 180, 85, 0.17), rgba(224, 180, 85, 0.035) 55%);
+}
+
+.imp-row.imp-event-used:hover {
+  background:
+    linear-gradient(90deg, rgba(224, 180, 85, 0.27), rgba(224, 180, 85, 0.08) 55%);
+}
+
+.imp-row.imp-unavailable.imp-event-used {
+  opacity: 0.82;
+}
+
 .imp-name {
   font-weight: 600;
   width: 220px;
@@ -151,6 +181,10 @@
   color: #26c6da;
 }
 
+.imp-row.imp-event-used .imp-name {
+  color: #ffe0a0;
+}
+
 .imp-type {
   font-size: 9px;
   color: #888;
@@ -161,8 +195,70 @@
   white-space: nowrap;
 }
 
+.imp-event-badge-slot {
+  display: inline-flex;
+  justify-content: center;
+  width: 43px;
+  min-width: 43px;
+}
+
+.imp-event-badge {
+  padding: 1px 4px;
+  border: 1px solid rgba(224, 180, 85, 0.65);
+  border-radius: 3px;
+  background: rgba(224, 180, 85, 0.16);
+  color: #f1c86c;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .imp-row.imp-unavailable .imp-type {
   color: #444;
+}
+
+.imp-base-owned {
+  min-width: 45px;
+  color: #8fb8d8;
+  font-size: 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.imp-base-owned.imp-base-owned-zero {
+  color: #777;
+}
+
+.imp-row.imp-unavailable .imp-base-owned {
+  color: #555;
+}
+
+.imp-readiness-slot {
+  display: inline-flex;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+}
+
+.imp-ready-badge {
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.imp-ready-now {
+  border: 1px solid rgba(89, 215, 150, 0.75);
+  background: rgba(48, 190, 120, 0.2);
+  color: #78e4ac;
+}
+
+.imp-equipment-ready {
+  border: 1px solid rgba(77, 180, 198, 0.55);
+  background: rgba(45, 154, 174, 0.13);
+  color: #72cad8;
 }
 
 .imp-consumed {
@@ -253,4 +349,3 @@
 .imp-row.imp-unavailable .imp-helper.imp-helper-missing {
   color: #2a2a2a;
 }
-

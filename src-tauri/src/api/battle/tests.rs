@@ -1,6 +1,4 @@
-use super::{
-    calculate_provisional_gauge_hp, escape_ship_ids, is_taiha_warning_exempt,
-};
+use super::{calculate_provisional_gauge_hp, escape_ship_ids, is_taiha_warning_exempt};
 use serde_json::json;
 use std::collections::HashSet;
 

@@ -176,7 +176,9 @@ async fn setup_drive_folders(hub: &Hub, manifest: &mut SyncManifest) -> Result<(
     for target in SYNC_TARGETS {
         if target.is_dir && !manifest.subfolder_ids.contains_key(target.relative) {
             let id = files::ensure_subfolder(hub, &root_id, target.relative).await?;
-            manifest.subfolder_ids.insert(target.relative.to_string(), id);
+            manifest
+                .subfolder_ids
+                .insert(target.relative.to_string(), id);
         }
     }
 
@@ -211,7 +213,10 @@ async fn upload_single_file(
         .and_then(|n| n.to_str())
         .unwrap_or(relative_path);
 
-    let existing_id = manifest.files.get(relative_path).map(|e| e.drive_file_id.as_str());
+    let existing_id = manifest
+        .files
+        .get(relative_path)
+        .map(|e| e.drive_file_id.as_str());
 
     let (file_id, remote_modified) =
         files::upload_file(hub, &parent_id, file_name, &local_path, existing_id).await?;
@@ -266,7 +271,10 @@ async fn full_sync(
         .clone();
 
     for target in SYNC_TARGETS {
-        info!("Syncing target: {} (dir={})", target.relative, target.is_dir);
+        info!(
+            "Syncing target: {} (dir={})",
+            target.relative, target.is_dir
+        );
         let changed = if target.is_dir {
             let folder_id = manifest
                 .subfolder_ids
@@ -306,8 +314,16 @@ async fn sync_single_file(
         .unwrap_or(relative);
 
     let local_exists = local_path.exists();
-    let local_hash = if local_exists { file_md5(&local_path) } else { None };
-    let local_mtime = if local_exists { file_mtime(&local_path) } else { None };
+    let local_hash = if local_exists {
+        file_md5(&local_path)
+    } else {
+        None
+    };
+    let local_mtime = if local_exists {
+        file_mtime(&local_path)
+    } else {
+        None
+    };
 
     // Check manifest entry
     let manifest_entry = manifest.files.get(relative).cloned();
@@ -333,29 +349,52 @@ async fn sync_single_file(
                 if local_t > remote.modified_time {
                     // Local wins
                     let (file_id, remote_modified) = files::upload_file(
-                        hub, parent_id, file_name, &local_path, Some(&remote.id),
-                    ).await?;
-                    update_manifest_entry(manifest, relative, &file_id, remote_modified, &local_path);
+                        hub,
+                        parent_id,
+                        file_name,
+                        &local_path,
+                        Some(&remote.id),
+                    )
+                    .await?;
+                    update_manifest_entry(
+                        manifest,
+                        relative,
+                        &file_id,
+                        remote_modified,
+                        &local_path,
+                    );
                     info!("Conflict resolved (local wins): {}", relative);
                     Ok(false)
                 } else {
                     // Remote wins
                     files::download_file(hub, &remote.id, &local_path).await?;
-                    update_manifest_entry(manifest, relative, &remote.id, remote.modified_time, &local_path);
+                    update_manifest_entry(
+                        manifest,
+                        relative,
+                        &remote.id,
+                        remote.modified_time,
+                        &local_path,
+                    );
                     info!("Conflict resolved (remote wins): {}", relative);
                     Ok(true)
                 }
             } else if local_changed {
                 // Upload local
-                let (file_id, remote_modified) = files::upload_file(
-                    hub, parent_id, file_name, &local_path, Some(&remote.id),
-                ).await?;
+                let (file_id, remote_modified) =
+                    files::upload_file(hub, parent_id, file_name, &local_path, Some(&remote.id))
+                        .await?;
                 update_manifest_entry(manifest, relative, &file_id, remote_modified, &local_path);
                 Ok(false)
             } else if remote_changed {
                 // Download remote
                 files::download_file(hub, &remote.id, &local_path).await?;
-                update_manifest_entry(manifest, relative, &remote.id, remote.modified_time, &local_path);
+                update_manifest_entry(
+                    manifest,
+                    relative,
+                    &remote.id,
+                    remote.modified_time,
+                    &local_path,
+                );
                 info!("Downloaded: {}", relative);
                 Ok(true)
             } else {
@@ -364,16 +403,21 @@ async fn sync_single_file(
         }
         (true, None) => {
             // Local only → upload
-            let (file_id, remote_modified) = files::upload_file(
-                hub, parent_id, file_name, &local_path, None,
-            ).await?;
+            let (file_id, remote_modified) =
+                files::upload_file(hub, parent_id, file_name, &local_path, None).await?;
             update_manifest_entry(manifest, relative, &file_id, remote_modified, &local_path);
             Ok(false)
         }
         (false, Some(remote)) => {
             // Remote only → download
             files::download_file(hub, &remote.id, &local_path).await?;
-            update_manifest_entry(manifest, relative, &remote.id, remote.modified_time, &local_path);
+            update_manifest_entry(
+                manifest,
+                relative,
+                &remote.id,
+                remote.modified_time,
+                &local_path,
+            );
             info!("Downloaded new: {}", relative);
             Ok(true)
         }
@@ -409,10 +453,8 @@ async fn sync_directory(
     let mut any_updated = false;
 
     // Build lookup maps
-    let remote_by_name: std::collections::HashMap<&str, &files::RemoteFile> = remote_files
-        .iter()
-        .map(|f| (f.name.as_str(), f))
-        .collect();
+    let remote_by_name: std::collections::HashMap<&str, &files::RemoteFile> =
+        remote_files.iter().map(|f| (f.name.as_str(), f)).collect();
 
     // Process local files
     for name in &local_files {
@@ -437,30 +479,39 @@ async fn sync_directory(
                 // Conflict: timestamp wins
                 let local_t = file_mtime(&local_path).unwrap_or_else(chrono::Utc::now);
                 if local_t > remote.modified_time {
-                    let (fid, rm) = files::upload_file(
-                        hub, folder_id, name, &local_path, Some(&remote.id),
-                    ).await?;
+                    let (fid, rm) =
+                        files::upload_file(hub, folder_id, name, &local_path, Some(&remote.id))
+                            .await?;
                     update_manifest_entry(manifest, &relative, &fid, rm, &local_path);
                 } else {
                     files::download_file(hub, &remote.id, &local_path).await?;
-                    update_manifest_entry(manifest, &relative, &remote.id, remote.modified_time, &local_path);
+                    update_manifest_entry(
+                        manifest,
+                        &relative,
+                        &remote.id,
+                        remote.modified_time,
+                        &local_path,
+                    );
                     any_updated = true;
                 }
             } else if local_changed {
-                let (fid, rm) = files::upload_file(
-                    hub, folder_id, name, &local_path, Some(&remote.id),
-                ).await?;
+                let (fid, rm) =
+                    files::upload_file(hub, folder_id, name, &local_path, Some(&remote.id)).await?;
                 update_manifest_entry(manifest, &relative, &fid, rm, &local_path);
             } else if remote_changed {
                 files::download_file(hub, &remote.id, &local_path).await?;
-                update_manifest_entry(manifest, &relative, &remote.id, remote.modified_time, &local_path);
+                update_manifest_entry(
+                    manifest,
+                    &relative,
+                    &remote.id,
+                    remote.modified_time,
+                    &local_path,
+                );
                 any_updated = true;
             }
         } else {
             // Local only → upload
-            let (fid, rm) = files::upload_file(
-                hub, folder_id, name, &local_path, None,
-            ).await?;
+            let (fid, rm) = files::upload_file(hub, folder_id, name, &local_path, None).await?;
             update_manifest_entry(manifest, &relative, &fid, rm, &local_path);
         }
     }
@@ -473,7 +524,13 @@ async fn sync_directory(
             let relative = format!("{}/{}", dir_relative, remote.name);
             let local_path = local_dir.join(&remote.name);
             files::download_file(hub, &remote.id, &local_path).await?;
-            update_manifest_entry(manifest, &relative, &remote.id, remote.modified_time, &local_path);
+            update_manifest_entry(
+                manifest,
+                &relative,
+                &remote.id,
+                remote.modified_time,
+                &local_path,
+            );
             info!("Downloaded new dir file: {}", relative);
             any_updated = true;
         }
@@ -497,7 +554,10 @@ async fn reload_game_state(app: &AppHandle) {
     // Reload improved equipment history
     let ie_path = state.improved_equipment_path.clone();
     state.history.improved_equipment = crate::improvement::load_improved_history(&ie_path);
-    info!("Sync reload: improved equipment ({} items)", state.history.improved_equipment.len());
+    info!(
+        "Sync reload: improved equipment ({} items)",
+        state.history.improved_equipment.len()
+    );
 
     // Reload battle logs from disk
     state.sortie.battle_logger.reload_from_disk();

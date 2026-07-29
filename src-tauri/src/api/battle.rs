@@ -678,10 +678,7 @@ pub(super) fn process_battle(
             }
 
             if apply_provisional_event_gauge(state) {
-                let _ = app.emit(
-                    crate::events::EVENT_MAP_UPDATED,
-                    &state.event_map_statuses,
-                );
+                let _ = app.emit(crate::events::EVENT_MAP_UPDATED, &state.event_map_statuses);
             }
 
             // Record per-battle HQ exp (api_get_exp) and check for EO bonus
@@ -768,8 +765,7 @@ fn apply_provisional_event_gauge(state: &mut models::GameStateInner) -> bool {
     };
 
     let Some(status) = state.event_map_statuses.iter_mut().find(|status| {
-        status.map_id == map_id
-            && (gauge_num.is_none() || status.gauge_num == gauge_num)
+        status.map_id == map_id && (gauge_num.is_none() || status.gauge_num == gauge_num)
     }) else {
         return false;
     };

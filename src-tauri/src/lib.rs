@@ -4,8 +4,8 @@ mod battle_log;
 mod ca;
 mod commands;
 mod cookie;
-mod drive_sync;
 mod diagnostics;
+mod drive_sync;
 mod events;
 mod expedition;
 mod game_window;
@@ -254,10 +254,7 @@ pub fn run() {
                 formation_hint_rect: Mutex::new(FormationHintRect::default()),
                 game_zoom: Mutex::new(1.0),
                 minimap_position: Mutex::new(None),
-                minimap_size: Mutex::new((
-                    overlay::MINIMAP_DEFAULT_W,
-                    overlay::MINIMAP_DEFAULT_H,
-                )),
+                minimap_size: Mutex::new((overlay::MINIMAP_DEFAULT_W, overlay::MINIMAP_DEFAULT_H)),
             },
             navigation: NavigationState {
                 // Default to Unknown until the first port API arrives.
@@ -303,6 +300,8 @@ pub fn run() {
             commands::get_improvement_list,
             commands::get_ship_list,
             commands::get_equipment_list,
+            commands::get_owned_formation_inventory,
+            commands::resolve_event_formation_data,
             cookie::save_game_cookies,
             commands::clear_improved_history,
             commands::clear_battle_logs,
@@ -402,11 +401,9 @@ pub fn run() {
                 settings::restore_json(&data_dir, settings::LAST_EXERCISE_AT_MS).unwrap_or(0),
                 Ordering::Relaxed,
             );
-            *lock_or_recover(
-                &state.overlay.nozaki_supply_timer,
-                "nozaki_supply_timer",
-            ) = settings::restore_json(&data_dir, settings::NOZAKI_SUPPLY_TIMER)
-                .unwrap_or_default();
+            *lock_or_recover(&state.overlay.nozaki_supply_timer, "nozaki_supply_timer") =
+                settings::restore_json(&data_dir, settings::NOZAKI_SUPPLY_TIMER)
+                    .unwrap_or_default();
 
             // Create cache directory for proxy resource caching
             let cache_dir = data_dir.join("local").join("cache");

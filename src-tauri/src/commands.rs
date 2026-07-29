@@ -329,6 +329,98 @@ pub(crate) async fn get_equipment_list(
     Ok(api::models::EquipListResponse { items, equip_types })
 }
 
+/// Get player equipment without aggregation so a physical item can only be assigned once.
+#[tauri::command]
+pub(crate) async fn get_owned_formation_inventory(
+    state: tauri::State<'_, api::models::GameState>,
+) -> Result<api::models::OwnedFormationInventory, String> {
+    let inner = state.inner.read().await;
+    let mut items: Vec<api::models::OwnedFormationItem> = inner
+        .profile
+        .slotitems
+        .values()
+        .map(|item| api::models::OwnedFormationItem {
+            instance_id: item.item_id,
+            master_id: item.slotitem_id,
+            remodel: item.level,
+            proficiency: item.alv.unwrap_or(0),
+        })
+        .collect();
+    items.sort_by_key(|item| item.instance_id);
+
+    Ok(api::models::OwnedFormationInventory {
+        hq_level: inner
+            .sortie
+            .last_port_summary
+            .as_ref()
+            .map(|summary| summary.admiral_level)
+            .unwrap_or(120),
+        items,
+    })
+}
+
+fn formation_data_from_location(location: &str) -> Result<String, String> {
+    let url = url::Url::parse(location).map_err(|e| format!("Invalid kc-web redirect: {e}"))?;
+    if url.host_str() != Some("noro6.github.io") || url.path() != "/kc-web/" {
+        return Err("Unexpected formation redirect destination".to_string());
+    }
+    url.query_pairs()
+        .find_map(|(key, value)| (key == "data").then(|| value.into_owned()))
+        .ok_or_else(|| "Formation data was not present in the redirect".to_string())
+}
+
+/// Resolve a kc.noro6.net share URL while keeping arbitrary network targets out of scope.
+#[tauri::command]
+pub(crate) async fn resolve_event_formation_data(source_url: String) -> Result<String, String> {
+    let source = url::Url::parse(&source_url).map_err(|e| format!("Invalid formation URL: {e}"))?;
+    if source.scheme() != "https"
+        || source.host_str() != Some("kc.noro6.net")
+        || !source.path().starts_with("/s/")
+    {
+        return Err("Only kc.noro6.net formation share URLs are supported".to_string());
+    }
+
+    let connector = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .map_err(|e| format!("TLS setup failed: {e}"))?
+        .https_only()
+        .enable_http1()
+        .build();
+    let client: hyper_util::client::legacy::Client<_, http_body_util::Empty<hyper::body::Bytes>> =
+        hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+            .build(connector);
+    let uri: hyper::Uri = source_url
+        .parse()
+        .map_err(|e| format!("Invalid formation URI: {e}"))?;
+    let response = client
+        .get(uri)
+        .await
+        .map_err(|e| format!("Formation URL request failed: {e}"))?;
+    let location = response
+        .headers()
+        .get(hyper::header::LOCATION)
+        .ok_or_else(|| "Formation share URL did not redirect".to_string())?
+        .to_str()
+        .map_err(|e| format!("Invalid formation redirect header: {e}"))?;
+
+    formation_data_from_location(location)
+}
+
+#[cfg(test)]
+mod formation_command_tests {
+    use super::formation_data_from_location;
+
+    #[test]
+    fn extracts_only_kc_web_formation_data() {
+        assert_eq!(
+            formation_data_from_location("https://noro6.github.io/kc-web/?data=abc%20def"),
+            Ok("abc def".to_string())
+        );
+        assert!(formation_data_from_location("https://example.com/?data=abc").is_err());
+        assert!(formation_data_from_location("https://noro6.github.io/kc-web/").is_err());
+    }
+}
+
 /// Clear improved equipment history
 #[tauri::command]
 pub(crate) async fn clear_improved_history(
@@ -591,9 +683,10 @@ pub(crate) fn get_action_log(limit: Option<usize>) -> Vec<serde_json::Value> {
 /// Get the currently inferred game screen (for the Debug tab).
 #[tauri::command]
 pub(crate) fn get_current_screen(state: tauri::State<'_, crate::AppState>) -> String {
-    crate::mouse_hook::debug_screen_name(
-        *crate::lock_or_recover(&state.navigation.current_screen, "current_screen"),
-    )
+    crate::mouse_hook::debug_screen_name(*crate::lock_or_recover(
+        &state.navigation.current_screen,
+        "current_screen",
+    ))
 }
 
 /// Return counts and the storage directory for accumulated full-screen samples.

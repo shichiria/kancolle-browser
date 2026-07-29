@@ -2,13 +2,36 @@ import { describe, expect, it } from "vitest";
 import type { SortieRecord } from "../../types";
 import {
   countGimmickResults,
+  EVENT_FORMATION_HEADING,
+  EVENT_FORMATION_NOTE,
   gaugeProgress,
   getEventGimmickRequirements,
   isLastDance,
   latestBossObservation,
 } from "./EventTab";
+import {
+  getArmorBreakFormationLinks,
+  getEventFormationLinks,
+} from "../../data/eventFormations";
 
 describe("event progress", () => {
+  it("labels owned formations as recommended and shows the adjustment note", () => {
+    expect(EVENT_FORMATION_HEADING).toBe("推奨編成");
+    expect(EVENT_FORMATION_NOTE).toBe(
+      "注意：索敵や制空が不足する場合は、自分で調整してください。",
+    );
+  });
+
+  it("provides the published complete formation links for each event stage", () => {
+    expect(getEventFormationLinks(3, "gauge3")).toContainEqual({
+      label: "駆逐2・潜水4・潜母1",
+      url: "https://kc.noro6.net/s/fQr6",
+    });
+    expect(getEventFormationLinks(1, "gimmick1")).toHaveLength(2);
+    expect(getEventFormationLinks(4, "gauge5")).toHaveLength(3);
+    expect(getArmorBreakFormationLinks(3)).toHaveLength(7);
+  });
+
   it("uses the published E3 hard-mode gimmick requirements", () => {
     expect(getEventGimmickRequirements(3, "gimmick1", "甲")).toEqual([
       {

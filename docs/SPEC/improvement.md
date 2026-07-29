@@ -68,7 +68,16 @@
               { "id": 28, "eq_count": 1 }
             ],
             "consumable": []
-          }
+          },
+          "extra": [               // 特定の★到達時だけ追加で必要な素材
+            {
+              "levels": [8],       // ★7→★8で必要
+              "equips": [
+                { "id": 145, "eq_count": 4 }
+              ],
+              "consumable": []
+            }
+          ]
         }
       }
     ],
@@ -96,6 +105,8 @@ fn get_upgrade_data() -> &'static [EquipmentUpgradeEntry] {
 
 - `OnceLock` により初回アクセス時に1回だけパースし、以降は `&'static` 参照を返す
 - BOM (`U+FEFF`) を除去してからパース
+- 改修レシピは `scripts/sync-improvements-from-akashi.mjs` で最新版を取得し、明石の改修工廠の詳細ページを優先する補正を適用する
+- `scripts/audit-akashi-improvements.mjs` で通常資材、★別追加素材、更新先、曜日を全件照合し、`.reports/akashi-improvement-audit.md` に差分を出力する
 
 ---
 
@@ -150,6 +161,10 @@ pub struct ImprovementListResponse {
 pub struct ImprovementItem {
     pub eq_id: i32,
     pub name: String,
+    pub owned_count: i32,          // 改修元の総所持数（ロック込み）
+    pub owned_levels: Vec<[i32; 2]>, // [★, 所持数]
+    pub equipment_ready: bool,     // 所持★に対応する必要装備が足りるか
+    pub can_improve_now: bool,     // equipment_ready かつ本日の現在2番艦で実行可能
     pub eq_type: i32,
     pub type_name: String,         // 装備種名（「小口径主砲」等）
     pub sort_value: i32,           // 装備種に応じたステータス値
@@ -169,7 +184,7 @@ pub struct ConsumedEquipInfo {
     pub eq_id: i32,
     pub name: String,
     pub counts: [i32; 3],  // [p1(★0-5), p2(★6-9), conv(更新)]
-    pub owned: i32,        // ロックされていない所持数
+    pub owned: i32,        // ロック済みを含む総所持数
 }
 ```
 
@@ -193,7 +208,15 @@ pub struct ConsumedEquipInfo {
         - 改造段階ごとにマスターIDが異なるため、ship_id でそのまま突合できる
    e. improved_equipment 履歴に含まれるか → previously_improved
    f. costs から消費装備を集約（全パスの最大値を採用）
-      - ロックされていない同装備の所持数を計算
+      - ロック済みを含む同装備の総所持数を計算
+   g. 改修元装備についても、ロック済みを含む総所持数を計算
+   h. 所持している改修元の★ごとに p1（★0〜5）/p2（★6〜9）/conv（★max更新）を選び、
+      対応する消費装備が揃う組み合わせを equipment_ready とする
+      - 消費素材が改修元と同一装備の場合、改修する1個を素材数から除外して判定
+      - 本日の曜日と現在の2番艦も一致する場合は can_improve_now とする
+6. 改修成功APIでは `api_after_slot` で改修元の★・装備IDを更新し、
+   `api_use_slot_id` に含まれる消費装備インスタンスを所持一覧から削除する
+7. `improvement-updated` を通知し、改修タブを即時再読込する
 5. レスポンスを返却
 ```
 
