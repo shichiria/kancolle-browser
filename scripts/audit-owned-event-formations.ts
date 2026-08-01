@@ -194,11 +194,11 @@ const markdown = [
   "",
   `全${summary.formations}編成 / 完全編成${summary.complete} / 不足あり${summary.withMissing} / 不足${summary.missing}枠`,
   "",
-  "| 海域 | 段階 | 編成 | 割当 | 不足 | 変更 |",
-  "|---|---|---|---:|---:|---:|",
+  "| 系列 | 海域 | 段階 | 編成 | 割当 | 不足 | 変更 |",
+  "|---|---|---|---|---:|---:|---:|",
   ...results.map(
     (result) =>
-      `| E${result.formation.mapNo} | ${result.formation.stageId} | ${result.formation.label} | ${result.assigned} | ${result.missing} | ${result.changed} |`,
+      `| ${result.formation.source === "shimakaze" ? "島風" : "子猫"} | E${result.formation.mapNo} | ${result.formation.stageId} | ${result.formation.label} | ${result.assigned} | ${result.missing} | ${result.changed} |`,
   ),
   "",
   "## 多い置換",

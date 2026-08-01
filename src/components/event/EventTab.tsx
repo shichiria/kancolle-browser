@@ -4,8 +4,10 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { EVENTS } from "../../constants";
 import {
-  getArmorBreakFormationLinks,
-  getEventFormationLinks,
+  getKonekoArmorBreakFormationLinks,
+  getKonekoEventFormationLinks,
+  getShimakazeArmorBreakFormationLinks,
+  getShimakazeEventFormationLinks,
   type EventFormationLink,
 } from "../../data/eventFormations";
 import type { OwnedFormationInventory } from "../../utils/ownedFormation";
@@ -17,7 +19,8 @@ import type {
 import "./EventTab.css";
 
 export type Difficulty = "甲" | "乙" | "丙" | "丁";
-export const EVENT_FORMATION_HEADING = "推奨編成";
+export const EVENT_SHIMAKAZE_FORMATION_HEADING = "島風編成";
+export const EVENT_KONEKO_FORMATION_HEADING = "子猫編成";
 export const EVENT_FORMATION_NOTE =
   "注意：索敵や制空が不足する場合は、自分で調整してください。";
 type VictoryRank = "S" | "A";
@@ -127,7 +130,7 @@ function FormationLinkButton({
       <button
         disabled={status === "loading"}
         onClick={() => void openOwnedFormation()}
-        title="推奨編成を、現在の所持数を超えない範囲で同カテゴリの最適装備に置き換えます"
+        title="この編成を、現在の所持数を超えない範囲で同カテゴリの最適装備に置き換えます"
         type="button"
       >
         {status === "loading" ? "編成中…" : formation.label}
@@ -1164,16 +1167,24 @@ export function EventTab() {
   );
   const hpProgress = gaugeProgress(selectedStatus);
   const mapCleared = selectedStatus?.cleared === true;
-  const formations = getEventFormationLinks(
+  const shimakazeFormations = getShimakazeEventFormationLinks(
     selectedMap.mapNo,
     currentStage.id,
   );
-  const armorBreakFormations =
+  const konekoFormations = getKonekoEventFormationLinks(
+    selectedMap.mapNo,
+    currentStage.id,
+  );
+  const showArmorBreakFormations =
     currentStage.kind === "gauge" &&
     currentStage === selectedMap.stages[selectedMap.stages.length - 1] &&
-    lastDance
-      ? getArmorBreakFormationLinks(selectedMap.mapNo)
-      : [];
+    lastDance;
+  const shimakazeArmorBreakFormations = showArmorBreakFormations
+    ? getShimakazeArmorBreakFormationLinks(selectedMap.mapNo)
+    : [];
+  const konekoArmorBreakFormations = showArmorBreakFormations
+    ? getKonekoArmorBreakFormationLinks(selectedMap.mapNo)
+    : [];
 
   return (
     <div className="event-tab">
@@ -1230,14 +1241,25 @@ export function EventTab() {
           {!mapCleared && (
             <>
               <FormationLinks
-                eyebrow={EVENT_FORMATION_HEADING}
-                formations={formations}
+                eyebrow={EVENT_SHIMAKAZE_FORMATION_HEADING}
+                formations={shimakazeFormations}
               />
               <FormationLinks
-                eyebrow="装甲破砕・推奨編成"
-                formations={armorBreakFormations}
+                eyebrow={EVENT_KONEKO_FORMATION_HEADING}
+                formations={konekoFormations}
               />
-              {(formations.length > 0 || armorBreakFormations.length > 0) && (
+              <FormationLinks
+                eyebrow="装甲破砕・島風編成"
+                formations={shimakazeArmorBreakFormations}
+              />
+              <FormationLinks
+                eyebrow="装甲破砕・子猫編成"
+                formations={konekoArmorBreakFormations}
+              />
+              {(shimakazeFormations.length > 0 ||
+                konekoFormations.length > 0 ||
+                shimakazeArmorBreakFormations.length > 0 ||
+                konekoArmorBreakFormations.length > 0) && (
                 <p className="event-formation-note">
                   {EVENT_FORMATION_NOTE}
                 </p>
