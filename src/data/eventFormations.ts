@@ -12,8 +12,9 @@ const links = (
   }));
 
 // ぜかましねっと 2026年夏イベント攻略記事の「制空シミュ」完全版編成。
+// UIでは出典名を反転した「島風編成」として表示する。
 // Key: E海域番号:EventTab上の攻略段階ID
-const EVENT_FORMATIONS: Record<string, EventFormationLink[]> = {
+const SHIMAKAZE_EVENT_FORMATIONS: Record<string, EventFormationLink[]> = {
   "1:gimmick1": links([
     ["C2・C3マス", "R082"],
     ["F・Hマス", "9huG"],
@@ -125,7 +126,7 @@ const EVENT_FORMATIONS: Record<string, EventFormationLink[]> = {
 };
 
 // 装甲破砕は最終ゲージのラスダン時に併記する。
-const ARMOR_BREAK_FORMATIONS: Record<number, EventFormationLink[]> = {
+const SHIMAKAZE_ARMOR_BREAK_FORMATIONS: Record<number, EventFormationLink[]> = {
   1: links([
     ["Tマス（第二ボス）", "fYY1"],
     ["F・Iマス（第一ボス）", "2QEn"],
@@ -169,45 +170,204 @@ const ARMOR_BREAK_FORMATIONS: Record<number, EventFormationLink[]> = {
   ]),
 };
 
-export function getEventFormationLinks(
+// キトンの艦これ攻略ブログ 2026年夏イベント攻略記事の編成。
+// UIでは「子猫編成」として表示する。
+const KONEKO_EVENT_FORMATIONS: Record<string, EventFormationLink[]> = {
+  "1:gimmick1": links([
+    ["C2マス", "0EsH"],
+    ["C3マス", "j5x0"],
+    ["F・Hマス", "Nwez"],
+  ]),
+  "1:gauge1": links([["攻略編成", "pSv1"]]),
+  "1:gimmick2": links([
+    ["Lマス", "yzoD"],
+    ["基地防空", "i5t0"],
+  ]),
+  "1:gauge2": links([["輸送編成", "NXJW"]]),
+  "1:gauge3": links([["攻略編成", "aAJC"]]),
+
+  "2:gimmick1": links([
+    ["Dマス", "ql8G"],
+    ["C2マス", "SR7x"],
+  ]),
+  "2:gimmick2": links([
+    ["Hマス", "Oq9I"],
+    ["G2マス", "FYA3"],
+    ["Bマス", "aS1i"],
+    ["基地防空", "Wbrh"],
+  ]),
+  "2:gauge1": links([["輸送編成", "FJrb"]]),
+  "2:gauge2": links([["攻略編成", "vllj"]]),
+  "2:gauge3": links([
+    ["ゲージ破壊", "bKlC"],
+    ["ゲージ削り", "X5yO"],
+  ]),
+
+  "3:gimmick1": links([
+    ["B2マス", "s61f"],
+    ["C2マス", "Ns5b"],
+    ["E2マス", "XkB4"],
+    ["D2マス", "6wqm"],
+  ]),
+  "3:gauge1": links([["攻略編成", "X2eq"]]),
+  "3:gauge2": links([["輸送編成", "CqoV"]]),
+  "3:gauge3": links([["攻略編成", "Kz0a"]]),
+  "3:gauge4": links([["攻略編成", "AbNB"]]),
+
+  "4:gauge1": links([["攻略編成", "2Z4u"]]),
+  "4:gimmick1": links([["E2マス", "32pn"]]),
+  "4:gauge2": links([["輸送編成", "4PiN"]]),
+  "4:gauge3": links([["攻略編成", "MfKy"]]),
+  "4:gauge4": links([["攻略編成", "faey"]]),
+  "4:gauge5": links([["攻略編成", "sKG2"]]),
+
+  "5:gimmick1": links([
+    ["B2マス", "Jh26"],
+    ["C2マス", "8koJ"],
+    ["Dマス", "bAxe"],
+  ]),
+  "5:gimmick2": links([["E2マス", "691x"]]),
+  "5:gauge1": links([
+    ["ゲージ削り", "8p03"],
+    ["ゲージ破壊", "3d0D"],
+  ]),
+  "5:gauge2": links([["輸送編成", "qawU"]]),
+  "5:gimmick3": links([
+    ["L2マス", "H2Du"],
+    ["L1マス", "iIjd"],
+  ]),
+  "5:gimmick4": links([
+    ["Pマス", "ngTo"],
+    ["P3マス", "6N28"],
+  ]),
+  "5:gauge3": links([["攻略編成", "9Mfg"]]),
+  "5:gauge4": links([["攻略編成", "jp9z"]]),
+};
+
+const KONEKO_ARMOR_BREAK_FORMATIONS: Record<number, EventFormationLink[]> = {
+  1: links([
+    ["Tマス", "7Fij"],
+    ["Iマス", "zm2h"],
+    ["Lマス", "yzoD"],
+    ["A2マス", "vcBN"],
+    ["基地防空", "i5t0"],
+  ]),
+  2: links([
+    ["Vマス", "AHkW"],
+    ["Hマス", "R2n8"],
+    ["Pマス", "6mtV"],
+    ["W2マス", "MfzP"],
+    ["基地防空", "nSCi"],
+  ]),
+  3: links([
+    ["Oマス", "ybFI"],
+    ["Qマス", "VB2X"],
+    ["Xマス", "nr6W"],
+    ["Wマス", "ck96"],
+    ["Y3マス", "0rhn"],
+    ["基地防空", "9EdJ"],
+    ["E2マス", "XkB4"],
+  ]),
+  4: links([
+    ["Sマス", "ADYJ"],
+    ["X・T1マス", "T6mA"],
+    ["Nマス", "q4y7"],
+    ["Dマス", "iLsT"],
+    ["E2マス", "VhHP"],
+    ["Y・Y1マス", "qHIq"],
+    ["基地防空", "yLuO"],
+  ]),
+  5: links([
+    ["P3・P2マス", "YmE5"],
+    ["J2マス", "NePo"],
+    ["Sマス", "dTcN"],
+    ["L1マス", "8MvQ"],
+    ["L2マス", "l1lq"],
+    ["Gマス", "Ropy"],
+    ["C2マス", "QXpj"],
+    ["E2マス", "jckt"],
+    ["Y2マス", "RQdH"],
+    ["基地防空", "sCZX"],
+  ]),
+};
+
+export function getShimakazeEventFormationLinks(
   mapNo: number,
   stageId: string,
 ): EventFormationLink[] {
-  return EVENT_FORMATIONS[`${mapNo}:${stageId}`] ?? [];
+  return SHIMAKAZE_EVENT_FORMATIONS[`${mapNo}:${stageId}`] ?? [];
 }
 
-export function getArmorBreakFormationLinks(
+export function getKonekoEventFormationLinks(
+  mapNo: number,
+  stageId: string,
+): EventFormationLink[] {
+  return KONEKO_EVENT_FORMATIONS[`${mapNo}:${stageId}`] ?? [];
+}
+
+export function getShimakazeArmorBreakFormationLinks(
   mapNo: number,
 ): EventFormationLink[] {
-  return ARMOR_BREAK_FORMATIONS[mapNo] ?? [];
+  return SHIMAKAZE_ARMOR_BREAK_FORMATIONS[mapNo] ?? [];
 }
+
+export function getKonekoArmorBreakFormationLinks(
+  mapNo: number,
+): EventFormationLink[] {
+  return KONEKO_ARMOR_BREAK_FORMATIONS[mapNo] ?? [];
+}
+
+// 既存の呼び出し元向け。従来の編成系列は島風編成として維持する。
+export const getEventFormationLinks = getShimakazeEventFormationLinks;
+export const getArmorBreakFormationLinks =
+  getShimakazeArmorBreakFormationLinks;
+
+export type EventFormationSource = "shimakaze" | "koneko";
 
 export interface EventFormationAuditEntry extends EventFormationLink {
   mapNo: number;
   stageId: string;
   armorBreak: boolean;
+  source: EventFormationSource;
 }
 
 export function getAllEventFormationLinks(): EventFormationAuditEntry[] {
-  const stages = Object.entries(EVENT_FORMATIONS).flatMap(
-    ([key, formations]) => {
+  const collect = (
+    source: EventFormationSource,
+    stages: Record<string, EventFormationLink[]>,
+    armorBreaks: Record<number, EventFormationLink[]>,
+  ): EventFormationAuditEntry[] => [
+    ...Object.entries(stages).flatMap(([key, formations]) => {
       const [mapNo, stageId] = key.split(":");
       return formations.map((formation) => ({
         ...formation,
         mapNo: Number(mapNo),
         stageId,
         armorBreak: false,
+        source,
       }));
-    },
-  );
-  const armorBreaks = Object.entries(ARMOR_BREAK_FORMATIONS).flatMap(
-    ([mapNo, formations]) =>
+    }),
+    ...Object.entries(armorBreaks).flatMap(([mapNo, formations]) =>
       formations.map((formation) => ({
         ...formation,
         mapNo: Number(mapNo),
         stageId: "armorBreak",
         armorBreak: true,
+        source,
       })),
-  );
-  return [...stages, ...armorBreaks];
+    ),
+  ];
+
+  return [
+    ...collect(
+      "shimakaze",
+      SHIMAKAZE_EVENT_FORMATIONS,
+      SHIMAKAZE_ARMOR_BREAK_FORMATIONS,
+    ),
+    ...collect(
+      "koneko",
+      KONEKO_EVENT_FORMATIONS,
+      KONEKO_ARMOR_BREAK_FORMATIONS,
+    ),
+  ];
 }

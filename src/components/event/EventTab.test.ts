@@ -2,34 +2,50 @@ import { describe, expect, it } from "vitest";
 import type { SortieRecord } from "../../types";
 import {
   countGimmickResults,
-  EVENT_FORMATION_HEADING,
   EVENT_FORMATION_NOTE,
+  EVENT_KONEKO_FORMATION_HEADING,
+  EVENT_SHIMAKAZE_FORMATION_HEADING,
   gaugeProgress,
   getEventGimmickRequirements,
   isLastDance,
   latestBossObservation,
 } from "./EventTab";
 import {
-  getArmorBreakFormationLinks,
-  getEventFormationLinks,
+  getKonekoArmorBreakFormationLinks,
+  getKonekoEventFormationLinks,
+  getShimakazeArmorBreakFormationLinks,
+  getShimakazeEventFormationLinks,
 } from "../../data/eventFormations";
 
 describe("event progress", () => {
-  it("labels owned formations as recommended and shows the adjustment note", () => {
-    expect(EVENT_FORMATION_HEADING).toBe("推奨編成");
+  it("labels the two owned-formation sources and shows the adjustment note", () => {
+    expect(EVENT_SHIMAKAZE_FORMATION_HEADING).toBe("島風編成");
+    expect(EVENT_KONEKO_FORMATION_HEADING).toBe("子猫編成");
     expect(EVENT_FORMATION_NOTE).toBe(
       "注意：索敵や制空が不足する場合は、自分で調整してください。",
     );
   });
 
-  it("provides the published complete formation links for each event stage", () => {
-    expect(getEventFormationLinks(3, "gauge3")).toContainEqual({
+  it("provides the published Shimakaze formation links", () => {
+    expect(getShimakazeEventFormationLinks(3, "gauge3")).toContainEqual({
       label: "駆逐2・潜水4・潜母1",
       url: "https://kc.noro6.net/s/fQr6",
     });
-    expect(getEventFormationLinks(1, "gimmick1")).toHaveLength(2);
-    expect(getEventFormationLinks(4, "gauge5")).toHaveLength(3);
-    expect(getArmorBreakFormationLinks(3)).toHaveLength(7);
+    expect(getShimakazeEventFormationLinks(1, "gimmick1")).toHaveLength(2);
+    expect(getShimakazeEventFormationLinks(4, "gauge5")).toHaveLength(3);
+    expect(getShimakazeArmorBreakFormationLinks(3)).toHaveLength(7);
+  });
+
+  it("provides the published Koneko formation links", () => {
+    expect(getKonekoEventFormationLinks(4, "gauge5")).toEqual([{
+      label: "攻略編成",
+      url: "https://kc.noro6.net/s/sKG2",
+    }]);
+    expect(getKonekoEventFormationLinks(5, "gauge3")).toEqual([{
+      label: "攻略編成",
+      url: "https://kc.noro6.net/s/9Mfg",
+    }]);
+    expect(getKonekoArmorBreakFormationLinks(5)).toHaveLength(10);
   });
 
   it("uses the published E3 hard-mode gimmick requirements", () => {
