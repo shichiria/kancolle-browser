@@ -281,7 +281,11 @@ pub(super) fn apply(
                 }
                 info!("destroyship: removed ship {}", ship_id);
             }
-            fleet::emit_fleet_update(state, app);
+            fleet::emit_fleet_update(
+                state,
+                app,
+                crate::nozaki_timer::SyncReason::CompositionChange,
+            );
         }
         ParsedApi::CreateItem(api_data) => {
             if api_data.api_create_flag == 1 {
@@ -374,7 +378,7 @@ pub(super) fn apply(
                 }
             }
             info!("deck: updated {} fleets", decks.len());
-            fleet::emit_fleet_update(state, app);
+            fleet::emit_fleet_update(state, app, crate::nozaki_timer::SyncReason::Observe);
         }
         ParsedApi::MissionResult(api_data) => {
             info!(

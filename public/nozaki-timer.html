@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <style>
 *, *::before, *::after { box-sizing: border-box; }
-html, body {
+html, body, #timer-root {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -12,19 +12,35 @@ html, body {
   background: transparent;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
-.timer {
+.timer-list {
   width: 100%;
   height: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.timer {
+  width: 108px;
+  height: 44px;
+  flex: 0 0 108px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #e8f5e9;
-  background: linear-gradient(180deg, rgba(20, 74, 63, 0.97), rgba(8, 43, 39, 0.97));
   border: 2px solid #63d6b5;
   border-radius: 7px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.68), inset 0 0 9px rgba(99, 214, 181, 0.14);
   text-shadow: 0 1px 2px #000;
+}
+.timer.supply {
+  background: linear-gradient(180deg, rgba(20, 74, 63, 0.97), rgba(8, 43, 39, 0.97));
+}
+.timer.repair {
+  color: #e5f7ff;
+  background: linear-gradient(180deg, rgba(22, 73, 96, 0.97), rgba(8, 42, 61, 0.97));
+  border-color: #67c8ec;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.68), inset 0 0 9px rgba(103, 200, 236, 0.16);
 }
 .timer.ready {
   color: #fff3cd;
@@ -37,9 +53,12 @@ html, body {
   50% { filter: brightness(1.2); }
 }
 .title {
-  font-size: 10px;
+  max-width: 102px;
+  overflow: hidden;
+  font-size: 8px;
   font-weight: 800;
-  line-height: 13px;
+  line-height: 12px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .value {
@@ -63,33 +82,53 @@ html, body {
 <script>
 (function() {
   var root = document.getElementById("timer-root");
-  var timerData = null;
+  var timerData = [];
+  var timerElements = [];
   var intervalId = null;
 
-  function render() {
-    if (!timerData) return;
-    var remaining = Math.max(0, timerData.deadline_ms - Date.now());
-    var seconds = Math.ceil(remaining / 1000);
-    var ready = seconds <= 0;
-    var value;
-    if (ready) {
-      value = "\u6BCD\u6E2F\u66F4\u65B0\u5F85\u3061";
-    } else {
-      var minutes = Math.floor(seconds / 60);
-      var rest = seconds % 60;
-      value = String(minutes).padStart(2, "0") + ":" + String(rest).padStart(2, "0");
-    }
-    root.innerHTML =
-      '<div class="timer' + (ready ? ' ready' : '') + '">' +
-        '<div class="title">' + timerData.ship_name + ' \u7D66\u7CE7 COND+' +
-          timerData.recovery + '</div>' +
-        '<div class="value">' + value + '</div>' +
-      '</div>';
+  function buildCards() {
+    var list = document.createElement("div");
+    list.className = "timer-list";
+    timerElements = timerData.map(function(data) {
+      var card = document.createElement("div");
+      card.className = "timer " + data.kind;
+      var title = document.createElement("div");
+      title.className = "title";
+      title.textContent = data.ship_name + " " + data.effect;
+      var value = document.createElement("div");
+      value.className = "value";
+      card.appendChild(title);
+      card.appendChild(value);
+      list.appendChild(card);
+      return { card: card, value: value };
+    });
+    root.replaceChildren(list);
   }
 
-  window.showNozakiTimer = function(data) {
-    timerData = data;
+  function render() {
+    timerData.forEach(function(data, index) {
+      var elements = timerElements[index];
+      if (!elements) return;
+      var remaining = Math.max(0, data.deadline_ms - Date.now());
+      var seconds = Math.ceil(remaining / 1000);
+      var ready = seconds <= 0;
+      var value;
+      if (ready) {
+        value = "母港更新待ち";
+      } else {
+        var minutes = Math.floor(seconds / 60);
+        var rest = seconds % 60;
+        value = String(minutes).padStart(2, "0") + ":" + String(rest).padStart(2, "0");
+      }
+      elements.card.classList.toggle("ready", ready);
+      elements.value.textContent = value;
+    });
+  }
+
+  window.showSupportTimers = function(data) {
+    timerData = Array.isArray(data) ? data.slice(0, 2) : [];
     if (intervalId) clearInterval(intervalId);
+    buildCards();
     render();
     intervalId = setInterval(render, 250);
   };

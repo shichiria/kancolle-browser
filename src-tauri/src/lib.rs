@@ -75,8 +75,8 @@ pub struct OverlayState {
     pub expedition_notify_visible: AtomicBool,
     pub exercise_notify_visible: AtomicBool,
     pub last_exercise_at_ms: std::sync::atomic::AtomicI64,
-    pub(crate) nozaki_supply_timer: Mutex<nozaki_timer::NozakiSupplyTimers>,
-    pub nozaki_timer_visible: AtomicBool,
+    pub(crate) support_timers: Mutex<nozaki_timer::SupportTimers>,
+    pub support_timer_visible: AtomicBool,
     /// Formation hint window offset relative to game window inner position
     pub formation_hint_rect: Mutex<FormationHintRect>,
     /// Current game zoom level (1.0 = 100%)
@@ -249,8 +249,8 @@ pub fn run() {
                 expedition_notify_visible: AtomicBool::new(false),
                 exercise_notify_visible: AtomicBool::new(false),
                 last_exercise_at_ms: std::sync::atomic::AtomicI64::new(0),
-                nozaki_supply_timer: Mutex::new(nozaki_timer::NozakiSupplyTimers::default()),
-                nozaki_timer_visible: AtomicBool::new(false),
+                support_timers: Mutex::new(nozaki_timer::SupportTimers::default()),
+                support_timer_visible: AtomicBool::new(false),
                 formation_hint_rect: Mutex::new(FormationHintRect::default()),
                 game_zoom: Mutex::new(1.0),
                 minimap_position: Mutex::new(None),
@@ -401,8 +401,11 @@ pub fn run() {
                 settings::restore_json(&data_dir, settings::LAST_EXERCISE_AT_MS).unwrap_or(0),
                 Ordering::Relaxed,
             );
-            *lock_or_recover(&state.overlay.nozaki_supply_timer, "nozaki_supply_timer") =
-                settings::restore_json(&data_dir, settings::NOZAKI_SUPPLY_TIMER)
+            *lock_or_recover(&state.overlay.support_timers, "support_timers") =
+                settings::restore_json(&data_dir, settings::SUPPORT_TIMERS)
+                    .or_else(|| {
+                        settings::restore_json(&data_dir, settings::LEGACY_NOZAKI_SUPPLY_TIMER)
+                    })
                     .unwrap_or_default();
 
             // Create cache directory for proxy resource caching

@@ -98,7 +98,7 @@ pub(super) fn process_charge(
     }
     info!("charge: updated fuel/bull for {} ships", updated);
 
-    emit_fleet_update(state, app);
+    emit_fleet_update(state, app, crate::nozaki_timer::SyncReason::Observe);
 }
 
 /// Process api_req_kaisou/powerup - update ship after modernization
@@ -135,7 +135,7 @@ pub(super) fn process_powerup(
         }
     }
 
-    emit_fleet_update(state, app);
+    emit_fleet_update(state, app, crate::nozaki_timer::SyncReason::Observe);
 }
 
 /// Process api_req_kaisou/slot_exchange_index - swap equipment between slots
@@ -152,7 +152,7 @@ pub(super) fn process_slot_exchange(
         .insert(ship.api_id, build_ship_info(ship, master));
     info!("slot_exchange: updated ship {}", ship.api_id);
 
-    emit_fleet_update(state, app);
+    emit_fleet_update(state, app, crate::nozaki_timer::SyncReason::Observe);
 }
 
 /// Process api_req_kousyou/getship - add newly constructed ship
@@ -190,7 +190,7 @@ pub(super) fn process_getship(
         api_data.api_slotitem.len()
     );
 
-    emit_fleet_update(state, app);
+    emit_fleet_update(state, app, crate::nozaki_timer::SyncReason::Observe);
 }
 
 /// Process api_get_member/ship3 - update ship slot data after equipment changes
@@ -226,7 +226,7 @@ pub(super) fn process_ship3(
         }
     }
 
-    emit_fleet_update(state, app);
+    emit_fleet_update(state, app, crate::nozaki_timer::SyncReason::Observe);
 }
 
 /// Process api_req_kaisou/slot_deprive - equipment transfer between ships
@@ -254,7 +254,7 @@ pub(super) fn process_slot_deprive(
 
     info!("slot_deprive: updated 2 ships");
 
-    emit_fleet_update(state, app);
+    emit_fleet_update(state, app, crate::nozaki_timer::SyncReason::Observe);
 }
 
 /// Check if the flagship has a command facility whose activation conditions are met,

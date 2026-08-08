@@ -13,7 +13,8 @@ pub const MINIMAP_POSITION: &str = "minimap_position.json";
 pub const MINIMAP_SIZE: &str = "minimap_size.json";
 pub const SCREENSHOT_SETTINGS: &str = "screenshot_settings.json";
 pub const LAST_EXERCISE_AT_MS: &str = "last_exercise_at_ms.json";
-pub const NOZAKI_SUPPLY_TIMER: &str = "nozaki_supply_timer.json";
+pub const SUPPORT_TIMERS: &str = "support_timers.json";
+pub const LEGACY_NOZAKI_SUPPLY_TIMER: &str = "nozaki_supply_timer.json";
 
 fn local_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     app.path()

@@ -78,7 +78,11 @@ pub(super) fn process_hensei_change(
         info!("Fleet {} set index {} to ship {}", fleet_id, idx, ship_id);
     }
 
-    emit_fleet_update(state, app);
+    emit_fleet_update(
+        state,
+        app,
+        crate::nozaki_timer::SyncReason::CompositionChange,
+    );
 }
 
 /// Process api_req_hensei/preset_select - load preset fleet
@@ -116,11 +120,15 @@ pub(super) fn process_hensei_preset_select(
         state.profile.fleets[fidx].len()
     );
 
-    emit_fleet_update(state, app);
+    emit_fleet_update(state, app, crate::nozaki_timer::SyncReason::Observe);
 }
 
 /// Build and emit fleet summaries to the frontend
-pub(super) fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle) {
+pub(super) fn emit_fleet_update(
+    state: &models::GameStateInner,
+    app: &AppHandle,
+    timer_reason: crate::nozaki_timer::SyncReason,
+) {
     let fleets: Vec<models::FleetSummary> = state
         .profile
         .fleets
@@ -182,7 +190,7 @@ pub(super) fn emit_fleet_update(state: &models::GameStateInner, app: &AppHandle)
         Ok(_) => info!("fleet-updated event emitted: {} fleets", fleets.len()),
         Err(e) => error!("Failed to emit fleet-updated: {}", e),
     }
-    crate::nozaki_timer::sync(app, state, false);
+    crate::nozaki_timer::sync(app, state, timer_reason);
 }
 
 /// Parse expedition info from a fleet's api_mission array.

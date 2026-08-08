@@ -274,7 +274,7 @@ fn create_auxiliary_windows(app: &tauri::AppHandle) -> Result<(), String> {
             "nozaki-timer",
             "nozaki-timer-content",
             "nozaki-timer.html",
-            108.0,
+            220.0,
             44.0,
         ),
     ] {
@@ -540,14 +540,14 @@ mod tests {
     }
 
     #[test]
-    fn game_window_has_nozaki_supply_timer() {
+    fn game_window_has_support_timers() {
         let module = include_str!("mod.rs");
         let page = include_str!("../../../public/nozaki-timer.html");
 
         assert!(module.contains("\"nozaki-timer\""));
         assert!(module.contains("nozaki_timer::reposition_overlay"));
-        assert!(page.contains("window.showNozakiTimer"));
-        assert!(page.contains("\\u6BCD\\u6E2F\\u66F4\\u65B0\\u5F85\\u3061"));
+        assert!(page.contains("window.showSupportTimers"));
+        assert!(page.contains("母港更新待ち"));
     }
 
     #[test]
