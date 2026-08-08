@@ -20,9 +20,14 @@
     // redirects to /service/login/password.
     try {
         var fakeBrands = [
-            { brand: "Microsoft Edge", version: "132" },
-            { brand: "Chromium", version: "132" },
+            { brand: "Microsoft Edge", version: "__KC_EDGE_MAJOR_VERSION__" },
+            { brand: "Chromium", version: "__KC_EDGE_MAJOR_VERSION__" },
             { brand: "Not_A Brand", version: "24" }
+        ];
+        var fakeFullVersionList = [
+            { brand: "Microsoft Edge", version: "__KC_EDGE_FULL_VERSION__" },
+            { brand: "Chromium", version: "__KC_EDGE_FULL_VERSION__" },
+            { brand: "Not_A Brand", version: "24.0.0.0" }
         ];
         var fakeUaData = {
             brands: fakeBrands,
@@ -37,8 +42,8 @@
                     architecture: "x86",
                     bitness: "64",
                     model: "",
-                    uaFullVersion: "132.0.0.0",
-                    fullVersionList: fakeBrands
+                    uaFullVersion: "__KC_EDGE_FULL_VERSION__",
+                    fullVersionList: fakeFullVersionList
                 });
             },
             toJSON: function() {

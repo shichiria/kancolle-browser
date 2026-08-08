@@ -12,6 +12,10 @@ DMM が **`navigator.userAgentData.brands`** で WebView2 を識別し、ブラ�
 
 `src/game_init.js` の冒頭で `Object.defineProperty(navigator, 'userAgentData', ...)` で Edge ブラウザの brands を返すよう偽装する。あわせて `WebviewBuilder::user_agent(...)` で UA ヘッダも Edge に合わせる。
 
+Edge のバージョンは固定しない。Windows では `tauri::webview_version()` からインストール済み WebView2 の完全バージョンを取得し、UA ヘッダ、`brands`、`uaFullVersion`、`fullVersionList` を同じ値から生成する。固定値は WebView2 の自動更新後に実ランタイムとの不一致を起こし、同じログインループを再発させる。
+
+`WebviewBuilder::user_agent(...)` と JavaScript の `navigator.userAgentData` 偽装だけでは、HTTP の User-Agent Client Hints (`Sec-CH-UA` など) に WebView2 のブランドが残る。DMMへの初回遷移前に CDP の `Emulation.setUserAgentOverride` を `userAgentMetadata` 付きで適用し、HTTPヘッダとJavaScriptから見える値を同じEdge識別情報へ揃える。
+
 ## 関連: Proxy 設定
 
 WebView2 + hudsucker proxy の組み合わせで `play.games.dmm.com:443` への CONNECT トンネル中継が `os error 10054 (WSAECONNRESET)` で切られる事象がある（DMM 側の挙動変更が原因と思われ、本家 hudsucker 0.24 / ideamans-hudsucker 0.25 + http2 のいずれでも再現する）。

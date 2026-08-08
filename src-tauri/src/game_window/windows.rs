@@ -1,12 +1,14 @@
+use crate::game_window::BrowserIdentity;
 use log::info;
 use std::path::Path;
 use tauri::{AppHandle, Manager, Webview, WebviewBuilder, Window, Wry};
+use webview2_com::{CallDevToolsProtocolMethodCompletedHandler, Error as WebView2Error};
+use windows_core::HSTRING;
 
 pub(crate) const TITLEBAR_HEIGHT: f64 = 0.0;
 
-pub(crate) async fn initialization_script(app: &AppHandle, base_script: String) -> String {
-    let restore_script = crate::cookie::build_cookie_restore_script(app).await;
-    format!("{base_script}\n{restore_script}")
+pub(crate) async fn initialization_script(_app: &AppHandle, base_script: String) -> String {
+    base_script
 }
 
 pub(crate) fn configure_webview(
@@ -34,6 +36,53 @@ pub(crate) fn configure_webview(
 }
 
 pub(crate) async fn prepare_navigation(_app: &AppHandle, _webview: &Webview<Wry>) {}
+
+/// Override both the User-Agent header and User-Agent Client Hints before DMM
+/// navigation. `WebviewBuilder::user_agent` does not replace Sec-CH-UA, which
+/// can otherwise reveal the WebView2 brand and trigger DMM's login loop.
+pub(crate) fn apply_browser_identity(
+    webview: &Webview<Wry>,
+    browser: &BrowserIdentity,
+) -> Result<(), String> {
+    let params = browser.cdp_override_params();
+    webview
+        .with_webview(move |webview| unsafe {
+            let core = match webview.controller().CoreWebView2() {
+                Ok(core) => core,
+                Err(error) => {
+                    log::error!("Cannot apply browser identity: {error}");
+                    return;
+                }
+            };
+            let core_for_call = core.clone();
+            let result = CallDevToolsProtocolMethodCompletedHandler::wait_for_async_operation(
+                Box::new(move |handler| {
+                    core_for_call
+                        .CallDevToolsProtocolMethod(
+                            &HSTRING::from("Emulation.setUserAgentOverride"),
+                            &HSTRING::from(&params),
+                            &handler,
+                        )
+                        .map_err(WebView2Error::WindowsError)
+                }),
+                Box::new(|result, response| {
+                    result?;
+                    if response.contains("\"error\"") {
+                        return Err(windows_core::Error::new(
+                            windows_core::HRESULT(0x80004005_u32 as i32),
+                            response,
+                        ));
+                    }
+                    Ok(())
+                }),
+            );
+            match result {
+                Ok(()) => log::info!("WebView2 HTTP client hints overridden as Microsoft Edge"),
+                Err(error) => log::error!("Failed to override WebView2 client hints: {error}"),
+            }
+        })
+        .map_err(|error| error.to_string())
+}
 
 pub(crate) fn install_diagnostics(webview: &Webview<Wry>) -> Result<(), String> {
     crate::game_window::webview_diagnostics::install(webview)

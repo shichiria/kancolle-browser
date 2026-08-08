@@ -1,3 +1,4 @@
+use crate::game_window::BrowserIdentity;
 use std::path::Path;
 use tauri::{AppHandle, Webview, WebviewBuilder, Window, Wry};
 use url::Url;
@@ -27,6 +28,13 @@ pub(crate) fn configure_webview(
 
 pub(crate) async fn prepare_navigation(app: &AppHandle, webview: &Webview<Wry>) {
     crate::cookie::restore_cookies_native(app, webview).await;
+}
+
+pub(crate) fn apply_browser_identity(
+    _webview: &Webview<Wry>,
+    _browser: &BrowserIdentity,
+) -> Result<(), String> {
+    Ok(())
 }
 
 pub(crate) fn install_diagnostics(_webview: &Webview<Wry>) -> Result<(), String> {

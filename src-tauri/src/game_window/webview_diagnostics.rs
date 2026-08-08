@@ -23,6 +23,7 @@ const CDP_EVENTS: &[&str] = &[
     "Runtime.executionContextCreated",
     "Log.entryAdded",
     "Network.requestWillBeSent",
+    "Network.requestWillBeSentExtraInfo",
     "Network.responseReceived",
     "Network.loadingFailed",
     "Page.frameNavigated",
@@ -128,6 +129,7 @@ fn summarize_event(event_name: &str, payload: &str) -> Option<String> {
 
     let summary = match event_name {
         "Network.requestWillBeSent" => summarize_request(&value)?,
+        "Network.requestWillBeSentExtraInfo" => summarize_request_extra_info(&value)?,
         "Network.responseReceived" => summarize_response(&value)?,
         "Network.loadingFailed" => summarize_loading_failed(&value)?,
         "Runtime.consoleAPICalled" => summarize_console(&value),
@@ -167,6 +169,44 @@ fn summarize_event(event_name: &str, payload: &str) -> Option<String> {
     serde_json::to_string(&summary).ok().map(limit_event)
 }
 
+fn summarize_request_extra_info(value: &Value) -> Option<Value> {
+    const AUTH_COOKIE_NAMES: &[&str] = &[
+        "althash",
+        "login_secure_id",
+        "login_session_id",
+        "secid",
+        "INT_SESID",
+        "INT_SESID_SECURE",
+    ];
+    let cookies = value["associatedCookies"]
+        .as_array()?
+        .iter()
+        .filter(|entry| {
+            entry["cookie"]["name"]
+                .as_str()
+                .is_some_and(|name| AUTH_COOKIE_NAMES.contains(&name))
+        })
+        .map(|entry| {
+            json!({
+                "cookie": select_fields(
+                    &entry["cookie"],
+                    &["name", "domain", "path", "secure", "httpOnly", "sameSite", "expires"],
+                ),
+                "blockedReasons": entry["blockedReasons"],
+                "exemptionReason": entry["exemptionReason"],
+            })
+        })
+        .collect::<Vec<_>>();
+    if cookies.is_empty() {
+        return None;
+    }
+    Some(json!({
+        "requestId": value["requestId"],
+        "associatedAuthCookies": cookies,
+        "browserHeaders": select_browser_headers(&value["headers"]),
+    }))
+}
+
 fn summarize_request(value: &Value) -> Option<Value> {
     let resource_type = value["type"].as_str().unwrap_or_default();
     if !is_diagnostic_resource(resource_type) {
@@ -181,11 +221,32 @@ fn summarize_request(value: &Value) -> Option<Value> {
         "url": value["request"]["url"],
         "method": value["request"]["method"],
         "hasPostData": value["request"]["hasPostData"],
+        "browserHeaders": select_browser_headers(&value["request"]["headers"]),
         "initiator": select_fields(
             &value["initiator"],
             &["type", "url", "lineNumber", "columnNumber", "stack"],
         ),
     }))
+}
+
+fn select_browser_headers(headers: &Value) -> Value {
+    let mut selected = serde_json::Map::new();
+    let Some(headers) = headers.as_object() else {
+        return Value::Object(selected);
+    };
+    for (name, value) in headers {
+        if matches!(
+            name.to_ascii_lowercase().as_str(),
+            "user-agent"
+                | "sec-ch-ua"
+                | "sec-ch-ua-full-version-list"
+                | "sec-ch-ua-platform"
+                | "sec-ch-ua-mobile"
+        ) {
+            selected.insert(name.to_ascii_lowercase(), value.clone());
+        }
+    }
+    Value::Object(selected)
 }
 
 fn summarize_log_entry(value: &Value) -> Option<Value> {
@@ -315,7 +376,11 @@ mod tests {
                 "method": "POST",
                 "hasPostData": true,
                 "postData": "api_token=secret",
-                "headers": { "Cookie": "session=secret" }
+                "headers": {
+                    "Cookie": "session=secret",
+                    "User-Agent": "Edge test",
+                    "sec-ch-ua": "Microsoft Edge"
+                }
             },
             "initiator": { "type": "script", "url": "shop.js", "lineNumber": 10 }
         })
@@ -329,6 +394,8 @@ mod tests {
         assert!(!redacted.contains("api_token"));
         assert!(!redacted.contains("Cookie"));
         assert!(!redacted.contains("session=secret"));
+        assert!(redacted.contains("Edge test"));
+        assert!(redacted.contains("Microsoft Edge"));
     }
 
     #[test]
@@ -340,6 +407,44 @@ mod tests {
         })
         .to_string();
         assert!(summarize_event("Network.requestWillBeSent", &payload).is_none());
+    }
+
+    #[test]
+    fn request_extra_info_logs_auth_cookie_metadata_without_values() {
+        let payload = json!({
+            "requestId": "auth-request",
+            "associatedCookies": [
+                {
+                    "cookie": {
+                        "name": "login_session_id",
+                        "value": "secret-session-value",
+                        "domain": ".dmm.com",
+                        "path": "/",
+                        "secure": true,
+                        "httpOnly": false,
+                        "sameSite": "None"
+                    },
+                    "blockedReasons": []
+                },
+                {
+                    "cookie": {
+                        "name": "tracking",
+                        "value": "secret-tracking-value",
+                        "domain": ".dmm.com"
+                    },
+                    "blockedReasons": []
+                }
+            ],
+            "headers": { "Cookie": "login_session_id=secret-session-value" }
+        })
+        .to_string();
+
+        let summary = summarize_event("Network.requestWillBeSentExtraInfo", &payload).unwrap();
+        assert!(summary.contains("login_session_id"));
+        assert!(!summary.contains("secret-session-value"));
+        assert!(!summary.contains("tracking"));
+        assert!(!summary.contains("\"Cookie\":"));
+        assert!(!summary.contains("login_session_id="));
     }
 
     #[test]

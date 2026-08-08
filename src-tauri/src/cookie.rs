@@ -147,63 +147,6 @@ pub(crate) async fn restore_cookies_native(
     count
 }
 
-/// Generate a JavaScript snippet that restores the saved DMM session cookies
-/// via `document.cookie` (Windows only; kept as a best-effort fallback — the
-/// real persistence on Windows comes from the WebView2 `data_directory`
-/// profile, which retains session cookies across restarts).
-#[cfg(not(target_os = "macos"))]
-pub(crate) async fn build_cookie_restore_script(app: &tauri::AppHandle) -> String {
-    let path = cookie_file_path(app);
-    let raw_cookies = match tokio::fs::read_to_string(&path).await {
-        Ok(content) => match serde_json::from_str::<Vec<serde_json::Value>>(&content) {
-            Ok(v) => v,
-            Err(_) => return String::new(),
-        },
-        Err(_) => return String::new(),
-    };
-
-    // Only restore cookies on about:blank (initial page before DMM navigation).
-    // Running on other pages would overwrite fresh session cookies set by the login flow.
-    let mut script =
-        String::from("(function() {\n  if (window.location.href !== 'about:blank') return;\n");
-    let expires = (chrono::Utc::now() + chrono::Duration::days(365))
-        .format("%a, %d %b %Y %H:%M:%S GMT")
-        .to_string();
-
-    let mut count = 0;
-    for c in &raw_cookies {
-        let name = match c.get("name").and_then(|v| v.as_str()) {
-            Some(n) => n,
-            None => continue,
-        };
-        let value = match c.get("value").and_then(|v| v.as_str()) {
-            Some(v) => v,
-            None => continue,
-        };
-        let domain = c.get("domain").and_then(|v| v.as_str()).unwrap_or("");
-
-        // Ensure domain cookies apply to subdomains by prepending a dot
-        let mut domain_str = domain.to_string();
-        if !domain_str.starts_with('.') && domain_str.contains('.') {
-            domain_str = format!(".{}", domain);
-        }
-
-        let cookie_path = c.get("path").and_then(|v| v.as_str()).unwrap_or("/");
-
-        let cookie_str = format!(
-            "{}={}; domain={}; path={}; expires={}; secure; samesite=none",
-            name, value, domain_str, cookie_path, expires
-        );
-
-        script.push_str(&format!("  document.cookie = {:?};\n", cookie_str));
-        count += 1;
-    }
-    script.push_str("})();\n");
-
-    info!("Generated JS script to restore {} cookies.", count);
-    script
-}
-
 /// Cookie persistence file path
 pub(crate) fn cookie_file_path(app: &tauri::AppHandle) -> PathBuf {
     use tauri::Manager;

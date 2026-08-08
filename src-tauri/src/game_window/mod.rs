@@ -16,7 +16,7 @@ use crate::AppState;
 
 const GAME_INIT_SCRIPT_TEMPLATE: &str = include_str!("../game_init.js");
 const GAME_URL: &str = "https://play.games.dmm.com/game/kancolle";
-const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0";
+const FALLBACK_EDGE_VERSION: &str = "132.0.0.0";
 static POPUP_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 pub(crate) const GAME_WIDTH: f64 = 1200.0;
@@ -24,11 +24,94 @@ pub(crate) const GAME_HEIGHT: f64 = 720.0;
 pub(crate) const CONTROL_BAR_HEIGHT: f64 = 28.0;
 pub(crate) const MACOS_TITLEBAR_HEIGHT: f64 = platform::TITLEBAR_HEIGHT;
 
-fn build_game_init_script() -> String {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct BrowserIdentity {
+    full_version: String,
+    major_version: String,
+}
+
+impl BrowserIdentity {
+    fn from_webview_version(version: &str) -> Option<Self> {
+        let version = version.trim();
+        let parts: Vec<_> = version.split('.').collect();
+        if parts.len() < 2
+            || parts
+                .iter()
+                .any(|part| part.is_empty() || !part.bytes().all(|byte| byte.is_ascii_digit()))
+        {
+            return None;
+        }
+
+        Some(Self {
+            full_version: version.to_string(),
+            major_version: parts[0].to_string(),
+        })
+    }
+
+    fn fallback() -> Self {
+        Self::from_webview_version(FALLBACK_EDGE_VERSION)
+            .expect("fallback Edge version must be valid")
+    }
+
+    fn user_agent(&self) -> String {
+        format!(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+             (KHTML, like Gecko) Chrome/{0} Safari/537.36 Edg/{0}",
+            self.full_version
+        )
+    }
+
+    fn cdp_override_params(&self) -> String {
+        serde_json::json!({
+            "userAgent": self.user_agent(),
+            "platform": "Windows",
+            "userAgentMetadata": {
+                "brands": [
+                    { "brand": "Microsoft Edge", "version": self.major_version },
+                    { "brand": "Chromium", "version": self.major_version },
+                    { "brand": "Not_A Brand", "version": "24" }
+                ],
+                "fullVersionList": [
+                    { "brand": "Microsoft Edge", "version": self.full_version },
+                    { "brand": "Chromium", "version": self.full_version },
+                    { "brand": "Not_A Brand", "version": "24.0.0.0" }
+                ],
+                "fullVersion": self.full_version,
+                "platform": "Windows",
+                "platformVersion": "15.0.0",
+                "architecture": "x86",
+                "model": "",
+                "mobile": false,
+                "bitness": "64",
+                "wow64": false
+            }
+        })
+        .to_string()
+    }
+}
+
+fn current_browser_identity() -> BrowserIdentity {
+    #[cfg(target_os = "windows")]
+    {
+        match tauri::webview_version() {
+            Ok(version) => match BrowserIdentity::from_webview_version(&version) {
+                Some(identity) => return identity,
+                None => log::warn!("Ignoring invalid WebView2 version: {version}"),
+            },
+            Err(error) => log::warn!("Failed to detect WebView2 version: {error}"),
+        }
+    }
+
+    BrowserIdentity::fallback()
+}
+
+fn build_game_init_script(browser: &BrowserIdentity) -> String {
     GAME_INIT_SCRIPT_TEMPLATE
         .replace("__KC_GAME_WIDTH__", &GAME_WIDTH.to_string())
         .replace("__KC_GAME_HEIGHT__", &GAME_HEIGHT.to_string())
         .replace("__KC_CONTROL_BAR_HEIGHT__", &CONTROL_BAR_HEIGHT.to_string())
+        .replace("__KC_EDGE_MAJOR_VERSION__", &browser.major_version)
+        .replace("__KC_EDGE_FULL_VERSION__", &browser.full_version)
         .replace(
             "__KC_LAYOUT_DIAGNOSTICS__",
             if cfg!(debug_assertions) {
@@ -156,11 +239,16 @@ async fn create_game_webview(
     proxy_port: u16,
 ) -> Result<Webview<Wry>, String> {
     let blank_url = Url::parse("about:blank").map_err(|error| error.to_string())?;
-    let init_script = platform::initialization_script(app, build_game_init_script()).await;
+    let browser = current_browser_identity();
+    info!(
+        "Using WebView2 browser identity: Edge {}",
+        browser.full_version
+    );
+    let init_script = platform::initialization_script(app, build_game_init_script(&browser)).await;
     let navigation_app = app.clone();
     let popup_app = app.clone();
     let builder = WebviewBuilder::new("game-content", WebviewUrl::External(blank_url))
-        .user_agent(USER_AGENT)
+        .user_agent(&browser.user_agent())
         .initialization_script(&init_script)
         .on_navigation(move |url| {
             info!("Game navigation: {url}");
@@ -182,6 +270,7 @@ async fn create_game_webview(
             ),
         )
         .map_err(|error| error.to_string())?;
+    platform::apply_browser_identity(&webview, &browser)?;
     platform::install_diagnostics(&webview)?;
     Ok(webview)
 }
@@ -450,8 +539,39 @@ mod tests {
     use super::*;
 
     #[test]
+    fn browser_identity_parses_a_supplied_webview_version() {
+        let browser = BrowserIdentity::from_webview_version("151.0.4129.59").unwrap();
+
+        assert_eq!(browser.major_version, "151");
+        assert_eq!(browser.full_version, "151.0.4129.59");
+        assert!(browser.user_agent().contains("Chrome/151.0.4129.59"));
+        assert!(browser.user_agent().contains("Edg/151.0.4129.59"));
+
+        let script = build_game_init_script(&browser);
+        assert!(script.contains(r#"brand: "Microsoft Edge", version: "151""#));
+        assert!(script.contains(r#"uaFullVersion: "151.0.4129.59""#));
+        assert!(script.contains(r#"brand: "Chromium", version: "151.0.4129.59""#));
+        assert!(!script.contains("__KC_"));
+
+        let cdp: serde_json::Value = serde_json::from_str(&browser.cdp_override_params()).unwrap();
+        assert_eq!(cdp["userAgentMetadata"]["brands"][0]["version"], "151");
+        assert_eq!(
+            cdp["userAgentMetadata"]["fullVersionList"][0]["version"],
+            "151.0.4129.59"
+        );
+        assert_eq!(cdp["userAgentMetadata"]["fullVersion"], "151.0.4129.59");
+    }
+
+    #[test]
+    fn browser_identity_rejects_non_version_input() {
+        for invalid in ["", "151", "151.beta.1", "151.0.0.0;alert(1)"] {
+            assert!(BrowserIdentity::from_webview_version(invalid).is_none());
+        }
+    }
+
+    #[test]
     fn game_init_script_expands_rust_layout_constants() {
-        let script = build_game_init_script();
+        let script = build_game_init_script(&BrowserIdentity::fallback());
         assert!(!script.contains("__KC_"));
         assert!(script.contains("width: 1200px"));
         assert!(script.contains("height: 720px"));
@@ -460,7 +580,7 @@ mod tests {
 
     #[test]
     fn game_init_script_exits_child_frames_before_touching_browser_state() {
-        let script = build_game_init_script();
+        let script = build_game_init_script(&BrowserIdentity::fallback());
         let child_frame_guard = script
             .find("if (!isTop) return;")
             .expect("initialization script must exit in child frames");
@@ -477,7 +597,7 @@ mod tests {
 
     #[test]
     fn game_layout_keeps_dmm_purchase_dialog_above_the_game() {
-        let script = build_game_init_script();
+        let script = build_game_init_script(&BrowserIdentity::fallback());
 
         assert!(script.contains("#game_frame"));
         assert!(script.contains("z-index: 1 !important"));
@@ -488,14 +608,14 @@ mod tests {
 
     #[test]
     fn game_iframe_disables_its_own_scrollbars() {
-        let script = build_game_init_script();
+        let script = build_game_init_script(&BrowserIdentity::fallback());
 
         assert!(script.contains("frame.setAttribute('scrolling', 'no')"));
     }
 
     #[test]
     fn game_control_bar_has_reload_button() {
-        let script = build_game_init_script();
+        let script = build_game_init_script(&BrowserIdentity::fallback());
 
         assert!(script.contains("id=\"kc-reload\""));
         assert!(script.contains("window.location.reload()"));
@@ -503,7 +623,7 @@ mod tests {
 
     #[test]
     fn game_control_bar_has_screenshot_button() {
-        let script = build_game_init_script();
+        let script = build_game_init_script(&BrowserIdentity::fallback());
 
         assert!(script.contains("id=\"kc-screenshot\""));
         assert!(script.contains("invoke('take_game_screenshot')"));
@@ -511,7 +631,7 @@ mod tests {
 
     #[test]
     fn game_control_bar_opens_event_window() {
-        let script = build_game_init_script();
+        let script = build_game_init_script(&BrowserIdentity::fallback());
 
         assert!(script.contains("id=\"kc-event\""));
         assert!(script.contains("invoke('toggle_event_window')"));
@@ -519,7 +639,7 @@ mod tests {
 
     #[test]
     fn event_map_shows_unsupplied_airbase_warning() {
-        let script = build_game_init_script();
+        let script = build_game_init_script(&BrowserIdentity::fallback());
 
         assert!(script.contains("id = 'kc-airbase-supply-warning'"));
         assert!(script.contains("invoke('get_air_bases')"));

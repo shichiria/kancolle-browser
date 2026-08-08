@@ -168,7 +168,7 @@ core8.SetIsMuted(muted);
 
 | OS | 方式 |
 |----|------|
-| Windows | WebView2 の `data_directory` プロファイルがセッション Cookie を再起動間で実質保持するため、これが主経路。`build_cookie_restore_script`（`about:blank` で `document.cookie` 注入）はベストエフォートのフォールバックとして維持 |
+| Windows | WebView2 の `data_directory` プロファイルで Cookie を保持する。保存JSONからのJavaScript再注入は、失効した認証値を延命してDMMの401ループを起こすため行わない |
 | macOS | WKWebView はセッション Cookie を再起動間で保持せず、`document.cookie` 注入は `about:blank`（不透明オリジン）では無効・クロスドメイン/httpOnly 不可。そのため `restore_cookies_native` が **ネイティブ `set_cookie`（WKHTTPCookieStore）** で保存 Cookie を +365日期限に書き換えて DMM 遷移前に注入する |
 
 ### プラットフォーム固有の注意点
